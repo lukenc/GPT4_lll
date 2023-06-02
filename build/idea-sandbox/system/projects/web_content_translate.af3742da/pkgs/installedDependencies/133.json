@@ -1,0 +1,96 @@
+{
+    "cacheVersion": 2,
+    "fileHashCode": 133,
+    "sha256": "57ac618f6d270d472cf60481eeb649f9a8151b4e9804e77d6ef5e035abda69b6",
+    "parsingAttempts": 1,
+    "projectName": "web_content_translate",
+    "dependencies": [
+        {
+            "coordinates": {
+                "groupId": "org.springframework.boot",
+                "artifactId": "spring-boot-starter-web",
+                "version": "3.0.6"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "org.projectlombok",
+                "artifactId": "lombok",
+                "version": "1.18.26"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "org.springframework.boot",
+                "artifactId": "spring-boot-starter-test",
+                "version": "3.0.6"
+            },
+            "scope": "test"
+        },
+        {
+            "coordinates": {
+                "groupId": "org.springframework.boot",
+                "artifactId": "spring-boot-starter-data-jdbc",
+                "version": "3.0.6"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "mysql",
+                "artifactId": "mysql-connector-java",
+                "version": "8.0.32"
+            },
+            "scope": "runtime"
+        },
+        {
+            "coordinates": {
+                "groupId": "org.springframework.boot",
+                "artifactId": "spring-boot-test",
+                "version": "3.0.6"
+            },
+            "scope": "test"
+        },
+        {
+            "coordinates": {
+                "groupId": "org.mybatis.spring.boot",
+                "artifactId": "mybatis-spring-boot-starter",
+                "version": "3.0.1"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "org.apache.maven.surefire",
+                "artifactId": "maven-surefire-common",
+                "version": "3.0.0"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "org.springdoc",
+                "artifactId": "springdoc-openapi-starter-webmvc-ui",
+                "version": "2.0.4"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "org.springdoc",
+                "artifactId": "springdoc-openapi-starter-webmvc-api",
+                "version": "2.0.4"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "org.apache.poi",
+                "artifactId": "poi",
+                "version": "5.2.2"
+            }
+        },
+        {
+            "coordinates": {
+                "groupId": "org.apache.poi",
+                "artifactId": "poi-ooxml",
+                "version": "5.2.2"
+            }
+        }
+    ]
+}

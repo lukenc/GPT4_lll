@@ -1,0 +1,44 @@
+<application>
+  <component name="DynamicPluginEnabler">
+    <trackers>
+      <map>
+        <entry key="2Pvq6NaCU6EppSVpOtb8DrrWwia">
+          <value>
+            <ProjectPluginTracker />
+          </value>
+        </entry>
+      </map>
+    </trackers>
+  </component>
+  <component name="PropertyService"><![CDATA[{
+  "keyToString": {
+    "CWM_LOGGING_VERSION": "1",
+    "MarketplacePluginsSearchHistory": "json",
+    "PluginConfigurable.selectionTab": "1",
+    "RunOnceActivity.se.text.search": "true",
+    "build.toolwindow.Sync.selection.state": "com.intellij.build.BuildTreeConsoleView",
+    "bundled.plugins.list.saved.version": "IC-222.4554.10",
+    "defaultpackageserviceconfig.fulltext": "https://package-search.services.jetbrains.com/api/search/idea/fulltext",
+    "defaultpackageserviceconfig.suggest": "https://package-search.services.jetbrains.com/api/search/idea/suggest",
+    "defaultpackageserviceconfig.updated.ts": "1685630523531",
+    "eclipse.projects.detected": "",
+    "fileTypeChangedCounter": "1",
+    "fontSizeToResetConsole": "13.0",
+    "fontSizeToResetEditor": "13.0",
+    "gotit.previous.run": "IC-222.4554.10",
+    "ide.memory.adjusted": "true",
+    "installed.kotlin.plugin.version": "222-1.7.10-release-334-IJ4554.10",
+    "previousColorScheme": "_@user_Darcula",
+    "registry.to.advanced.settings.migration.build": "IC-222.4554.10",
+    "tasks.pass.word.conversion.enforced": "true"
+  },
+  "keyToStringList": {
+    "fileTypeDetectors": [
+      "com.intellij.ide.scratch.ScratchFileServiceImpl$Detector",
+      "com.android.tools.idea.sqlite.fileType.SqliteFileTypeDetector",
+      "com.android.tools.idea.profilers.capture.MemoryCaptureFileType$Detector",
+      "org.jetbrains.plugins.textmate.TextMateFileType$TextMateFileDetector"
+    ]
+  }
+}]]></component>
+</application>

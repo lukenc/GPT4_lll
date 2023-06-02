@@ -1,0 +1,19 @@
+/Header Record For PersistentHashMapValueStoragelogback.corespring.boot.autoconfigurespring.boot.starter.loggingspring.boot.starterlogback.classicspring.boot.starter.weblog4j.to.slf4jjul.to.slf4jjakarta.annotation.api	snakeyamlspring.boot.starter.jsonjackson.databindjackson.annotationsjackson.corejackson.datatype.jdk8jackson.datatype.jsr310!jackson.module.parameter.namesspring.boot.starter.tomcattomcat.embed.coretomcat.embed.eltomcat.embed.websocket
+spring.webspring.beansmicrometer.observationmicrometer.commonsspring.webmvc
+spring.aopjackson.databindspring.contextspring.expression	lombokspring.boot.starter.test!spring.boot.test.autoconfigure	json.path
+json.smartaccessors.smart	slf4j.apijakarta.xml.bind.apijakarta.activation.apiassertj.core
+spring.web
+byte.buddyhamcrestjunit.jupiterjunit.jupiter.apispring.context
+opentest4jjunit.platform.commonsapiguardian.apijunit.jupiter.paramsjunit.jupiter.enginejunit.platform.enginemockito.corebyte.buddy.agent	objenesismockito.junit.jupiter
+jsonassertandroid.jsonspring.core
+spring.jclspring.testxmlunit.core spring.boot.starter.data.jdbcspring.boot.starter.jdbcHikariCPspring.jdbcspring.data.jdbcspring.data.relationalspring.data.commons	spring.txmysql.connector.jspring.boot.testspring.bootmybatis.spring.boot.starter$!mybatis.spring.boot.autoconfigure
+mybatismybatis.springmaven.surefire.commonsurefire.apisurefire.logger.apisurefire.extensions.apisurefire.bootersurefire.extensions.spiaether.util
+aether.api maven.common.artifact.filtersmaven.artifactplexus.utils
+maven.coremaven.settingsmaven.settings.buildermaven.repository.metadatamaven.model.buildermaven.aether.provider
+aether.spiaether.implorg.eclipse.sisu.plexus
+cdi.api
+jsr250.apijavax.injectjavax.inject.1.sourcesguava	jsr305
+sisu.guiceaopallianceorg.eclipse.sisu.injectasmplexus.interpolationplexus.classworldsplexus.component.annotationsplexus.sec.dispatcherplexus.ciphermaven.plugin.apiplexus.javaasmqdoxsurefire.shared.utils&#springdoc.openapi.starter.webmvc.ui
+swagger.uiwebjars.locator.core
+classgraph'$springdoc.openapi.starter.webmvc.api# springdoc.openapi.starter.commonswagger.core.jakartacommons.lang3swagger.annotations.jakartaswagger.models.jakartajakarta.validation.apijackson.dataformat.yamlpoicommons.codeccommons.collections4commons.math3
+commons.ioSparseBitSet	log4j.api	poi.ooxmlpoi.ooxml.litexmlbeanscommons.compress	curvesapi	poi.ooxmlpoi

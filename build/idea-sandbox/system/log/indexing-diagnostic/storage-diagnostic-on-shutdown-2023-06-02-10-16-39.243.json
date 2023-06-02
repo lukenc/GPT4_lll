@@ -1,0 +1,254 @@
+{
+  "pageCacheStats" : {
+    "cachedChannelsStatistics" : {
+      "hit" : 1042,
+      "miss" : 0,
+      "load" : 111,
+      "capacity" : 400
+    },
+    "uncachedFileAccess" : 247,
+    "maxRegisteredFiles" : 756,
+    "maxCacheSizeInBytes" : 406904832,
+    "pageHit" : 32471,
+    "pageFastCacheHit" : 1547124,
+    "pageMiss" : 0,
+    "pageLoad" : 1151,
+    "disposedBuffers" : 354,
+    "capacityInBytes" : 524288000
+  },
+  "vfsStorageStats" : {
+    "statsPerEnumerator" : {
+      "contentHashes.dat" : {
+        "collisions" : 0,
+        "values" : 84,
+        "dataFileSizeInBytes" : 1680,
+        "storageSizeInBytes" : 96,
+        "btreeStatistics" : {
+          "pages" : 1,
+          "elements" : 84,
+          "height" : 1,
+          "moves" : 0,
+          "leafPages" : 1,
+          "maxSearchStepsInRequest" : 1,
+          "searchRequests" : 178,
+          "searchSteps" : 4,
+          "pageCapacity" : 32768,
+          "sizeInBytes" : 32768
+        }
+      },
+      "names.dat" : {
+        "collisions" : 4,
+        "values" : 114064,
+        "dataFileSizeInBytes" : 3446949,
+        "storageSizeInBytes" : 160,
+        "btreeStatistics" : {
+          "pages" : 36,
+          "elements" : 114061,
+          "height" : 2,
+          "moves" : 251,
+          "leafPages" : 35,
+          "maxSearchStepsInRequest" : 62,
+          "searchRequests" : 393930,
+          "searchSteps" : 668346,
+          "pageCapacity" : 32768,
+          "sizeInBytes" : 1179648
+        }
+      }
+    }
+  },
+  "indexStorageStats" : {
+    "indexStoragesStats" : { }
+  },
+  "otherStorageStats" : {
+    "statsPerPhm" : {
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/Maven/Indices/Index0/data1/archetypes-map.dat" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 1,
+          "dataFileSizeInBytes" : 36,
+          "storageSizeInBytes" : 136,
+          "btreeStatistics" : {
+            "pages" : 1,
+            "elements" : 1,
+            "height" : 1,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 0,
+            "searchRequests" : 1,
+            "searchSteps" : 0,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 32768
+          }
+        },
+        "valueStorageSizeInBytes" : 70
+      },
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/Maven/Indices/Index0/data1/artifactIds-map.dat" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 469,
+          "dataFileSizeInBytes" : 8212,
+          "storageSizeInBytes" : 3880,
+          "btreeStatistics" : {
+            "pages" : 1,
+            "elements" : 469,
+            "height" : 1,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 2,
+            "searchRequests" : 937,
+            "searchSteps" : 50,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 32768
+          }
+        },
+        "valueStorageSizeInBytes" : 33603
+      },
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/Maven/Indices/Index0/data1/versions-map.dat" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 1640,
+          "dataFileSizeInBytes" : 59899,
+          "storageSizeInBytes" : 13272,
+          "btreeStatistics" : {
+            "pages" : 1,
+            "elements" : 1640,
+            "height" : 1,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 6,
+            "searchRequests" : 3279,
+            "searchSteps" : 888,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 32768
+          }
+        },
+        "valueStorageSizeInBytes" : 56716
+      },
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/Maven/Indices/Index1/data0/archetypes-map.dat" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 0,
+          "dataFileSizeInBytes" : 0,
+          "storageSizeInBytes" : 96,
+          "btreeStatistics" : {
+            "pages" : 0,
+            "elements" : 0,
+            "height" : 0,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 0,
+            "searchRequests" : 0,
+            "searchSteps" : 0,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 0
+          }
+        },
+        "valueStorageSizeInBytes" : 0
+      },
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/Maven/Indices/Index1/data0/artifactIds-map.dat" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 0,
+          "dataFileSizeInBytes" : 0,
+          "storageSizeInBytes" : 96,
+          "btreeStatistics" : {
+            "pages" : 0,
+            "elements" : 0,
+            "height" : 0,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 0,
+            "searchRequests" : 0,
+            "searchSteps" : 0,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 0
+          }
+        },
+        "valueStorageSizeInBytes" : 0
+      },
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/Maven/Indices/Index1/data0/versions-map.dat" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 0,
+          "dataFileSizeInBytes" : 0,
+          "storageSizeInBytes" : 96,
+          "btreeStatistics" : {
+            "pages" : 0,
+            "elements" : 0,
+            "height" : 0,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 0,
+            "searchRequests" : 0,
+            "searchSteps" : 0,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 0
+          }
+        },
+        "valueStorageSizeInBytes" : 0
+      },
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/frameworks/detection/web_content_translate.af3742da/files" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 0,
+          "dataFileSizeInBytes" : 0,
+          "storageSizeInBytes" : 96,
+          "btreeStatistics" : {
+            "pages" : 0,
+            "elements" : 0,
+            "height" : 0,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 0,
+            "searchRequests" : 0,
+            "searchSteps" : 0,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 0
+          }
+        },
+        "valueStorageSizeInBytes" : 0
+      },
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/testHistory/af3742da/testStateMap" : {
+        "persistentEnumeratorStatistics" : {
+          "collisions" : 0,
+          "values" : 0,
+          "dataFileSizeInBytes" : 0,
+          "storageSizeInBytes" : 96,
+          "btreeStatistics" : {
+            "pages" : 0,
+            "elements" : 0,
+            "height" : 0,
+            "moves" : 0,
+            "leafPages" : 1,
+            "maxSearchStepsInRequest" : 0,
+            "searchRequests" : 0,
+            "searchSteps" : 0,
+            "pageCapacity" : 32768,
+            "sizeInBytes" : 0
+          }
+        },
+        "valueStorageSizeInBytes" : 0
+      }
+    },
+    "statsPerEnumerator" : {
+      "$USER_HOME$/unipusProjects/GPT4_lll/build/idea-sandbox/system/vcs-users/af3742da.2" : {
+        "collisions" : 0,
+        "values" : 1,
+        "dataFileSizeInBytes" : 24,
+        "storageSizeInBytes" : 96,
+        "btreeStatistics" : {
+          "pages" : 1,
+          "elements" : 1,
+          "height" : 1,
+          "moves" : 0,
+          "leafPages" : 1,
+          "maxSearchStepsInRequest" : 0,
+          "searchRequests" : 13,
+          "searchSteps" : 0,
+          "pageCapacity" : 32768,
+          "sizeInBytes" : 32768
+        }
+      }
+    }
+  }
+}

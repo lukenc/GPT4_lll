@@ -1,0 +1,37 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+  <version>1.0-SNAPSHOT</version>
+  <idea-version since-build="222" until-build="232.*" />
+  <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+  <id>com.wmsay.GPT4_lll</id>
+  <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+  <name>GPT4_lll</name>
+  <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+  <vendor email="892821031@qq.com" url="https://blog.wmsay.com">WMsay</vendor>
+  <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
+  <description><![CDATA[<p>GPT4_lll是一款为 IntelliJ IDEA 用户设计的插件，旨在利用 OpenAI 的 GPT-4 模型提供实时代码查询和分析服务。该插件为你在编写或阅读代码时提供强大的助手，帮助你更好地理解和改进你的代码。</p>
+    <p>开发这款插件实属无奈之举。之前使用的某款插件要求输入个人的 OPENAI_API_KEY，但很遗憾，我的账号信息被滥用，数据被乱用，最终我的账号也被封禁了。</p>
+    <p>GPT4_lll插件是一款绿色插件，没有任何潜在风险和安全问题。非常欢迎有志之士加入我们的开发团队，共同完善这个插件。</p>
+    <p>这款插件的核心功能都是 ChatGpt 自己生成的，我仅作了少量文案修改。感谢人工智能的出色工作和技术支持。</p>]]></description>
+  <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+  <depends>com.intellij.modules.platform</depends>
+  <!-- Extension points defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow id="MyToolWindow" anchor="right" factoryClass="com.wmsay.gpt4_lll.WindowTool" secondary="false" />
+    <applicationConfigurable instance="com.wmsay.gpt4_lll.MyPluginConfigurable" />
+    <applicationService serviceImplementation="com.wmsay.gpt4_lll.MyPluginSettings" />
+  </extensions>
+  <actions>
+    <action id="plugin-info-id" class="com.wmsay.gpt4_lll.PluginInfo" text="PluginInfo" description="Plugin info">
+      <add-to-group group-id="ToolsMenu" anchor="first" />
+    </action>
+    <action id="GenerateActionId" class="com.wmsay.gpt4_lll.GenerateAction" text="GptGenerate" description="圈选生成">
+      <add-to-group group-id="EditorPopupMenu" anchor="last" />
+    </action>
+  </actions>
+</idea-plugin>

@@ -1,0 +1,6 @@
+<application>
+  <component name="MyPluginSettings">
+    <option name="apiKey" value="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" />
+    <option name="proxyAddress" value="127.0.0.1:7890" />
+  </component>
+</application>
