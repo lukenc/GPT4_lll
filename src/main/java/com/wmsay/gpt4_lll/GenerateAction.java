@@ -91,10 +91,14 @@ public class GenerateAction extends AnAction {
         CompletableFuture<HttpResponse<String>> futureResponse = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
         try {
             HttpResponse<String> response = futureResponse.get();
-            String reply= response.body();
-            Reply replyDto= JSON.parseObject(reply, Reply.class);
-            chatHistory.add(replyDto.getChoices().get(0).getMessage());
-            return replyDto.getChoices().get(0).getMessage().getContent();
+            if (response.statusCode()==200) {
+                String reply = response.body();
+                Reply replyDto = JSON.parseObject(reply, Reply.class);
+                chatHistory.add(replyDto.getChoices().get(0).getMessage());
+                return replyDto.getChoices().get(0).getMessage().getContent();
+            }else {
+                return response.body();
+            }
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } catch (ExecutionException e) {
