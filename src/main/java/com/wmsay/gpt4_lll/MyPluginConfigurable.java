@@ -46,7 +46,7 @@ public class MyPluginConfigurable implements Configurable {
 
     @Override
     public String getDisplayName() {
-        return "GPT lll Settings";
+        return "GPT4 lll Settings";
     }
 
     @Nullable
