@@ -52,6 +52,7 @@ public class GenerateAction extends AnAction {
             chatContent.setMessages(List.of(message,systemMessage));
             chatContent.setModel("gpt-3.5-turbo");
             chatHistory.addAll(List.of(message,systemMessage));
+            Messages.showMessageDialog(project, "ChatGpt is running now,please wait...", "info", Messages.getInformationIcon());
             String res= chat(chatContent,project);
             WindowTool.updateShowText(res);
         }

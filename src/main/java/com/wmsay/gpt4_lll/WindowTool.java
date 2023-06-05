@@ -16,6 +16,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,6 +34,12 @@ public class WindowTool implements ToolWindowFactory {
         readOnlyTextArea.setLineWrap(true);
         readOnlyTextArea.setWrapStyleWord(true);
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
+        panel.addComponentListener(new ComponentAdapter() {
+            public void componentResized(ComponentEvent e) {
+                int sidebarWidth = panel.getWidth();
+                readOnlyTextArea.setSize(new Dimension(scrollPane. getWidth() - sidebarWidth, 30));
+            }
+        });
         GridBagConstraints c = new GridBagConstraints();
         c.gridx = 0;
         c.gridy = 0;
@@ -48,7 +56,7 @@ public class WindowTool implements ToolWindowFactory {
         c.fill = GridBagConstraints.HORIZONTAL;
         panel.add(textField, c);
 
-        JButton button = new JButton("点击");
+        JButton button = new JButton("发送聊天");
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

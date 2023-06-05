@@ -10,6 +10,9 @@
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
     <vendor email="892821031@qq.com" url="https://blog.wmsay.com">WMsay</vendor>
 
+    <change-notes>
+        1、添加提示网络错误
+    </change-notes>
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
@@ -27,7 +30,7 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MyToolWindow" anchor="right" factoryClass="com.wmsay.gpt4_lll.WindowTool" secondary="false" />
+        <toolWindow id="GPT4_lll" anchor="right" factoryClass="com.wmsay.gpt4_lll.WindowTool" secondary="false" />
         <applicationConfigurable instance="com.wmsay.gpt4_lll.MyPluginConfigurable"/>
         <applicationService serviceImplementation="com.wmsay.gpt4_lll.MyPluginSettings"/>
     </extensions>
