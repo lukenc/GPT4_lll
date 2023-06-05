@@ -12,6 +12,10 @@
 
     <change-notes>
         1、添加提示网络错误
+        2、布局更换为JEditorPane；
+        3、添加支持MD语法的展示框。
+        (pre Feature modify the code where you selected)
+        （下个版本，添加直接修改你选中的代码）
     </change-notes>
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
