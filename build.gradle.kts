@@ -13,6 +13,8 @@ repositories {
 }
 dependencies {
     implementation("com.alibaba:fastjson:1.2.83")
+    implementation("com.vladsch.flexmark:flexmark:0.62.2")
+    implementation("com.vladsch.flexmark:flexmark-util:0.62.2")
 }
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html

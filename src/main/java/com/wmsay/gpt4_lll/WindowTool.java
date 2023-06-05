@@ -9,20 +9,28 @@ import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
+import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.util.ast.Node;
+import com.vladsch.flexmark.util.data.MutableDataSet;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 
 import javax.swing.*;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.html.HTMLDocument;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 public class WindowTool implements ToolWindowFactory {
-    private static final JTextArea readOnlyTextArea = new JTextArea(30,40);
+    //private static final JTextArea readOnlyTextArea = new JTextArea(30,40);
+    private static final JEditorPane readOnlyTextArea = new JEditorPane();
 
     @Override
     public void createToolWindowContent(Project project, ToolWindow toolWindow) {
@@ -30,30 +38,34 @@ public class WindowTool implements ToolWindowFactory {
         JPanel panel = new JPanel(new GridBagLayout());
         // 创建只读文本框
         readOnlyTextArea.setEditable(false);
+        readOnlyTextArea.setContentType("text/html");
+
         readOnlyTextArea.setText("");
-        readOnlyTextArea.setLineWrap(true);
-        readOnlyTextArea.setWrapStyleWord(true);
+        //readOnlyTextArea.setLineWrap(true);
+        //readOnlyTextArea.setWrapStyleWord(true);
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
-        panel.addComponentListener(new ComponentAdapter() {
-            public void componentResized(ComponentEvent e) {
-                int sidebarWidth = panel.getWidth();
-                readOnlyTextArea.setSize(new Dimension(scrollPane. getWidth() - sidebarWidth, 30));
-            }
-        });
+//        panel.addComponentListener(new ComponentAdapter() {
+//            public void componentResized(ComponentEvent e) {
+//                int sidebarWidth = panel.getWidth();
+//                readOnlyTextArea.setSize(new Dimension(scrollPane. getWidth() - sidebarWidth, 30));
+//            }
+//        });
         GridBagConstraints c = new GridBagConstraints();
+        c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
         c.gridy = 0;
-        c.gridwidth = 2; // Make the text area span two columns
-        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1;
+        c.weighty = 0.8;  // 80% of the vertical space
         panel.add(scrollPane,c);
         //对话框
         JTextField textField = new JTextField(30);
 
+        c = new GridBagConstraints();
+        c.fill = GridBagConstraints.HORIZONTAL;
         c.gridx = 0;
         c.gridy = 1;
-        c.gridwidth = 2; // Make the text area span two columns
-        c.weighty=10;
-        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1;
+        c.weighty = 0.1;
         panel.add(textField, c);
 
         JButton button = new JButton("发送聊天");
@@ -62,6 +74,10 @@ public class WindowTool implements ToolWindowFactory {
             public void actionPerformed(ActionEvent e) {
 
                 String input = textField.getText();
+                appendContentToEditorPane(readOnlyTextArea,"<HR>");
+                appendContentToEditorPane(readOnlyTextArea,convertMarkdownToHtml("YOU:"+input));
+                appendContentToEditorPane(readOnlyTextArea,"<HR>");
+
                 Message message=new Message();
                 message.setRole("user");
                 message.setName("owner");
@@ -72,15 +88,19 @@ public class WindowTool implements ToolWindowFactory {
                 chatContent.setMessages(GenerateAction.chatHistory);
                 chatContent.setModel("gpt-3.5-turbo");
                 String replayMessage= GenerateAction.chat(chatContent,project);
+                // 将新内容附加到原有的 HTML 后面
+                appendContentToEditorPane(readOnlyTextArea,convertMarkdownToHtml(replayMessage));
+                textField.setText("");
                 // 在此处处理输入内容的逻辑
-                String[]  res= replayMessage.split("\\n");
-                Arrays.stream(res).forEachOrdered(s-> {readOnlyTextArea.append(s);readOnlyTextArea.append("\n");});
+                //Arrays.stream(res).forEachOrdered(s-> {readOnlyTextArea.append(s);readOnlyTextArea.append("\n");});
             }
         });
-        c.gridx = 0;
-        c.gridy = 3;
-        c.gridwidth = 2; // Make the text area span two columns
+        c = new GridBagConstraints();
         c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 0;
+        c.gridy = 2;
+        c.weightx = 1;
+        c.weighty = 0.1;  // 10% of the vertical space
         panel.add(button, c);
 
 
@@ -98,7 +118,29 @@ public class WindowTool implements ToolWindowFactory {
     public static void updateShowText(String replayMessage) {
         readOnlyTextArea.setText("");
         String[]  res= replayMessage.split("\\n");
-        Arrays.stream(res).forEachOrdered(s-> {readOnlyTextArea.append(s);readOnlyTextArea.append("\n");});
+        readOnlyTextArea.setText(convertMarkdownToHtml(replayMessage) );
+        //Arrays.stream(res).forEachOrdered(s-> {readOnlyTextArea.append(s);readOnlyTextArea.append("\n");});
         //readOnlyTextArea.append(selectedText);
     }
+
+
+    public static String convertMarkdownToHtml(String markdown) {
+        MutableDataSet options = new MutableDataSet();
+        Parser parser = Parser.builder(options).build();
+        HtmlRenderer renderer = HtmlRenderer.builder(options).build();
+        Node document = parser.parse(markdown);
+        return renderer.render(document);
+    }
+
+    public void appendContentToEditorPane(JEditorPane editorPane, String content) {
+        HTMLDocument document = (HTMLDocument) editorPane.getDocument();
+        try {
+            int length = document.getLength();
+            document.insertAfterEnd(document.getCharacterElement(length), content);
+        } catch (BadLocationException | IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 }
