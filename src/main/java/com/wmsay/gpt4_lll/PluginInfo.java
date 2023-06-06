@@ -22,6 +22,8 @@ public class PluginInfo extends AnAction {
     @Override
     public void actionPerformed(AnActionEvent e) {
         // TODO: insert action logic here
+        MyPluginSettings settings = MyPluginSettings.getInstance();
+        String apiKey = settings.getApiKey();
         Project project = e.getData(PlatformDataKeys.PROJECT);
         HttpClient client = HttpClient.newBuilder()
                 .proxy(ProxySelector.of(new InetSocketAddress("127.0.0.1", 7890)))
@@ -29,7 +31,7 @@ public class PluginInfo extends AnAction {
                 ;
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.openai.com/v1/models"))
-                .header("Authorization","Bearer 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")
+                .header("Authorization","Bearer "+apiKey)
                 .build();
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());

@@ -14,6 +14,8 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
     public static class State {
         public String apiKey;
         public String proxyAddress;
+        public String gptUrl;
+
     }
 
     private State state = new State();
@@ -47,5 +49,16 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
 
     public void setProxyAddress(String proxyAddress) {
         state.proxyAddress = proxyAddress;
+    }
+
+    public String getGptUrl() {
+        if (state.gptUrl==null||state.gptUrl.length()==0){
+            return "https://api.openai.com/v1/chat/completions";
+        }
+        return state.gptUrl;
+    }
+
+    public void setGptUrl(String gptUrl) {
+        state.gptUrl = gptUrl;
     }
 }
