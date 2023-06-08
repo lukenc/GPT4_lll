@@ -13,6 +13,8 @@ public class ChatContent {
     @Expose
     private String model="gpt-3.5-turbo";
 
+    @Expose
+    private Boolean stream= true;
     public List<Message> getMessages() {
         return messages;
     }
@@ -29,4 +31,11 @@ public class ChatContent {
         this.model = model;
     }
 
+    public Boolean getStream() {
+        return stream;
+    }
+
+    public void setStream(Boolean stream) {
+        this.stream = stream;
+    }
 }

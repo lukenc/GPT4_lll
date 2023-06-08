@@ -9,18 +9,26 @@ import com.google.gson.annotations.SerializedName;
 @SuppressWarnings("unused")
 public class Choice {
 
+    @Expose
+    private Delta delta;
     @SerializedName("finish_reason")
-    private String finishReason;
+    private Object finishReason;
     @Expose
     private Long index;
-    @Expose
-    private Message message;
 
-    public String getFinishReason() {
+    public Delta getDelta() {
+        return delta;
+    }
+
+    public void setDelta(Delta delta) {
+        this.delta = delta;
+    }
+
+    public Object getFinishReason() {
         return finishReason;
     }
 
-    public void setFinishReason(String finishReason) {
+    public void setFinishReason(Object finishReason) {
         this.finishReason = finishReason;
     }
 
@@ -30,14 +38,6 @@ public class Choice {
 
     public void setIndex(Long index) {
         this.index = index;
-    }
-
-    public Message getMessage() {
-        return message;
-    }
-
-    public void setMessage(Message message) {
-        this.message = message;
     }
 
 }

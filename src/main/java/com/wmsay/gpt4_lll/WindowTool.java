@@ -65,11 +65,11 @@ public class WindowTool implements ToolWindowFactory {
         c.gridy = 0;
         c.gridwidth = GridBagConstraints.REMAINDER;  // span across all columns
         c.fill = GridBagConstraints.HORIZONTAL;
-       // panel.add(radioButtonPanel, c);
+        panel.add(radioButtonPanel, c);
 
         // 创建只读文本框
         readOnlyTextArea.setEditable(false);
-        readOnlyTextArea.setContentType("text/html");
+        //readOnlyTextArea.setContentType("text/html");
 
         readOnlyTextArea.setText("");
         //readOnlyTextArea.setLineWrap(true);
@@ -104,9 +104,9 @@ public class WindowTool implements ToolWindowFactory {
             public void actionPerformed(ActionEvent e) {
 
                 String input = textField.getText();
-                appendContentToEditorPane(readOnlyTextArea,"<HR>");
-                appendContentToEditorPane(readOnlyTextArea,convertMarkdownToHtml("YOU:"+input));
-                appendContentToEditorPane(readOnlyTextArea,"<HR>");
+                appendContent("\n\n- - - - - - - - - - - \n");
+                appendContent("YOU:"+input);
+                appendContent("\n- - - - - - - - - - - \n");
 
                 Message message=new Message();
                 message.setRole("user");
@@ -117,9 +117,16 @@ public class WindowTool implements ToolWindowFactory {
                 ChatContent chatContent= new ChatContent();
                 chatContent.setMessages(GenerateAction.chatHistory);
                 chatContent.setModel("gpt-3.5-turbo");
-                String replayMessage= GenerateAction.chat(chatContent,project);
-                // 将新内容附加到原有的 HTML 后面
-                appendContentToEditorPane(readOnlyTextArea,convertMarkdownToHtml(replayMessage));
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                           String res= GenerateAction.chat(chatContent,project,null,false);
+                            // 将新内容附加到原有的 HTML 后面
+                           // appendContentToEditorPane(readOnlyTextArea,convertMarkdownToHtml(res));
+                        }
+                    }).start();
+
+
                 textField.setText("");
                 // 在此处处理输入内容的逻辑
                 //Arrays.stream(res).forEachOrdered(s-> {readOnlyTextArea.append(s);readOnlyTextArea.append("\n");});
@@ -168,7 +175,7 @@ public class WindowTool implements ToolWindowFactory {
         return renderer.render(document);
     }
 
-    public void appendContentToEditorPane(JEditorPane editorPane, String content) {
+    public static void appendContentToEditorPane(JEditorPane editorPane, String content) {
         HTMLDocument document = (HTMLDocument) editorPane.getDocument();
         try {
             int length = document.getLength();
@@ -176,6 +183,10 @@ public class WindowTool implements ToolWindowFactory {
         } catch (BadLocationException | IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void appendContent(String content) {
+        readOnlyTextArea.setText(readOnlyTextArea.getText()+content);
     }
 
 
