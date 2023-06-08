@@ -12,6 +12,24 @@
 
     <change-notes>
     <![CDATA[
+    1、自动识别用户的自然语言，返回的注释以及解释为用户常用语言
+2、自动识别代码类型，Kt Java go sql所有类型
+3、重大更新，根据需求生成代码
+    <h2>2.0.1</h2>
+    <ul>
+        <li><h3> 自然语言识别</h3>
+        <p>我们知道，在阅读代码或者尝试理解一个新的函数或模块时，不同的人可能使用不同的语言或术语。因此，我们的插件现在可以自动识别用户的自然语言，并将返回的注释和解释设为用户的常用语言。这意味着不论您是使用中文，英文，法文还是其他任何语言，我们的插件都可以为您提供便利。这使得在多语言团队中的合作变得更加无缝，并且能更好地理解和学习新的代码。</p>
+        </li>
+        <li><h3>按需生成代码</h3>
+        <p>在此次重大更新中，我们的插件现在可以根据您的需求生成代码。只需简单地描述您需要什么，插件就会为您生成对应的代码。无论您是需要一个新的函数，一个数据库查询，或是一段复杂的逻辑，我们的插件都能帮助您快速地生成代码，大大提高了您的工作效率。</p>
+        </li>
+
+        <li><h3>自动识别代码类型</h3>
+        我们的插件现在可以自动识别您正在处理的代码类型，无论是 Kotlin（Kt），Java，Go，还是 SQL。这意味着您无需花费额外的时间去配置或切换不同的工具或模式。我们的插件会根据您的代码智能地适应并提供相应的支持。
+        </li>
+    </ul>
+
+
         <h2>1.0.6</h2>
     <ul>
         <li>添加私有化的gpt的支持。出于代码安全，很多公司选择自建gpt服务，避免关键代码泄漏</li>
@@ -36,6 +54,10 @@
          Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description><![CDATA[
+    <h2>Feature/特性</h2>
+    <h4>Natural Language Recognition/自然语言识别</h4>
+    <h4> Automatic Code Type Recognition/自动识别代码类型</h4>
+    <h4>Generate Code On Demand/按需生成代码</h4>
     <p>GPT4_lll is a plugin designed for IntelliJ IDEA users, aiming to provide real-time code querying and analysis services using OpenAI's GPT-4 model. This plugin serves as a powerful assistant while you write or read code, helping you better understand and improve your code.</p>
     <p>GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。</p>
     <br>
