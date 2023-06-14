@@ -23,7 +23,6 @@ import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
 import org.apache.commons.lang3.StringUtils;
 
-
 import javax.swing.*;
 import java.net.InetSocketAddress;
 import java.net.ProxySelector;
@@ -31,17 +30,214 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GenerateAction extends AnAction {
+    public static HashMap<String ,String > languageMap=new HashMap<>();
+    {
+        languageMap.put("ab", "Abkhazian");
+        languageMap.put("aa", "Afar");
+        languageMap.put("af", "Afrikaans");
+        languageMap.put("ak", "Akan");
+        languageMap.put("sq", "Albanian");
+        languageMap.put("am", "Amharic");
+        languageMap.put("ar", "Arabic");
+        languageMap.put("an", "Aragonese");
+        languageMap.put("hy", "Armenian");
+        languageMap.put("as", "Assamese");
+        languageMap.put("av", "Avaric");
+        languageMap.put("ae", "Avestan");
+        languageMap.put("ay", "Aymara");
+        languageMap.put("az", "Azerbaijani");
+        languageMap.put("bm", "Bambara");
+        languageMap.put("ba", "Bashkir");
+        languageMap.put("eu", "Basque");
+        languageMap.put("be", "Belarusian");
+        languageMap.put("bn", "Bengali");
+        languageMap.put("bi", "Bislama");
+        languageMap.put("bs", "Bosnian");
+        languageMap.put("br", "Breton");
+        languageMap.put("bg", "Bulgarian");
+        languageMap.put("my", "Burmese");
+        languageMap.put("ca", "Catalan, Valencian");
+        languageMap.put("ch", "Chamorro");
+        languageMap.put("ce", "Chechen");
+        languageMap.put("ny", "Chichewa, Chewa, Nyanja");
+        languageMap.put("zh", "Chinese");
+        languageMap.put("cu", "Church Slavonic, Old Slavonic,Old Church Slavonic");
+        languageMap.put("cv", "Chuvash");
+        languageMap.put("kw", "Cornish");
+        languageMap.put("co", "Corsican");
+        languageMap.put("cr", "Cree");
+        languageMap.put("hr", "Croatian");
+        languageMap.put("cs", "Czech");
+        languageMap.put("da", "Danish");
+        languageMap.put("dv", "Divehi, Dhivehi, Maldivian");
+        languageMap.put("nl", "Dutch,Flemish");
+        languageMap.put("dz", "Dzongkha");
+        languageMap.put("en", "English");
+        languageMap.put("eo", "Esperanto");
+        languageMap.put("et", "Estonian");
+        languageMap.put("ee", "Ewe");
+        languageMap.put("fo", "Faroese");
+        languageMap.put("fj", "Fijian");
+        languageMap.put("fi", "Finnish");
+        languageMap.put("fr", "French");
+        languageMap.put("fy", "Western Frisian");
+        languageMap.put("ff", "Fulah");
+        languageMap.put("gd", "Gaelic, Scottish Gaelic");
+        languageMap.put("gl", "Galician");
+        languageMap.put("lg", "Ganda");
+        languageMap.put("ka", "Georgian");
+        languageMap.put("de", "German");
+        languageMap.put("el", "Greek, Modern (1453–)");
+        languageMap.put("kl", "Kalaallisut, Greenlandic");
+        languageMap.put("gn", "Guarani");
+        languageMap.put("gu", "Gujarati");
+        languageMap.put("ht", "Haitian, Haitian Creole");
+        languageMap.put("ha", "Hausa");
+        languageMap.put("he", "Hebrew");
+        languageMap.put("hz", "Herero");
+        languageMap.put("hi", "Hindi");
+        languageMap.put("ho", "Hiri Motu");
+        languageMap.put("hu", "Hungarian");
+        languageMap.put("is", "Icelandic");
+        languageMap.put("io", "Ido");
+        languageMap.put("ig", "Igbo");
+        languageMap.put("id", "Indonesian");
+        languageMap.put("ia", "Interlingua(International Auxiliary Language Association)");
+        languageMap.put("ie", "Interlingue, Occidental");
+        languageMap.put("iu", "Inuktitut");
+        languageMap.put("ik", "Inupiaq");
+        languageMap.put("ga", "Irish");
+        languageMap.put("it", "Italian");
+        languageMap.put("ja", "Japanese");
+        languageMap.put("jv", "Javanese");
+        languageMap.put("kn", "Kannada");
+        languageMap.put("kr", "Kanuri");
+        languageMap.put("ks", "Kashmiri");
+        languageMap.put("kk", "Kazakh");
+        languageMap.put("km", "Central Khmer");
+        languageMap.put("ki", "Kikuyu, Gikuyu");
+        languageMap.put("rw", "Kinyarwanda");
+        languageMap.put("ky", "Kirghiz, Kyrgyz");
+        languageMap.put("kv", "Komi");
+        languageMap.put("kg", "Kongo");
+        languageMap.put("ko", "Korean");
+        languageMap.put("kj", "Kuanyama, Kwanyama");
+        languageMap.put("ku", "Kurdish");
+        languageMap.put("lo", "Lao");
+        languageMap.put("la", "Latin");
+        languageMap.put("lv", "Latvian");
+        languageMap.put("li", "Limburgan, Limburger, Limburgish");
+        languageMap.put("ln", "Lingala");
+        languageMap.put("lt", "Lithuanian");
+        languageMap.put("lu", "Luba-Katanga");
+        languageMap.put("lb", "Luxembourgish, Letzeburgesch");
+        languageMap.put("mk", "Macedonian");
+        languageMap.put("mg", "Malagasy");
+        languageMap.put("ms", "Malay");
+        languageMap.put("ml", "Malayalam");
+        languageMap.put("mt", "Maltese");
+        languageMap.put("gv", "Manx");
+        languageMap.put("mi", "Maori");
+        languageMap.put("mr", "Marathi");
+        languageMap.put("mh", "Marshallese");
+        languageMap.put("mn", "Mongolian");
+        languageMap.put("na", "Nauru");
+        languageMap.put("nv", "Navajo, Navaho");
+        languageMap.put("nd", "North Ndebele");
+        languageMap.put("nr", "South Ndebele");
+        languageMap.put("ng", "Ndonga");
+        languageMap.put("ne", "Nepali");
+        languageMap.put("no", "Norwegian");
+        languageMap.put("nb", "Norwegian Bokmål");
+        languageMap.put("nn", "Norwegian Nynorsk");
+        languageMap.put("ii", "Sichuan Yi, Nuosu");
+        languageMap.put("oc", "Occitan");
+        languageMap.put("oj", "Ojibwa");
+        languageMap.put("or", "Oriya");
+        languageMap.put("om", "Oromo");
+        languageMap.put("os", "Ossetian, Ossetic");
+        languageMap.put("pi", "Pali");
+        languageMap.put("ps", "Pashto, Pushto");
+        languageMap.put("fa", "Persian");
+        languageMap.put("pl", "Polish");
+        languageMap.put("pt", "Portuguese");
+        languageMap.put("pa", "Punjabi, Panjabi");
+        languageMap.put("qu", "Quechua");
+        languageMap.put("ro", "Romanian,Moldavian, Moldovan");
+        languageMap.put("rm", "Romansh");
+        languageMap.put("rn", "Rundi");
+        languageMap.put("ru", "Russian");
+        languageMap.put("se", "Northern Sami");
+        languageMap.put("sm", "Samoan");
+        languageMap.put("sg", "Sango");
+        languageMap.put("sa", "Sanskrit");
+        languageMap.put("sc", "Sardinian");
+        languageMap.put("sr", "Serbian");
+        languageMap.put("sn", "Shona");
+        languageMap.put("sd", "Sindhi");
+        languageMap.put("si", "Sinhala, Sinhalese");
+        languageMap.put("sk", "Slovak");
+        languageMap.put("sl", "Slovenian");
+        languageMap.put("so", "Somali");
+        languageMap.put("st", "Southern Sotho");
+        languageMap.put("es", "Spanish, Castilian");
+        languageMap.put("su", "Sundanese");
+        languageMap.put("sw", "Swahili");
+        languageMap.put("ss", "Swati");
+        languageMap.put("sv", "Swedish");
+        languageMap.put("tl", "Tagalog");
+        languageMap.put("ty", "Tahitian");
+        languageMap.put("tg", "Tajik");
+        languageMap.put("ta", "Tamil");
+        languageMap.put("tt", "Tatar");
+        languageMap.put("te", "Telugu");
+        languageMap.put("th", "Thai");
+        languageMap.put("bo", "Tibetan");
+        languageMap.put("ti", "Tigrinya");
+        languageMap.put("to", "Tonga(Tonga Islands)");
+        languageMap.put("ts", "Tsonga");
+        languageMap.put("tn", "Tswana");
+        languageMap.put("tr", "Turkish");
+        languageMap.put("tk", "Turkmen");
+        languageMap.put("tw", "Twi");
+        languageMap.put("ug", "Uighur, Uyghur");
+        languageMap.put("uk", "Ukrainian");
+        languageMap.put("ur", "Urdu");
+        languageMap.put("uz", "Uzbek");
+        languageMap.put("ve", "Venda");
+        languageMap.put("vi", "Vietnamese");
+        languageMap.put("vo", "Volapük");
+        languageMap.put("wa", "Walloon");
+        languageMap.put("cy", "Welsh");
+        languageMap.put("wo", "Wolof");
+        languageMap.put("xh", "Xhosa");
+        languageMap.put("yi", "Yiddish");
+        languageMap.put("yo", "Yoruba");
+        languageMap.put("za", "Zhuang, Chuang");
+        languageMap.put("zu", "Zulu");
+    }
     public static List<Message> chatHistory = new ArrayList<>();
+    public static String nowTopic = "";
+
+    //单机应用就是好，没有并发就是爽
+    public static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public void actionPerformed(AnActionEvent e) {
+        if (chatHistory!=null&&!chatHistory.isEmpty()&&!nowTopic.isEmpty()){
+            JsonStorage.saveConservation(nowTopic,chatHistory);
+        }
         chatHistory.clear();
+        nowTopic="";
         ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(e.getProject());
         ToolWindow toolWindow = toolWindowManager.getToolWindow("GPT4_lll");
         if (toolWindow != null && toolWindow.isVisible()) {
@@ -72,16 +268,20 @@ public class GenerateAction extends AnAction {
             Boolean coding=false;
             if (selectedText!=null) {
                 selectedText = selectedText.trim();
+                LocalDateTime now = LocalDateTime.now();
+                nowTopic=formatter.format(now);
                 if (Boolean.TRUE.equals(isSelectedTextAllComments(project))){
+                    nowTopic=nowTopic+"--Generate:"+selectedText;
                     coding=true;
                     message.setRole("user");
                     message.setName("owner");
-                    message.setContent("请帮我完成下面的功能，同时使用"+fileType+"，注释语言请使用"+replyLanguage+",只要代码部分，代码部分要包含代码和注释,其他任何内容我都不要看到，功能如下：" + selectedText);
+                    message.setContent("请帮我完成下面的功能，同时使用"+fileType+"，注释语言请使用iso为"+replyLanguage+"的语言,只要代码部分，代码部分要包含代码和注释，所有的返回代码应该在代码块中,请使用"+replyLanguage+"回复我，功能如下：" + selectedText);
                 }else {
+                    nowTopic=nowTopic+"--Optimize"+selectedText;
                     coding=false;
                     message.setRole("user");
                     message.setName("owner");
-                    message.setContent("请帮我重构下面的代码，不局限于代码性能优化，命名优化，增加注释，简化代码，优化逻辑，同时可以代码如下：" + selectedText);
+                    message.setContent("请帮我重构下面的代码，不局限于代码性能优化、命名优化、增加注释、简化代码、优化逻辑，请使用"+replyLanguage+"回复我，代码如下：" + selectedText);
                 }
                 ChatContent chatContent = new ChatContent();
                 chatContent.setMessages(List.of(message, systemMessage));
@@ -94,7 +294,8 @@ public class GenerateAction extends AnAction {
                         chat(chatContent, project, editor,finalCoding);
                     }
                 }).start();
-                // WindowTool.updateShowText(res);
+                //清理界面
+                 WindowTool.clearShowWindow();
             }
         }
         // TODO: insert action logic here
@@ -176,10 +377,10 @@ public class GenerateAction extends AnAction {
                                                 insertPosition = lastInsertPosition.get();
                                             }
 
-                                            if (stringBuffer.indexOf("```") > 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```")) {
+                                            if (stringBuffer.indexOf("```") > 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```")&&stringBuffer.lastIndexOf("\n")>stringBuffer.indexOf("```")) {
                                                 // Insert a newline and the data
-                                                String textToInsert = resContent;
-                                                WriteCommandAction.runWriteCommandAction(project, () -> document.insertString(insertPosition, textToInsert.replace("`", "")));
+                                                String textToInsert = resContent.replace("`", "");
+                                                WriteCommandAction.runWriteCommandAction(project, () -> document.insertString(insertPosition, textToInsert));
 
                                                 // Update the last insert position to the end of the inserted text
                                                 lastInsertPosition.set(insertPosition + textToInsert.length());
@@ -194,9 +395,13 @@ public class GenerateAction extends AnAction {
                         }
                     });
                 }).join();
-
-
-        return stringBuffer.toString();
+        String replyContent=stringBuffer.toString();
+        Message message = new Message();
+        message.setRole("assistant");
+        message.setContent(replyContent);
+        chatHistory.add(message);
+        JsonStorage.saveConservation(nowTopic,chatHistory);
+        return replyContent;
     }
 
 
@@ -353,7 +558,11 @@ public class GenerateAction extends AnAction {
 
     public String  getSystemLanguage() {
         Locale locale = Locale.getDefault();
-        String language = locale.getLanguage();
+        String languageCode = locale.getLanguage();
+        String language=languageMap.get(languageCode);
+        if (language==null){
+            return "中文";
+        }
         return language;
     }
 }
