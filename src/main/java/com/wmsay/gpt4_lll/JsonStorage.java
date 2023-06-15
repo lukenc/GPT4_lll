@@ -27,6 +27,17 @@ public class JsonStorage {
             throw new RuntimeException(e);
         }
     }
+
+    public static void deleteConservation(String topic){
+        try {
+            LinkedHashMap<String,List<Message>> data= loadData();
+            data.remove(topic);
+            saveData(data);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static void saveData(LinkedHashMap<String, List<Message>> data) throws IOException {
         System.out.println(FILE_PATH);
         // Make sure the directory exists

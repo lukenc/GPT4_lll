@@ -37,6 +37,8 @@ public class WindowTool implements ToolWindowFactory {
     private JRadioButton gpt35TurboOption ;
     private JRadioButton codeOption;
 
+    public static volatile Boolean isGenerating=false;
+
     @Override
     public void createToolWindowContent(Project project, ToolWindow toolWindow) {
         // 创建工具窗口内容
@@ -207,6 +209,7 @@ public class WindowTool implements ToolWindowFactory {
 
     public static void appendContent(String content) {
         readOnlyTextArea.setText(readOnlyTextArea.getText()+content);
+        readOnlyTextArea.setCaretPosition(readOnlyTextArea.getDocument().getLength());
     }
 
 
