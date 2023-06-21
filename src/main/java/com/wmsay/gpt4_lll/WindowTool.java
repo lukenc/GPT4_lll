@@ -127,7 +127,7 @@ public class WindowTool implements ToolWindowFactory {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                           String res= GenerateAction.chat(chatContent,project,null,false);
+                           String res= GenerateAction.chat(chatContent,project,false);
                             // 将新内容附加到原有的 HTML 后面
                            // appendContentToEditorPane(readOnlyTextArea,convertMarkdownToHtml(res));
                         }

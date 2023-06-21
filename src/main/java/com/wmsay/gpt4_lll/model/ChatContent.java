@@ -13,6 +13,8 @@ public class ChatContent {
     @Expose
     private String model="gpt-3.5-turbo";
 
+    private Double temperature=1.0;
+
     @Expose
     private Boolean stream= true;
     public List<Message> getMessages() {
@@ -37,5 +39,13 @@ public class ChatContent {
 
     public void setStream(Boolean stream) {
         this.stream = stream;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
     }
 }

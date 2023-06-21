@@ -134,6 +134,10 @@
                 description="圈选生成">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
+        <action id="ScoreActionId" class="com.wmsay.gpt4_lll.ScoreAction" text="GptScore"
+                description="评估代码">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
     </actions>
 
 

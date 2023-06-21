@@ -21,6 +21,7 @@ import com.intellij.psi.util.PsiTreeUtil;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
+import com.wmsay.gpt4_lll.utils.CommonUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
@@ -40,7 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class GenerateAction extends AnAction {
     public static HashMap<String ,String > languageMap=new HashMap<>();
-    {
+    static  {
         languageMap.put("ab", "Abkhazian");
         languageMap.put("aa", "Afar");
         languageMap.put("af", "Afrikaans");
@@ -235,8 +236,8 @@ public class GenerateAction extends AnAction {
     public void actionPerformed(AnActionEvent e) {
         if (chatHistory!=null&&!chatHistory.isEmpty()&&!nowTopic.isEmpty()){
             JsonStorage.saveConservation(nowTopic,chatHistory);
+            chatHistory.clear();
         }
-        chatHistory.clear();
         nowTopic="";
         ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(e.getProject());
         ToolWindow toolWindow = toolWindowManager.getToolWindow("GPT4_lll");
@@ -275,7 +276,7 @@ public class GenerateAction extends AnAction {
                     coding=true;
                     message.setRole("user");
                     message.setName("owner");
-                    message.setContent("请帮我完成下面的功能，同时使用"+fileType+"，注释语言请使用iso为"+replyLanguage+"的语言,只要代码部分，代码部分要包含代码和注释，所有的返回代码应该在代码块中,请使用"+replyLanguage+"回复我，功能如下：" + selectedText);
+                    message.setContent("请帮我完成下面的功能，同时使用"+fileType+"，注释语言请使用"+replyLanguage+"的语言,代码部分要包含代码和注释，所有的返回代码应该在代码块中,请使用"+replyLanguage+"回复我，功能如下：" + selectedText);
                 }else {
                     nowTopic=nowTopic+"--Optimize"+selectedText;
                     coding=false;
@@ -288,26 +289,40 @@ public class GenerateAction extends AnAction {
                 chatContent.setModel(model);
                 chatHistory.addAll(List.of(message, systemMessage));
                 Boolean finalCoding = coding;
+                //清理界面
+                WindowTool.clearShowWindow();
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        chat(chatContent, project, editor,finalCoding);
+                        chat(chatContent, project,finalCoding);
                     }
                 }).start();
-                //清理界面
-                 WindowTool.clearShowWindow();
+
             }
         }
         // TODO: insert action logic here
     }
 
 
-    public static String chat(ChatContent content,Project project,Editor editorPre,Boolean coding){
+    public static String chat(ChatContent content,Project project,Boolean coding){
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String apiKey = settings.getApiKey();
         String proxy = settings.getProxyAddress();
         if (StringUtils.isEmpty(apiKey)){
-            Messages.showMessageDialog(project, "先去申请一个apikey。参考：https://blog.wmsay.com/article/60/", "ChatGpt", Messages.getInformationIcon());
+            String noticeMessage = """
+                    尚未填写apikey。如果没有，先去申请一个apikey。参考：https://blog.wmsay.com/article/60/
+                    （如果你在国内使用，需要翻墙。参考：https://blog.wmsay.com/article/chatgpt-reg-1）
+                    """;
+            String systemLanguage=CommonUtil.getSystemLanguage();
+            if (!"Chinese".equals(systemLanguage)) {
+                noticeMessage = """
+                         Please apply for an API key first and then fill it in the settings.
+                         Please refer to the following link for reference:https://blog.wmsay.com/article/60
+                        """;
+            }
+            String finalNoticeMessage = noticeMessage;
+            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, finalNoticeMessage, "ChatGpt", Messages.getInformationIcon()));
+
             return "";
         }
 
@@ -319,7 +334,7 @@ public class GenerateAction extends AnAction {
                 int port = Integer.parseInt(addressAndPort[1]);
                 clientBuilder.proxy(ProxySelector.of(new InetSocketAddress(addressAndPort[0], port)));
             } else {
-                Messages.showMessageDialog(project, "格式错误，格式为ip:port", "科学冲浪失败", Messages.getInformationIcon());
+                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "格式错误，格式为ip:port", "科学冲浪失败", Messages.getInformationIcon()));
             }
         }
         String url = settings.getGptUrl();
