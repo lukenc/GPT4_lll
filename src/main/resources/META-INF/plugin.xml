@@ -12,6 +12,31 @@
 
     <change-notes>
     <![CDATA[
+    <h2>2.8.6</h2>
+<ul>
+  <li>
+    <h3>New Features/新功能：</h3>
+    <ul>
+      <li>Added a Code Evaluation feature to allow team leaders to control the quality of the code. 添加了代码评估功能，方便团队领导来把控代码质量。</li>
+    </ul>
+  </li>
+  <li>
+    <h3>Optimizations/优化：</h3>
+    <ul>
+      <li>Optimized the dialogue box to follow input and prevent erratic jumping. 优化了对话框跟随输入，避免乱跳。</li>
+      <li>Improved natural language recognition logic for enhanced accuracy and performance. 自然语言识别逻辑已经优化，现在识别准确度和性能得到提升。</li>
+    </ul>
+  </li>
+  <li>
+    <h3>Bug Fixes/Bug修复：</h3>
+    <ul>
+      <li>Fixed the issue where pop-ups for new users failed to appear. 修复了新用户弹窗弹出失败的问题。</li>
+    </ul>
+  </li>
+</ul>
+
+
+
         <h2>2.5.2</h2>
 <ul>
   <li>
@@ -85,6 +110,9 @@
 <h4>History Recording Feature/历史记录功能</h4>
 <p>Added a history recording feature to prevent data loss. Every conversation will now be recorded, allowing easy access to previous interactions. 增加了历史记录功能，防止数据丢失。每次对话都会被记录，方便查看之前的交互记录。</p>
 <p>The project now ensures that no content is lost and has been optimized accordingly. 该项目现在确保不丢失任何内容，并进行了相应的优化。</p>
+    <h4>Code Assessment/代码评估</h4>
+<p>Introduced a new Code Assessment feature, allowing team leaders to evaluate team members' code. This feature aims to facilitate code reviews, improve code quality, and foster continuous learning within the team. 新引入了代码评估功能，允许团队领导评估团队成员的代码。这个功能旨在促进代码审查，提高代码质量，并在团队中促进持续学习。</p>
+    <br>
     <p>GPT4_lll is a plugin designed for IntelliJ IDEA users, aiming to provide real-time code querying and analysis services using OpenAI's GPT-4 model. This plugin serves as a powerful assistant while you write or read code, helping you better understand and improve your code.</p>
     <p>GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。</p>
     <br>
