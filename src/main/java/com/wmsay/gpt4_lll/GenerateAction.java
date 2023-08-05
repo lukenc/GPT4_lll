@@ -343,86 +343,94 @@ public class GenerateAction extends AnAction {
                 ;
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .header("Authorization","Bearer "+apiKey)
-                .header("Content-Type","application/json")
-                .header("Accept","text/event-stream")
-                .build();
-        AtomicInteger lastInsertPosition = new AtomicInteger(-1);
-        StringBuffer stringBuffer=new StringBuffer();
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
-                .thenAccept(response -> {
-                    response.body().forEach(line -> {
-                        if (line.startsWith("data")) {
+                    .uri(URI.create(url))
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .header("Authorization","Bearer "+apiKey)
+                    .header("Content-Type","application/json")
+                    .header("Accept","text/event-stream")
+                    .build();
+            AtomicInteger lastInsertPosition = new AtomicInteger(-1);
+            StringBuffer stringBuffer=new StringBuffer();
+            try {
+                client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
+                        .thenAccept(response -> {
+                            response.body().forEach(line -> {
+                                if (line.startsWith("data")) {
 
-                            line = line.substring(5);
-                            SseResponse sseResponse = null;
-                            try {
-                                sseResponse = JSON.parseObject(line, SseResponse.class);
-                            } catch (Exception e) {
-                                //// TODO: 2023/6/9
-                            }
-                            if (sseResponse != null){
-                                String resContent = sseResponse.getChoices().get(0).getDelta().getContent();
-                            if (resContent != null) {
-                                WindowTool.appendContent(resContent);
-                                if (Boolean.TRUE.equals(coding)) {
+                                    line = line.substring(5);
+                                    SseResponse sseResponse = null;
+                                    try {
+                                        sseResponse = JSON.parseObject(line, SseResponse.class);
+                                    } catch (Exception e) {
+                                        //// TODO: 2023/6/9
+                                    }
+                                    if (sseResponse != null) {
+                                        String resContent = sseResponse.getChoices().get(0).getDelta().getContent();
+                                        if (resContent != null) {
+                                            WindowTool.appendContent(resContent);
+                                            if (Boolean.TRUE.equals(coding)) {
 
-                                    ApplicationManager.getApplication().invokeLater(() -> {
-                                    ApplicationManager.getApplication().runWriteAction(() -> {
-                                        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-                                        if (editor != null) {
-                                            Document document = editor.getDocument();
-                                            SelectionModel selectionModel = editor.getSelectionModel();
+                                                ApplicationManager.getApplication().invokeLater(() -> {
+                                                    ApplicationManager.getApplication().runWriteAction(() -> {
+                                                        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+                                                        if (editor != null) {
+                                                            Document document = editor.getDocument();
+                                                            SelectionModel selectionModel = editor.getSelectionModel();
 
-                                            int insertPosition;
-                                            if (lastInsertPosition.get() == -1) { // This means it's the first time to insert
-                                                if (selectionModel.hasSelection()) {
-                                                    // If there's a selection, find the end line of the selection
-                                                    int selectionEnd = selectionModel.getSelectionEnd();
-                                                    int endLine = document.getLineNumber(selectionEnd);
-                                                    // Insert at the end of the line where the selection ends
-                                                    insertPosition = document.getLineEndOffset(endLine);
-                                                } else {
-                                                    // If there's no selection, insert at the end of the document
-                                                    insertPosition = document.getTextLength();
-                                                }
-                                            } else { // This is not the first time, so we insert at the last insert position
-                                                insertPosition = lastInsertPosition.get();
+                                                            int insertPosition;
+                                                            if (lastInsertPosition.get() == -1) { // This means it's the first time to insert
+                                                                if (selectionModel.hasSelection()) {
+                                                                    // If there's a selection, find the end line of the selection
+                                                                    int selectionEnd = selectionModel.getSelectionEnd();
+                                                                    int endLine = document.getLineNumber(selectionEnd);
+                                                                    // Insert at the end of the line where the selection ends
+                                                                    insertPosition = document.getLineEndOffset(endLine);
+                                                                } else {
+                                                                    // If there's no selection, insert at the end of the document
+                                                                    insertPosition = document.getTextLength();
+                                                                }
+                                                            } else { // This is not the first time, so we insert at the last insert position
+                                                                insertPosition = lastInsertPosition.get();
+                                                            }
+
+                                                            if (stringBuffer.indexOf("```") >= 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```") && stringBuffer.lastIndexOf("\n") > stringBuffer.indexOf("```")) {
+                                                                // Insert a newline and the data
+                                                                String textToInsert = resContent.replace("`", "");
+                                                                WriteCommandAction.runWriteCommandAction(project, () ->
+                                                                        document.insertString(insertPosition, textToInsert));
+
+                                                                // Update the last insert position to the end of the inserted text
+                                                                lastInsertPosition.set(insertPosition + textToInsert.length());
+                                                            }
+                                                        }
+                                                    });
+                                                });
                                             }
-
-                                            if (stringBuffer.indexOf("```") > 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```")&&stringBuffer.lastIndexOf("\n")>stringBuffer.indexOf("```")) {
-                                                // Insert a newline and the data
-                                                String textToInsert = resContent.replace("`", "");
-                                                WriteCommandAction.runWriteCommandAction(project, () -> document.insertString(insertPosition, textToInsert));
-
-                                                // Update the last insert position to the end of the inserted text
-                                                lastInsertPosition.set(insertPosition + textToInsert.length());
-                                            }
+                                            stringBuffer.append(resContent);
                                         }
-                                    });
-                                });
+                                    }
                                 }
-                                stringBuffer.append(resContent);
-                            }
-                        }
-                        }
-                    });
-                }).join();
-        String replyContent=stringBuffer.toString();
-        Message message = new Message();
-        message.setRole("assistant");
-        message.setContent(replyContent);
-        chatHistory.add(message);
-        JsonStorage.saveConservation(nowTopic,chatHistory);
-        return replyContent;
-    }
+                            });
+                        }).join();
+            }catch (Exception e){
+                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, e.getMessage(), "ChatGpt", Messages.getInformationIcon()));
+                e.printStackTrace();
+            }
+            String replyContent=stringBuffer.toString();
+            Message message = new Message();
+            message.setRole("assistant");
+            message.setContent(replyContent);
+            chatHistory.add(message);
+            JsonStorage.saveConservation(nowTopic,chatHistory);
+            return replyContent;
+        }
 
 
-    public static boolean isValidPort(String portStr) {
-        try {
-            int port = Integer.parseInt(portStr);
+
+
+        public static boolean isValidPort(String portStr) {
+            try {
+                int port = Integer.parseInt(portStr);
             // 端口范围必须在0-65535之间
             return port >= 0 && port <= 65535;
         } catch (NumberFormatException e) {

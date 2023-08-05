@@ -12,6 +12,25 @@
 
     <change-notes>
     <![CDATA[
+<h2>2.9.0</h2>
+<ul>
+  <li>
+    <h3>New Features/新功能：</h3>
+    <ul>
+      <li>Added a feature that allows you to auto-generate code comments using ChatGPT. By simply highlighting the code, the plugin will call on the ChatGPT AI model to generate comprehensive and contextually appropriate code comments. 添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。</li>
+      <li>Introduced an AI-assisted development mode. This feature enables developers to get on-the-fly code suggestions, increasing coding efficiency. 引入了AI辅助开发模式，开发者可以得到实时的代码建议，提高编码效率。</li>
+    </ul>
+  </li>
+  <li>
+    <h3>Optimizations/优化：</h3>
+    <ul>
+      <li>Enhanced the stability of the plugin during continuous coding sessions. 提高了连续编码会话中插件的稳定性。</li>
+    </ul>
+  </li>
+</ul>
+
+
+
     <h2>2.8.6</h2>
 <ul>
   <li>
@@ -106,6 +125,8 @@
 <h4>Automatic Code Type Recognition/自动识别代码类型</h4>
 <p>Enhanced the code type recognition feature to automatically identify code types. 提升了代码类型识别功能，自动识别代码类型。</p>
 <h4>Generate Code On Demand/按需生成代码</h4>
+<h4>Automatic Code Comments Generation/自动生成代码注释</h4>
+<p>Added a feature that allows you to auto-generate code comments using ChatGPT. By simply highlighting the code, the plugin will call on the ChatGPT AI model to generate comprehensive and contextually appropriate code comments. 添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。</p>
 <p>Implemented the capability to generate code on demand, providing code snippets when needed. 增加按需生成代码的功能，根据需要提供代码片段。</p>
 <h4>History Recording Feature/历史记录功能</h4>
 <p>Added a history recording feature to prevent data loss. Every conversation will now be recorded, allowing easy access to previous interactions. 增加了历史记录功能，防止数据丢失。每次对话都会被记录，方便查看之前的交互记录。</p>
@@ -163,6 +184,10 @@
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
         <action id="ScoreActionId" class="com.wmsay.gpt4_lll.ScoreAction" text="GptScore"
+                description="评估代码">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        <action id="CommentActionId" class="com.wmsay.gpt4_lll.CommentAction" text="GptCodeComment"
                 description="评估代码">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>

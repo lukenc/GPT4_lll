@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CommonUtil {
     private static final String TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
@@ -240,6 +242,20 @@ public class CommonUtil {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(TIME_FORMAT);
         String result = now.format(formatter) + "--" + methodType + ":" + topicContent;
         return result;
+    }
+
+
+    public static Boolean isSql(String selectedText){
+        String mybatisPatternStr = "^(?i)<(select|update|insert|delete)\\s";
+        Pattern mybatisPattern = Pattern.compile(mybatisPatternStr);
+        Matcher mybatisMatcher = mybatisPattern.matcher(selectedText);
+        boolean isMyBatisSQL = mybatisMatcher.find();
+
+        String sqlPatternStr = "^(?i)\\b(SELECT|UPDATE|INSERT|DELETE)\\b";
+        Pattern sqlPattern = Pattern.compile(sqlPatternStr);
+        Matcher sqlMatcher = sqlPattern.matcher(selectedText);
+        boolean isNormalSQL = sqlMatcher.find();
+        return isMyBatisSQL||isNormalSQL;
     }
 
 
