@@ -311,12 +311,16 @@ public class GenerateAction extends AnAction {
         if (StringUtils.isEmpty(apiKey)){
             String noticeMessage = """
                     尚未填写apikey。如果没有，先去申请一个apikey。参考：https://blog.wmsay.com/article/60/
+                    配置：
+                            Settings >> Other Settings >> GPT4 lll Settings
                     （如果你在国内使用，需要翻墙。参考：https://blog.wmsay.com/article/chatgpt-reg-1）
                     """;
             String systemLanguage=CommonUtil.getSystemLanguage();
             if (!"Chinese".equals(systemLanguage)) {
                 noticeMessage = """
                          Please apply for an API key first and then fill it in the settings.
+                         To configure it:
+                                Settings >> Other Settings >> GPT4 lll Settings
                          Please refer to the following link for reference:https://blog.wmsay.com/article/60
                         """;
             }
