@@ -38,6 +38,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class GenerateAction extends AnAction {
     public static HashMap<String ,String > languageMap=new HashMap<>();
@@ -260,10 +262,14 @@ public class GenerateAction extends AnAction {
             String fileType= getOpenFileType(project);
             SelectionModel selectionModel = editor.getSelectionModel();
             String selectedText = selectionModel.getSelectedText();
+            if (selectedText == null || selectedText.isEmpty()) {
+                Messages.showMessageDialog(project, "No text selected. Please select the code you want to do something", "Error", Messages.getErrorIcon());
+                return;
+            }
             Message systemMessage=new Message();
             systemMessage.setRole("system");
             systemMessage.setName("owner");
-            systemMessage.setContent("你是一个有用的助手，同时也是一个计算机科学家，数据专家，有着多年的代码重构经验和多年的代码优化的架构师");
+            systemMessage.setContent("你是一个有用的助手，同时也是一个计算机科学家，数据专家，有着多年的代码开发和重构经验和多年的代码优化的架构师");
 
             Message message=new Message();
             Boolean coding=false;
@@ -277,7 +283,13 @@ public class GenerateAction extends AnAction {
                     message.setRole("user");
                     message.setName("owner");
                     message.setContent("请帮我完成下面的功能，同时使用"+fileType+"，注释语言请使用"+replyLanguage+"的语言,代码部分要包含代码和注释，所有的返回代码应该在代码块中,请使用"+replyLanguage+"回复我，功能如下：" + selectedText);
-                }else {
+                } else if (StringUtils.isNotEmpty(getCommentTODO(project,editor)) ) {
+                    nowTopic=nowTopic+"--Complete:"+selectedText;
+                    coding=true;
+                    message.setRole("user");
+                    message.setName("owner");
+                    message.setContent("todo后的文字是需要完成的功能，请帮我实现这些描述的功能，同时使用"+fileType+"。代码要严格实现所有todo后的功能，所有的返回代码应该在Markdown的代码块中,请使用"+replyLanguage+"回复我，需要实现的代码如下：" + selectedText);
+                } else {
                     nowTopic=nowTopic+"--Optimize"+selectedText;
                     coding=false;
                     message.setRole("user");
@@ -591,6 +603,42 @@ public class GenerateAction extends AnAction {
             return "中文";
         }
         return language;
+    }
+
+
+
+    public String getCommentTODO(Project project,Editor editor){
+        SelectionModel selectionModel = editor.getSelectionModel();
+        int start = selectionModel.getSelectionStart();
+        int end = selectionModel.getSelectionEnd();
+
+        PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
+        if (psiFile == null) return null;
+
+        PsiElement startElement = psiFile.findElementAt(start);
+        PsiElement endElement = psiFile.findElementAt(end);
+
+        if (startElement == null || endElement == null) return null;
+
+        PsiElement[] comments = PsiTreeUtil.collectElements(psiFile, el ->
+                (el instanceof PsiComment && el.getTextRange().getStartOffset() >= start && el.getTextRange().getEndOffset() <= end)
+        );
+
+        Pattern todoPattern = Pattern.compile("TODO:?(.*)", Pattern.CASE_INSENSITIVE);
+
+        for (PsiElement comment : comments) {
+            Matcher matcher = todoPattern.matcher(comment.getText());
+            if (matcher.find()) {
+                String todoContent = matcher.group(1).trim();
+                if (!todoContent.isEmpty()) {
+//                    Messages.showMessageDialog(project, "Found TODO content: " + todoContent, "Info", Messages.getInformationIcon());
+                    return todoContent;
+                }
+            }else {
+                continue;
+            }
+        }
+        return null;
     }
 }
 

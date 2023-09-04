@@ -12,6 +12,17 @@
 
     <change-notes>
     <![CDATA[
+    <h2>2.9.2</h2>
+<ul>
+  <li>
+    <h3>New Features/新功能：</h3>
+    <ul>
+      <li>Added a feature that allows you to auto-generate code based on the selected TODO descriptions. By highlighting the TODO comment, the plugin can generate code snippets to potentially fulfill the described task. 添加了一个功能，可以根据选中的TODO描述自动生成代码。只需高亮显示TODO注释，插件就可以生成代码片段，可能完成描述的任务。</li>
+    </ul>
+  </li>
+</ul>
+
+
 <h2>2.9.0</h2>
 <ul>
   <li>
