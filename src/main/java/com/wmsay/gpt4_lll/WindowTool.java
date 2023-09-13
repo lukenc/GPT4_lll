@@ -30,6 +30,8 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.List;
 
+import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
+
 public class WindowTool implements ToolWindowFactory {
     //private static final JTextArea readOnlyTextArea = new JTextArea(30,40);
     private static final JEditorPane readOnlyTextArea = new JEditorPane();
@@ -123,7 +125,8 @@ public class WindowTool implements ToolWindowFactory {
 
                 ChatContent chatContent= new ChatContent();
                 chatContent.setMessages(GenerateAction.chatHistory);
-                chatContent.setModel("gpt-3.5-turbo");
+                String model=getModelName(toolWindow);
+                chatContent.setModel(model);
                     new Thread(new Runnable() {
                         @Override
                         public void run() {

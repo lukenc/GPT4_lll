@@ -21,7 +21,6 @@ public class PluginInfo extends AnAction {
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-        // TODO: insert action logic here
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String apiKey = settings.getApiKey();
         Project project = e.getData(PlatformDataKeys.PROJECT);
