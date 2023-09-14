@@ -14,6 +14,8 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 
+import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 
@@ -23,8 +25,6 @@ import javax.swing.text.html.HTMLDocument;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
@@ -33,19 +33,21 @@ import java.util.List;
 import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 
 public class WindowTool implements ToolWindowFactory {
-    //private static final JTextArea readOnlyTextArea = new JTextArea(30,40);
-    private static final JEditorPane readOnlyTextArea = new JEditorPane();
+    private Gpt4lllTextArea readOnlyTextArea;
     private JRadioButton gpt4Option ;
     private JRadioButton gpt35TurboOption ;
     private JRadioButton codeOption;
 
     public static volatile Boolean isGenerating=false;
 
+
     @Override
     public void createToolWindowContent(Project project, ToolWindow toolWindow) {
         // 创建工具窗口内容
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
+        readOnlyTextArea= new Gpt4lllTextArea();
+        project.putUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA,readOnlyTextArea);
 
         //语言模型选择
         JPanel radioButtonPanel = new JPanel(new GridBagLayout());
@@ -75,18 +77,9 @@ public class WindowTool implements ToolWindowFactory {
 
         // 创建只读文本框
         readOnlyTextArea.setEditable(false);
-        //readOnlyTextArea.setContentType("text/html");
 
         readOnlyTextArea.setText("");
-        //readOnlyTextArea.setLineWrap(true);
-        //readOnlyTextArea.setWrapStyleWord(true);
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
-//        panel.addComponentListener(new ComponentAdapter() {
-//            public void componentResized(ComponentEvent e) {
-//                int sidebarWidth = panel.getWidth();
-//                readOnlyTextArea.setSize(new Dimension(scrollPane. getWidth() - sidebarWidth, 30));
-//            }
-//        });
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
         c.gridy = 1;
@@ -108,11 +101,11 @@ public class WindowTool implements ToolWindowFactory {
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-
+                Gpt4lllTextArea area= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
                 String input = textField.getText();
-                appendContent("\n\n- - - - - - - - - - - \n");
-                appendContent("YOU:"+input);
-                appendContent("\n- - - - - - - - - - - \n");
+                area.appendContent("\n\n- - - - - - - - - - - \n");
+                area.appendContent("YOU:"+input);
+                area.appendContent("\n- - - - - - - - - - - \n");
                 if (GenerateAction.nowTopic.isEmpty()){
                     GenerateAction.nowTopic=GenerateAction.formatter.format(LocalDate.now())+"--Chat:"+input;
                 }
@@ -131,15 +124,11 @@ public class WindowTool implements ToolWindowFactory {
                         @Override
                         public void run() {
                            String res= GenerateAction.chat(chatContent,project,false);
-                            // 将新内容附加到原有的 HTML 后面
-                           // appendContentToEditorPane(readOnlyTextArea,convertMarkdownToHtml(res));
                         }
                     }).start();
 
 
                 textField.setText("");
-                // 在此处处理输入内容的逻辑
-                //Arrays.stream(res).forEachOrdered(s-> {readOnlyTextArea.append(s);readOnlyTextArea.append("\n");});
             }
         });
         c = new GridBagConstraints();
@@ -153,7 +142,7 @@ public class WindowTool implements ToolWindowFactory {
         historyButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-               showPopup();
+               showPopup(project);
             }
         });
         c = new GridBagConstraints();
@@ -179,26 +168,12 @@ public class WindowTool implements ToolWindowFactory {
         return e.getRequiredData(CommonDataKeys.EDITOR);
     }
 
-//    public static void updateShowText(String replayMessage) {
-//        readOnlyTextArea.setText("");
-//        String[]  res= replayMessage.split("\\n");
-//        readOnlyTextArea.setText(convertMarkdownToHtml(replayMessage) );
-//        //Arrays.stream(res).forEachOrdered(s-> {readOnlyTextArea.append(s);readOnlyTextArea.append("\n");});
-//        //readOnlyTextArea.append(selectedText);
-//    }
 
-    public static void clearShowWindow() {
+    public void clearShowWindow() {
         readOnlyTextArea.setText("");
     }
 
 
-//    public static String convertMarkdownToHtml(String markdown) {
-//        MutableDataSet options = new MutableDataSet();
-//        Parser parser = Parser.builder(options).build();
-//        HtmlRenderer renderer = HtmlRenderer.builder(options).build();
-//        Node document = parser.parse(markdown);
-//        return renderer.render(document);
-//    }
 
     public static void appendContentToEditorPane(JEditorPane editorPane, String content) {
         HTMLDocument document = (HTMLDocument) editorPane.getDocument();
@@ -210,37 +185,7 @@ public class WindowTool implements ToolWindowFactory {
         }
     }
 
-    public static void appendContent(String content) {
-        readOnlyTextArea.setText(readOnlyTextArea.getText()+content);
-        readOnlyTextArea.setCaretPosition(readOnlyTextArea.getDocument().getLength());
-    }
-
-
-    public static void appendMessage(Message content) {
-        if (content.getContent().startsWith("你是一个有用的助手，")){
-            return;
-        }else
-        if (content.getContent().startsWith("请帮我完成下面的功能，同时使用")){
-           String[] str= content.getContent().split("回复我，功能如下：");
-           String xuqiu=str[1];
-           readOnlyTextArea.setText(readOnlyTextArea.getText()+"Generate："+xuqiu);
-        }else
-        if (content.getContent().startsWith("请帮我重构下面的代码，不局限于代码性能优化、命名优化、增加注释、简化代码、优化逻辑，请使用")){
-            String[] str= content.getContent().split("回复我，代码如下：");
-            String xuqiu=str[1];
-            readOnlyTextArea.setText(readOnlyTextArea.getText()+"Optimize："+xuqiu);
-        }else {
-            appendContent("\n\n- - - - - - - - - - - \n");
-            if (content.getRole().equals("user")){
-                appendContent("YOU:"+content.getContent());
-            }else {
-                appendContent(content.getContent());
-            }
-
-        }
-    }
-
-    public void showPopup() {
+    public void showPopup(Project project) {
         Map<String ,List<Message>> historyData= new LinkedHashMap<>();
         try {
             historyData= JsonStorage.loadData();
@@ -270,11 +215,13 @@ public class WindowTool implements ToolWindowFactory {
         Map<String, List<Message>> finalHistoryData = historyData;
         list.addListSelectionListener(event -> {
             if (!event.getValueIsAdjusting()) {
+                project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).clearShowWindow();
                 String selectedItem = list.getSelectedValue().second;
-                System.out.println("You clicked: " + selectedItem);
                 // 实现你想要的点击事件逻辑
                 List<Message> messageList= finalHistoryData.get(selectedItem);
-                messageList.forEach(WindowTool::appendMessage);
+                messageList.forEach(message -> {
+                    project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).appendMessage(message);
+                });
                 GenerateAction.nowTopic=selectedItem;
                 GenerateAction.chatHistory=messageList;
             }
