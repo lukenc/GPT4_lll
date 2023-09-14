@@ -8,6 +8,8 @@ import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
+import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -57,7 +59,7 @@ public class ScoreAction extends AnAction {
 
                 message.setRole("user");
                 message.setName("owner");
-                message.setContent("评估不限于以下方面：1、类、方法、变量的命名 2、空指针风险 3、数组越界风险 4、并发控制 5、注释完整性 6、异常捕捉及处理 7、日志合规性 8、是否有安全方面的问题 9、是否有性能方面的问题 10、，其余方面。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，代码如下:" + selectedText);
+                message.setContent("评估不限于以下方面：1、类、方法、变量的命名 2、空指针风险 3、数组越界风险 4、并发控制 5、注释完整性 6、异常捕捉及处理 7、日志合规性 8、是否有安全方面的问题 9、是否有性能方面的问题 10、其余方面。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，代码如下:" + selectedText);
                 ChatContent chatContent = new ChatContent();
                 chatContent.setMessages(List.of(message, systemMessage));
                 chatContent.setModel(model);
@@ -65,7 +67,10 @@ public class ScoreAction extends AnAction {
                 chatHistory.addAll(List.of(message, systemMessage));
 
                 //清理界面
-                WindowTool.clearShowWindow();
+                Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+                if (textArea != null) {
+                    textArea.clearShowWindow();
+                }
                 new Thread(() -> GenerateAction.chat(chatContent, project, false)).start();
             }
         }
