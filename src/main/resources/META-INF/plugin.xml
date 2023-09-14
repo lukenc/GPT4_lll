@@ -12,6 +12,47 @@
 
     <change-notes>
     <![CDATA[
+
+    <h2>2.9.4   (2023-09-14)</h2>
+<ul>
+  <li>
+    <h3>FEATURE/功能：</h3>
+    <ul>
+      <li>
+        For Java; Greatly enhanced the ability to generate code based on todo. The accuracy of the returned code has been significantly increased, and its executability has been qualitatively improved.
+      </li>
+      <li>
+        针对Java，极大提高了根据todo生成代码的能力，返回的代码准确度大幅增加，同时可执行度有质的提升。
+      </li>
+      <li>
+        Improved the quality of comments in the code commenting feature.
+      </li>
+      <li>
+        代码注释功能的注释质量提高。
+      </li>
+    </ul>
+  </li>
+  <li>
+    <h3>IMPROVEMENT/优化：</h3>
+    <ul>
+      <li>
+        Refactored the code for increased stability, now supports opening multiple IDEs.
+      </li>
+      <li>
+        重构代码，稳定性提高，目前已支持开启多个ide。
+      </li>
+      <li>
+        Slightly improved the stability of code assessment.
+      </li>
+      <li>
+        小幅度提升代码评估的稳定性。
+      </li>
+    </ul>
+  </li>
+</ul>
+
+
+
 <h2>2.9.3   (2023-09-13)</h2>
 <ul>
   <li>
@@ -149,6 +190,8 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description><![CDATA[
 <h2>Feature/特性</h2>
+<h4>Code Generation Based on TODO/根据todo生成代码</h4>
+<p>Introduced the ability to generate code based on TODO comments within a project. This feature enables rapid development by transforming actionable TODOs into functional code segments. 在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
 <h4>Natural Language Recognition/自然语言识别</h4>
 <p>Improved the logic for natural language recognition, enhancing accuracy and performance. 改进了自然语言识别逻辑，提高了准确度和性能。</p>
 <h4>Automatic Code Type Recognition/自动识别代码类型</h4>
