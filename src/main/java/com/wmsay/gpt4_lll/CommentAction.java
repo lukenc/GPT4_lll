@@ -10,6 +10,8 @@ import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
+import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -40,7 +42,7 @@ public class CommentAction extends AnAction {
             }
         }
 
-        String model = "gpt-3.5-turbo";
+        String model = "gpt-3.5-turbo-16k";
         String replyLanguage = CommonUtil.getSystemLanguage();
         Project project = e.getProject();
         if (project != null) {
@@ -70,7 +72,7 @@ public class CommentAction extends AnAction {
 
                 message.setRole("user");
                 message.setName("owner");
-                message.setContent("请帮忙使用" + replyLanguage + "语言，在不改变任何逻辑与命名的情况下，写出下面的" + fileType + "代码的注释，注释需要清晰规范，注释不需要每一行都写注释，但是关键步骤必须写注释,所有的返回代码应该在代码块中，代码如下:" + selectedText);
+                message.setContent("请帮忙使用" + replyLanguage + "语言，在不改变任何逻辑与命名的情况下，写出下面的" + fileType + "代码的注释，注释需要清晰规范，注释不需要每一行都写注释，但是关键步骤必须写注释,所有的返回代码应该在一个Markdown语法的代码块中，且回复中只能存在一个代码块，代码如下:" + selectedText);
                 ChatContent chatContent = new ChatContent();
                 chatContent.setMessages(List.of(message, systemMessage));
                 chatContent.setModel(model);
@@ -78,7 +80,10 @@ public class CommentAction extends AnAction {
                 chatHistory.addAll(List.of(message, systemMessage));
 
                 //清理界面
-                WindowTool.clearShowWindow();
+                Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+                if (textArea != null) {
+                    textArea.clearShowWindow();
+                }
                 Thread dochatThread=    new Thread(() -> {
                         GenerateAction.chat(chatContent, project, true);
                     SwingUtilities.invokeLater(() -> deleteSelection(editor,selectStartPosition,selectEndPosition));
