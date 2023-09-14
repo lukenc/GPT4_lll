@@ -290,7 +290,7 @@ public class GenerateAction extends AnAction {
                     coding=true;
                     message.setRole("user");
                     message.setName("owner");
-                    message.setContent("todo后的文字是需要完成的功能，请帮我实现这些描述的功能，同时使用"+fileType+"。代码要严格实现所有todo后的功能，所有的返回代码应该在一个Markdown的代码块中,请使用"+replyLanguage+"回复我，需要实现的代码如下：" + selectedText);
+                    message.setContent("todo后的文字是需要完成的功能，请帮我实现这些描述的功能，同时使用"+fileType+"。代码要严格按照描述，实现所有todo后的功能，所有的返回代码应该在一个Markdown的代码块中，非todo后的描述的需求不要出现在代码块中，请使用"+replyLanguage+"回复我，需要实现的代码如下：" + selectedText);
                     if ("java".equalsIgnoreCase(fileType)) {
                         List<Message> messageList = getClassInfoToMessageType(project, editor);
                         if (!messageList.isEmpty()) {
@@ -670,11 +670,12 @@ public class GenerateAction extends AnAction {
             // 创建一个StringBuffer对象，用于存储类的信息
             StringBuffer classInfoSb = new StringBuffer();
             // 添加类名和属性信息到StringBuffer对象中
-            classInfoSb.append(psiClass.getName()).append("类包含以下属性：");
+            classInfoSb.append("已知").append(psiClass.getName()).append("类包含以下属性：");
             for (PsiField field : fields) {
                 // 添加字段类型和字段名到StringBuffer对象中
                 classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
             }
+            classInfoSb.append("如果上面这个类用不上，可忽略。");
             // 将StringBuffer对象的内容设置为Message对象的内容
             classMessage.setContent(classInfoSb.toString());
             // 返回转换后的Message对象
