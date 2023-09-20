@@ -12,6 +12,39 @@
 
     <change-notes>
     <![CDATA[
+<h2>2.10.0   (2023-09-28)</h2>
+<ul>
+  <li>
+    <h3>FEATURE/功能：</h3>
+    <ul>
+      <li>
+        For the comment generation feature; now adapts to user's naming conventions, ensuring that comments align with expectations even when naming isn't standardized.
+      </li>
+      <li>
+        生成注释的功能：现在可以适应用户的命名习惯，确保即使在命名不规范的情况下，生成的注释内容与预期一致。
+      </li>
+      <li>
+        Upgraded the todo feature; the generated methods now utilize existing methods from related functionalities, preventing repetitive generation of similar methods.
+      </li>
+      <li>
+        todo功能升级：生成的方法现在会使用当前相关功能已有的方法，避免多次生成功能相同的方法。
+      </li>
+    </ul>
+  </li>
+  <li>
+    <h3>IMPROVEMENT/优化：</h3>
+    <ul>
+      <li>
+        Optimized internal algorithms for more efficient comment and method generation.
+      </li>
+      <li>
+        优化内部算法，使注释和方法生成更加高效。
+      </li>
+    </ul>
+  </li>
+</ul>
+
+
 
     <h2>2.9.4   (2023-09-14)</h2>
 <ul>
