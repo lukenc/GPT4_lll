@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.wmsay"
-version = "2.9.5"
+version = "2.10.0"
 
 repositories {
     mavenCentral()
