@@ -19,6 +19,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
+import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
@@ -26,6 +27,7 @@ import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import javax.swing.*;
 import java.net.InetSocketAddress;
@@ -303,6 +305,12 @@ public class GenerateAction extends AnAction {
                     message.setRole("user");
                     message.setName("owner");
                     message.setContent("请帮我重构下面的代码，不局限于代码性能优化、命名优化、增加注释、简化代码、优化逻辑，请使用"+replyLanguage+"回复我，代码如下：" + selectedText);
+                    if ("java".equalsIgnoreCase(fileType)) {
+                        List<Message> messageList = getClassInfoToMessageType(project, editor);
+                        if (!messageList.isEmpty()) {
+                            moreMessageList.addAll(messageList);
+                        }
+                    }
                 }
                 ChatContent chatContent = new ChatContent();
                 List<Message> sendMessageList= new ArrayList<>(List.of(message, systemMessage));
@@ -612,7 +620,7 @@ public class GenerateAction extends AnAction {
     }
 
 
-    public List<Message> getClassInfoToMessageType(Project project, Editor editor) {
+    public static List<Message> getClassInfoToMessageType(Project project, Editor editor) {
         List<Message> res = new ArrayList<>();
 
         PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
@@ -654,7 +662,7 @@ public class GenerateAction extends AnAction {
      * @param project  当前的项目对象
      * @return 转换后的Message对象，如果PsiClass对象不在源代码中则返回null
      */
-    private Message processClass2Message(PsiClass psiClass, Project project) {
+    private static Message processClass2Message(PsiClass psiClass, Project project) {
         // 获取PsiClass对象所在的虚拟文件
         VirtualFile virtualFile = psiClass.getContainingFile().getVirtualFile();
         // 获取项目文件索引
@@ -663,6 +671,7 @@ public class GenerateAction extends AnAction {
         if (fileIndex.isInSourceContent(virtualFile)) {
             // 获取PsiClass对象的所有字段
             PsiField[] fields = psiClass.getFields();
+            PsiMethod[] methods= psiClass.getMethods();
             // 创建一个新的Message对象
             Message classMessage = new Message();
             classMessage.setRole("user");
@@ -674,8 +683,63 @@ public class GenerateAction extends AnAction {
             for (PsiField field : fields) {
                 // 添加字段类型和字段名到StringBuffer对象中
                 classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
+                // 如果字段有备注，则把备注也append进去
+                PsiDocComment docComment = field.getDocComment();
+                if (docComment != null) {
+                    String commentText = extractContentFromDocComment(docComment);
+                    classInfoSb.append("，描述为:").append(commentText);
+                } else {
+                    PsiAnnotation[] annotations = field.getAnnotations();
+                    // 遍历注解数组
+                    for (PsiAnnotation annotation : annotations) {
+                        PsiAnnotationMemberValue value = annotation.findAttributeValue("description");
+                        if (value != null) {
+                            classInfoSb.append("，描述为:").append(value.getText());
+                            break;
+                        }
+                    }
+                }
+                //每个字段需要分隔开
+                classInfoSb.append(" \n");
             }
-            classInfoSb.append("如果上面这个类用不上，可忽略。");
+            if (methods.length > 0) {
+                Set<String> getterAndSetterNames = new HashSet<>();
+                for (PsiField field : psiClass.getFields()) {
+                    String fieldName = field.getName();
+                    String capitalizedFieldName = Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+                    getterAndSetterNames.add("get" + capitalizedFieldName);
+                    getterAndSetterNames.add("set" + capitalizedFieldName);
+                }
+
+                List<PsiMethod> usefulMethod = Arrays.stream(psiClass.getMethods()).filter(psiMethod -> !getterAndSetterNames.contains(psiMethod.getName())).toList();
+                if (CollectionUtils.isNotEmpty(usefulMethod)) {
+                    classInfoSb.append(",包含如下方法：");
+                    for (PsiMethod method : psiClass.getMethods()) {
+                        String methodName = method.getName();
+                        classInfoSb.append("\n方法名: ").append(methodName);
+                        // 输出方法的注释
+                        PsiDocComment docComment = method.getDocComment();
+                        if (docComment != null) {
+                            String extractedContent = extractContentFromDocComment(docComment);
+                            classInfoSb.append(" 用途描述: ").append(extractedContent);
+                        }
+                        // 输出方法的入参
+                        PsiParameter[] parameters = method.getParameterList().getParameters();
+                        if (parameters.length > 0) {
+                            classInfoSb.append(" 调用参数:");
+                            for (PsiParameter parameter : parameters) {
+                                classInfoSb.append("  ").append(parameter.getType().getPresentableText()).append(" ").append(parameter.getName());
+                            }
+                        }
+                        // 输出方法的出参
+                        PsiType returnType = method.getReturnType();
+                        if (returnType != null) {
+                            classInfoSb.append("返回类型: ").append(returnType.getPresentableText());
+                        }
+                    }
+                }
+            }
+            classInfoSb.append("上面这个类提供给你，有助于你更了解情况，但是如果上面这个类用不上，可忽略。");
             // 将StringBuffer对象的内容设置为Message对象的内容
             classMessage.setContent(classInfoSb.toString());
             // 返回转换后的Message对象
@@ -702,6 +766,20 @@ public class GenerateAction extends AnAction {
             }
         }
         return null;
+    }
+
+    private static String extractContentFromDocComment(PsiDocComment docComment) {
+        String fullText = docComment.getText();
+        String content = fullText.replace("/**", "").replace("*/", "").trim();
+        String[] lines = content.split("\n");
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            String trimmedLine = line.trim().replaceFirst("^\\*", "").trim();
+            if (!trimmedLine.startsWith("@")) {  // 过滤掉所有以 @ 开头的 Javadoc 标签
+                sb.append(trimmedLine).append(" ");
+            }
+        }
+        return sb.toString().trim();
     }
 }
 

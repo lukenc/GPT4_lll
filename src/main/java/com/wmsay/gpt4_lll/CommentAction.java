@@ -17,6 +17,7 @@ import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 
 import javax.swing.*;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.wmsay.gpt4_lll.GenerateAction.chatHistory;
@@ -65,6 +66,7 @@ public class CommentAction extends AnAction {
             systemMessage.setContent("你是一个资深的软件开发工程师，会写出详细的文档和代码注释，会使用md语法回复我");
 
             Message message = new Message();
+            List<Message> moreMessageList=new ArrayList<>();
             if (selectedText != null) {
                 chatHistory.clear();
                 selectedText = selectedText.trim();
@@ -73,8 +75,19 @@ public class CommentAction extends AnAction {
                 message.setRole("user");
                 message.setName("owner");
                 message.setContent("请帮忙使用" + replyLanguage + "语言，在不改变任何逻辑与命名的情况下，写出下面的" + fileType + "代码的注释，注释需要清晰规范，注释不需要每一行都写注释，但是关键步骤必须写注释,所有的返回代码应该在一个Markdown语法的代码块中，且回复中只能存在一个代码块，代码如下:" + selectedText);
+                if ("java".equalsIgnoreCase(fileType)) {
+                    List<Message> messageList = GenerateAction.getClassInfoToMessageType(project, editor);
+                    if (!messageList.isEmpty()) {
+                        moreMessageList.addAll(messageList);
+                    }
+                }
                 ChatContent chatContent = new ChatContent();
-                chatContent.setMessages(List.of(message, systemMessage));
+                List<Message> sendMessageList= new ArrayList<>(List.of(message, systemMessage));
+                if (!moreMessageList.isEmpty()){
+                    sendMessageList.addAll(1,moreMessageList);
+                    chatContent.setMessages(sendMessageList);
+                }
+                chatContent.setMessages(sendMessageList);
                 chatContent.setModel(model);
                 chatContent.setTemperature(0.2);
                 chatHistory.addAll(List.of(message, systemMessage));
