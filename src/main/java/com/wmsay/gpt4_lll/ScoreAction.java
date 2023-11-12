@@ -61,10 +61,10 @@ public class ScoreAction extends AnAction {
                 message.setName("owner");
                 message.setContent("评估不限于以下方面：1、类、方法、变量的命名 2、空指针风险 3、数组越界风险 4、并发控制 5、注释完整性 6、异常捕捉及处理 7、日志合规性 8、是否有安全方面的问题 9、是否有性能方面的问题 10、其余方面。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，代码如下:" + selectedText);
                 ChatContent chatContent = new ChatContent();
-                chatContent.setMessages(List.of(message, systemMessage));
+                chatContent.setMessages(List.of(systemMessage,message ));
                 chatContent.setModel(model);
                 chatContent.setTemperature(0.2);
-                chatHistory.addAll(List.of(message, systemMessage));
+                chatHistory.addAll(List.of(systemMessage,message ));
 
                 //清理界面
                 Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);

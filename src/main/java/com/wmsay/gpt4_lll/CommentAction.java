@@ -74,7 +74,7 @@ public class CommentAction extends AnAction {
 
                 message.setRole("user");
                 message.setName("owner");
-                message.setContent("请帮忙使用" + replyLanguage + "语言，在不改变任何逻辑与命名的情况下，写出下面的" + fileType + "代码的注释，注释需要清晰规范，注释不需要每一行都写注释，但是关键步骤必须写注释,所有的返回代码应该在一个Markdown语法的代码块中，且回复中只能存在一个代码块，代码如下:" + selectedText);
+                message.setContent("请帮忙使用" + replyLanguage + "语言，在不改变任何逻辑与命名的情况下，写出下面的" + fileType + "代码的注释，注释需要清晰规范，注释不需要每一行都写注释，但是关键步骤必须写注释,所有的返回代码应该在一个Markdown语法的代码块中，且回复中只能存在一个代码块，且使用行上注释的方式，注释范围仅为如下代码:" + selectedText);
                 if ("java".equalsIgnoreCase(fileType)) {
                     List<Message> messageList = GenerateAction.getClassInfoToMessageType(project, editor);
                     if (!messageList.isEmpty()) {

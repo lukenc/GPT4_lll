@@ -12,6 +12,44 @@
 
     <change-notes>
     <![CDATA[
+<h2>2.11.0   (2023-11-13)</h2>
+<ul>
+  <li>
+    <h3>IMPROVEMENT/优化：</h3>
+    <ul>
+      <li>
+        Enhanced Java Code Recognition: We've specifically focused on Java language this time, further enhancing the code recognition capabilities. This improvement aims to increase the accuracy of generated code, ensuring more precise and relevant responses for Java development scenarios.
+      </li>
+      <li>
+        针对Java的代码识别能力提升: 在这次更新中，我们特别关注了Java语言，进一步提高了其代码识别能力。此次改进旨在提高生成代码的准确度，确保在Java开发场景中获得更精准、相关的响应。
+      </li>
+    </ul>
+  </li>
+</ul>
+
+    <h2>2.10.2   (2023-10-18)</h2>
+<ul>
+  <li>
+    <h3>IMPROVEMENT/优化：</h3>
+    <ul>
+      <li>
+        Code Recognition Enhancement: In various application scenarios, we have further improved code recognition capabilities to ensure users receive the most accurate answers.
+      </li>
+      <li>
+        代码识别优化: 在各种应用场景中，我们进一步提高了代码的识别能力，确保用户能够获得更为精确的答案。
+      </li>
+      <li>
+        Response Quality Upgrade: For all application scenarios, we've refined the responses from ChatGPT, reducing and filtering out irrelevant or ineffective statements to ensure high-quality and practical content in replies.
+      </li>
+      <li>
+        回复内容升级：针对所有应用场景，我们对ChatGPT的响应进行了筛选，减少并滤除了不相关或无效的语句，以保证回复内容的高质量与实用性。
+      </li>
+    </ul>
+  </li>
+</ul>
+
+
+
 <h2>2.10.0   (2023-09-28)</h2>
 <ul>
   <li>
