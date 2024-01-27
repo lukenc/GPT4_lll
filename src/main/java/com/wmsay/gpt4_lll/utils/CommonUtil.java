@@ -224,6 +224,15 @@ public class CommonUtil {
         if (document != null) {
             PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
             if (psiFile != null) {
+                String fileType = psiFile.getFileType().getName();
+                if (!fileType.equalsIgnoreCase("TextMate")) {
+                    return fileType;
+                }else {
+                    String extension = file.getExtension();
+                    if (extension != null) {
+                       return CodeUtils.getLanguageByFileType(extension);
+                    }
+                }
                 return psiFile.getFileType().getName();
             }
         }
