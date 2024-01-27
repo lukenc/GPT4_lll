@@ -12,6 +12,7 @@ import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.utils.CodeUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 
 import java.util.List;
@@ -49,7 +50,7 @@ public class ScoreAction extends AnAction {
             Message systemMessage = new Message();
             systemMessage.setRole("system");
             systemMessage.setName("owner");
-            systemMessage.setContent("你是一个有用的助手，同时也是一个计算机科学家，数据专家，有着多年的代码重构经验和多年的代码优化的架构师");
+            systemMessage.setContent("你是一个计算机科学家，数据专家，有着多年的代码重构经验和多年的代码优化经验的架构师。你对代码的审查十分严格。对于审查评价代码，你总能指出代码中的各种问题，但你不会说不存在的问题，同时也不会遗漏任何一处问题。");
 
             Message message = new Message();
             if (selectedText != null) {
@@ -59,19 +60,29 @@ public class ScoreAction extends AnAction {
 
                 message.setRole("user");
                 message.setName("owner");
-                message.setContent("评估不限于以下方面：1、类、方法、变量的命名 2、空指针风险 3、数组越界风险 4、并发控制 5、注释完整性 6、异常捕捉及处理 7、日志合规性 8、是否有安全方面的问题 9、是否有性能方面的问题 10、其余方面。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，代码如下:" + selectedText);
+                //todo 通过fileType的筛选 确定message的Content，如果fileType中存在TypeScript或者JavaScript，忽略大小写，则message.setContent("1")
+                if ("Vue".equalsIgnoreCase(fileType) || "TypeScript".equalsIgnoreCase(fileType) || "JavaScript".equalsIgnoreCase(fileType) || (fileType != null && fileType.toLowerCase().contains("javascript")) || (fileType != null && fileType.toLowerCase().contains("typescript"))) {
+                    message.setContent("评估不限于以下方面：" + CodeUtils.WEB_DEV_STD + "。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，一定要确保评估的准确性，接下来我将给你需要评估的代码。");
+                } else {
+                    message.setContent("评估不限于以下方面：" + CodeUtils.BACK_END_DEV_STD + "。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，一定要确保评估的准确性，接下来我将给你需要评估的代码。");
+                }
+                Message codeMessage = new Message();
+                codeMessage.setRole("user");
+                codeMessage.setName("owner");
+                codeMessage.setContent("认真对每一项打分，以及总体得分，请开始评估以下代码，：\n"+selectedText);
+
                 ChatContent chatContent = new ChatContent();
-                chatContent.setMessages(List.of(systemMessage,message ));
+                chatContent.setMessages(List.of(systemMessage,message,codeMessage));
                 chatContent.setModel(model);
-                chatContent.setTemperature(0.2);
-                chatHistory.addAll(List.of(systemMessage,message ));
+                chatContent.setTemperature(0.1);
+                chatHistory.addAll(List.of(systemMessage,message,codeMessage));
 
                 //清理界面
                 Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
                 if (textArea != null) {
                     textArea.clearShowWindow();
                 }
-                new Thread(() -> GenerateAction.chat(chatContent, project, false)).start();
+                new Thread(() -> GenerateAction.chat(chatContent, project, false,true,"")).start();
             }
         }
         // TODO: insert action logic here

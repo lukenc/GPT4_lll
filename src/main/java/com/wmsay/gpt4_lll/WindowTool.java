@@ -131,7 +131,7 @@ public class WindowTool implements ToolWindowFactory {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                           String res= GenerateAction.chat(chatContent,project,false);
+                           String res= GenerateAction.chat(chatContent,project,false,true,"");
                         }
                     }).start();
 
