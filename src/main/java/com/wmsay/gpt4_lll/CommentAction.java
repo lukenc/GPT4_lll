@@ -97,11 +97,10 @@ public class CommentAction extends AnAction {
                 if (textArea != null) {
                     textArea.clearShowWindow();
                 }
-                Thread dochatThread=    new Thread(() -> {
-                        GenerateAction.chat(chatContent, project, true);
-                    SwingUtilities.invokeLater(() -> deleteSelection(editor,selectStartPosition,selectEndPosition));
-
-                    });
+                Thread dochatThread = new Thread(() -> {
+                    GenerateAction.chat(chatContent, project, true, true, "");
+                    SwingUtilities.invokeLater(() -> deleteSelection(editor, selectStartPosition, selectEndPosition));
+                });
                 dochatThread.start();
             }
         }
