@@ -37,6 +37,8 @@ public class WindowTool implements ToolWindowFactory {
     private JRadioButton gpt4Option ;
     private JRadioButton gpt35TurboOption ;
     private JRadioButton codeOption;
+    private JRadioButton gpt40TurboOption ;
+
 
     public static volatile Boolean isGenerating=false;
 
@@ -55,20 +57,26 @@ public class WindowTool implements ToolWindowFactory {
         gpt35TurboOption = new JRadioButton("gpt-3.5-turbo");
         codeOption = new JRadioButton("code-davinci-002");
         codeOption.setToolTipText("这是一个专门为代码训练的Gpt3.5模型，token是普通的3.5turbo的2倍，笔者正在努力开发中");
-        codeOption.setEnabled(false);
+        codeOption.setEnabled(true);
+        gpt40TurboOption=new JRadioButton("gpt-4-turbo");
+        gpt40TurboOption.setToolTipText("GPT-4是最新的模型，具备改进的指令跟随、JSON模式、可复现的输出、并行函数调用等功能。该模型最多返回4,096个输出令牌。这个预览模型目前还不适合用于生产环境的流量。");
+
 
         ButtonGroup buttonGroup = new ButtonGroup();
         buttonGroup.add(gpt4Option);
         buttonGroup.add(gpt35TurboOption);
         buttonGroup.add(codeOption);
+        buttonGroup.add(gpt40TurboOption);
         c.gridy = 0;
-        c.weightx = 0.33;
+        c.weightx = 0.25;
         c.weighty = 0.05;  // 10% of the vertical space
         radioButtonPanel.add(gpt4Option, c);
         c.gridx = 1;
         radioButtonPanel.add(gpt35TurboOption, c);
         c.gridx = 2;
         radioButtonPanel.add(codeOption, c);
+        c.gridx=3;
+        radioButtonPanel.add(gpt40TurboOption,c);
         c.gridx = 0;
         c.gridy = 0;
         c.gridwidth = GridBagConstraints.REMAINDER;  // span across all columns

@@ -13,6 +13,7 @@ public class ChatUtils {
             JRadioButton gpt4Option = findRadioButton(contentPanel, "gpt-4");
             JRadioButton gpt35TurboOption = findRadioButton(contentPanel, "gpt-3.5-turbo");
             JRadioButton codeOption = findRadioButton(contentPanel, "code-davinci-002");
+            JRadioButton gpt40TurboOption = findRadioButton(contentPanel, "gpt-4-turbo");
 
             if (gpt4Option != null) {
                 boolean selected = gpt4Option.isSelected();
@@ -30,6 +31,12 @@ public class ChatUtils {
                 boolean selected = codeOption.isSelected();
                 if (selected) {
                     return "code-davinci-002";
+                }
+            }
+            if (gpt40TurboOption != null) {
+                boolean selected = gpt40TurboOption.isSelected();
+                if (selected) {
+                    return "gpt-4-turbo-preview";
                 }
             }
         }
