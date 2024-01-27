@@ -39,7 +39,9 @@ import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -353,7 +355,7 @@ public class GenerateAction extends AnAction {
                 }
                 chatContent.setMessages(sendMessageList);
                 chatContent.setModel(model);
-                chatHistory.addAll(List.of(message, systemMessage));
+                chatHistory.addAll(List.of(systemMessage,message));
                 Boolean finalCoding = coding;
                 //清理界面
                 Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
@@ -363,7 +365,7 @@ public class GenerateAction extends AnAction {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        chat(chatContent, project,finalCoding);
+                        chat(chatContent, project,finalCoding,true,"");
                     }
                 }).start();
 
@@ -373,7 +375,7 @@ public class GenerateAction extends AnAction {
     }
 
 
-    public static String chat(ChatContent content,Project project,Boolean coding){
+    public static String chat(ChatContent content,Project project,Boolean coding,Boolean replyShowInWindow,String loadingNotice){
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String apiKey = settings.getApiKey();
         String proxy = settings.getProxyAddress();
@@ -423,8 +425,18 @@ public class GenerateAction extends AnAction {
                     .header("Accept","text/event-stream")
                     .build();
             AtomicInteger lastInsertPosition = new AtomicInteger(-1);
-            StringBuffer stringBuffer=new StringBuffer();
+            StringBuilder stringBuffer=new StringBuilder();
+        Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+        if (Boolean.FALSE.equals(replyShowInWindow) && StringUtils.isEmpty(loadingNotice)) {
+            loadingNotice = "正在进行多层问题分析...\nConducting multi-step problem analysis...";
+        }
+        if (Boolean.FALSE.equals(replyShowInWindow) ) {
+            textArea.appendContent(loadingNotice);
+        }
             try {
+                final AtomicBoolean isWriting=new AtomicBoolean(false);
+                final AtomicInteger countDot=new AtomicInteger(0);
+                AtomicReference<String> preEndString= new AtomicReference<>("");
                 client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
                         .thenAccept(response -> {
                             response.body().forEach(line -> {
@@ -440,13 +452,19 @@ public class GenerateAction extends AnAction {
                                     if (sseResponse != null) {
                                         String resContent = sseResponse.getChoices().get(0).getDelta().getContent();
                                         if (resContent != null) {
-                                            Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
                                             if (textArea != null) {
-                                                textArea.appendContent(resContent);
+                                                if (Boolean.TRUE.equals(replyShowInWindow)) {
+                                                    textArea.appendContent(resContent);
+                                                }else {
+                                                    if (countDot.get()%4==0&&countDot.get()!=0){
+                                                        textArea.setText(textArea.getText().substring(0,textArea.getText().length()-3));
+                                                    }else {
+                                                        textArea.appendContent(".");
+                                                    }
+                                                }
                                             }
                                             if (Boolean.TRUE.equals(coding)) {
-
-                                                ApplicationManager.getApplication().invokeLater(() -> {
+                                                ApplicationManager.getApplication().invokeAndWait(() -> {
                                                     ApplicationManager.getApplication().runWriteAction(() -> {
                                                         Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
                                                         if (editor != null) {
@@ -468,9 +486,28 @@ public class GenerateAction extends AnAction {
                                                             } else { // This is not the first time, so we insert at the last insert position
                                                                 insertPosition = lastInsertPosition.get();
                                                             }
+                                                            if (resContent.endsWith("`")&&!resContent.startsWith("`")){
+                                                                preEndString.set(resContent);
+                                                                System.out.println(preEndString.get());
+                                                            }
+                                                            if (isWriting.get()&&stringBuffer.indexOf("```") != stringBuffer.lastIndexOf("```") ){
+                                                                isWriting.set(false);
+                                                                if (resContent.contains("```")){
+                                                                    String textToInsert = resContent.split("```")[0];
+                                                                    WriteCommandAction.runWriteCommandAction(project, () ->
+                                                                            document.insertString(insertPosition, textToInsert));
+                                                                    lastInsertPosition.set(insertPosition + textToInsert.length());
+                                                                }else {
+                                                                    String textToInsert = preEndString.get().replace("`","");
+                                                                    WriteCommandAction.runWriteCommandAction(project, () ->
+                                                                            document.insertString(insertPosition, textToInsert));
+                                                                    lastInsertPosition.set(insertPosition + textToInsert.length());
+                                                                }
+                                                            }
 
                                                             if (stringBuffer.indexOf("```") >= 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```") && stringBuffer.lastIndexOf("\n") > stringBuffer.indexOf("```")) {
                                                                 // Insert a newline and the data
+                                                                isWriting.set(true);
                                                                 String textToInsert = resContent.replace("`", "");
                                                                 WriteCommandAction.runWriteCommandAction(project, () ->
                                                                         document.insertString(insertPosition, textToInsert));
