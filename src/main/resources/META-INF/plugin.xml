@@ -2,7 +2,6 @@
 <idea-plugin>
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
     <id>com.wmsay.GPT4_lll</id>
-
     <!-- Public plugin name should be written in Title Case.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
     <name>GPT4_lll</name>
@@ -11,7 +10,78 @@
     <vendor email="892821031@qq.com" url="https://blog.wmsay.com">WMsay</vendor>
 
     <change-notes>
-    <![CDATA[
+        <![CDATA[
+        <h2>3.0.1   (2023-11-17)</h2>
+<ul>
+  <li>
+    <h3>FEATURE/功能：</h3>
+    <ul>
+      <li>
+        Introduced the One-Click Unit Test Generation feature. This new feature automatically generates executable unit test files from selected code blocks, eliminating the need for manual copying and pasting. This enhancement streamlines the testing process, boosting efficiency and simplicity in code testing.
+      </li>
+      <li>
+        推出一键生成单元测试功能。这个新功能能够从选定的代码块自动生成可执行的单元测试文件，省去了手动复制和粘贴的步骤。这一增强功能简化了测试过程，提高了代码测试的效率和简便性。
+      </li>
+      <li>
+        Added a Multi-Dialogue Mechanism for improved content generation. This mechanism allows for more in-depth conversations, enabling our AIGC (Artificial Intelligence Generated Content) system to produce more accurate and refined content based on user interactions.
+      </li>
+      <li>
+        添加了多重对话机制，用于改进内容生成。该机制允许更深入的对话交流，使我们的AIGC（人工智能生成内容）系统能够基于用户互动产生更准确、更精细的内容。
+      </li>
+    </ul>
+  </li>
+  <li>
+    <h3>IMPROVEMENT/优化：</h3>
+    <ul>
+      <li>
+        Enhanced the interaction experience with the AIGC system, ensuring smoother and more efficient communication, leading to better understanding and more precise content results.
+      </li>
+      <li>
+        加强了与AIGC系统的互动体验，确保交流更加流畅和高效，从而更好地理解用户需求，生成更准确的内容结果。
+      </li>
+    </ul>
+  </li>
+</ul>
+
+
+    <h2>2.12.2   (2023-11-17)</h2>
+<ul>
+  <li>
+    <h3>FEATURE/功能：</h3>
+    <ul>
+      <li>
+        Upgraded to the latest GPT-4 Turbo model released by OpenAI on November 6, 2023. This update significantly enhances code generation capabilities, ensuring compatibility with the cutting-edge language modeling advancements for improved code accuracy and execution.
+      </li>
+      <li>
+        升级至OpenAI于2023年11月6日发布的最新GPT-4 Turbo模型。此更新大幅增强了代码生成能力，确保插件与最新的语言建模技术兼容，提高了代码准确性和执行性能。
+      </li>
+      <li>
+        Extended compatibility for Idea Community version users, introducing adaptation logic for various code languages. This enhancement enables the plugin to recognize and adapt to different code languages seamlessly.
+      </li>
+      <li>
+        面向Idea Community版本的用户，增加了对其他代码语言的适配逻辑，使插件能够更好地识别和适应不同的代码语言。
+      </li>
+      <li>
+        Strengthened code assessment capabilities, ensuring stability and reliability in the scoring functionality.
+      </li>
+      <li>
+        加强了代码评估的能力，确保评分功能的稳定性和可靠性。
+      </li>
+    </ul>
+  </li>
+  <li>
+    <h3>IMPROVEMENT/优化：</h3>
+    <ul>
+      <li>
+        Implemented backend and frontend adjustments for code assessment, enhancing stability and performance in both areas.
+      </li>
+      <li>
+        为代码评估进行了前后端调整，提升了稳定性和性能。
+      </li>
+    </ul>
+  </li>
+</ul>
+
 <h2>2.11.0   (2023-11-13)</h2>
 <ul>
   <li>
@@ -259,7 +329,8 @@
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
-    <description><![CDATA[
+    <description>
+        <![CDATA[
 <h2>Feature/特性</h2>
 <h4>Code Generation Based on TODO/根据todo生成代码</h4>
 <p>Introduced the ability to generate code based on TODO comments within a project. This feature enables rapid development by transforming actionable TODOs into functional code segments. 在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
@@ -311,16 +382,18 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.python-core-capable</depends>
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="GPT4_lll" anchor="right" factoryClass="com.wmsay.gpt4_lll.WindowTool" secondary="false" />
+        <toolWindow id="GPT4_lll" anchor="right" factoryClass="com.wmsay.gpt4_lll.WindowTool" secondary="false"/>
         <applicationConfigurable instance="com.wmsay.gpt4_lll.MyPluginConfigurable"/>
         <applicationService serviceImplementation="com.wmsay.gpt4_lll.MyPluginSettings"/>
     </extensions>
     <actions>
         <action id="plugin-info-id" class="com.wmsay.gpt4_lll.PluginInfo" text="PluginInfo" description="Plugin info">
-            <add-to-group group-id="ToolsMenu" anchor="first" />
+            <add-to-group group-id="ToolsMenu" anchor="first"/>
         </action>
         <action id="GenerateActionId" class="com.wmsay.gpt4_lll.GenerateAction" text="GptGenerate"
                 description="圈选生成">
@@ -334,8 +407,11 @@
                 description="评估代码">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
+        <action id="UnitTestId" class="com.wmsay.gpt4_lll.UnitTestAction" text="Gpt4UnitTest(Java)"
+                description="单元测试生成">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
     </actions>
-
 
 
 </idea-plugin>
