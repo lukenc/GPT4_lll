@@ -5,6 +5,7 @@ import com.intellij.openapi.components.*;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
+import javax.swing.*;
 
 @State(
         name = "MyPluginSettings",
@@ -16,6 +17,9 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
         public String proxyAddress;
         public String gptUrl;
 
+        public String baiduAPIKey;
+        public String baiduSecretKey;
+        public String baiduApiUrl;
     }
 
     private State state = new State();
@@ -51,8 +55,32 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
         state.proxyAddress = proxyAddress;
     }
 
+    public String getBaiduAPIKey() {
+        return state.baiduAPIKey;
+    }
+
+    public void setBaiduAPIKey(String baiduAPIKey) {
+        state.baiduAPIKey = baiduAPIKey;
+    }
+
+    public String getBaiduSecretKey() {
+        return state.baiduSecretKey;
+    }
+
+    public void setBaiduSecretKey(String baiduSecretKey) {
+        state.baiduSecretKey = baiduSecretKey;
+    }
+
+    public String getBaiduApiUrl() {
+        return state.baiduApiUrl;
+    }
+
+    public void setBaiduApiUrl(String baiduApiUrl) {
+        state.baiduApiUrl = baiduApiUrl;
+    }
+
     public String getGptUrl() {
-        if (state.gptUrl==null||state.gptUrl.length()==0){
+        if (state.gptUrl==null|| state.gptUrl.isEmpty()){
             return "https://api.openai.com/v1/chat/completions";
         }
         return state.gptUrl;
