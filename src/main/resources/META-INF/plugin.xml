@@ -11,7 +11,41 @@
 
     <change-notes>
         <![CDATA[
-        <h2>3.0.1   (2023-11-17)</h2>
+<h2>3.2.0 (2024-04-07)</h2>
+<li>近期openai对国内（中国）的api账号进行了大量封号处理，重新开一个用不了3天就会封号。故只能拥抱国内大模型--文心一言，希望国内大模型可以蓬勃发展。</li>
+<<li>Recently, OpenAI has banned a large number of API accounts in China. A newly created account would be banned within three days. Therefore, we have to embrace the domestic large model -- ERNIE Bot, hoping that it can flourish.</li>
+
+<ul>
+    <li>
+        <h3>FEATURE/功能：</h3>
+        <ul>
+            <li> Full Compatibility with Baidu's ERNIE Bot. The latest version now seamlessly integrates with Baidu's ERNIE Bot, enabling users to leverage the power of this advanced AI platform for enhanced functionality and seamless experience. </li>
+            <li> 全面适配百度文心一言。最新版本已无缝集成百度文心一言，使用户能够利用这一先进AI平台的力量，增强功能并享受无缝体验。 </li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/问题修复：</h3>
+        <ul>
+            <li> Resolved an issue where generated code was incomplete in certain cases. This update ensures that all code generated is complete and accurate, improving the overall reliability and usability of the system. </li>
+            <li> 修复了个别情况下生成的代码不完整的问题。此次更新确保所有生成的代码完整且准确，提高了系统的整体可靠性和可用性。 </li>
+        </ul>
+    </li>
+    </ul>
+
+
+
+        <h2>3.0.2   (2024-01-31)</h2>
+        <ul>
+            <li>
+                <h3>FIX/修复：</h3>
+                <ul>
+                          <li>去掉无用依赖 </li>
+                          <li>remove useless depends</li>
+                </ul>
+            </li>
+        </ul>
+
+ <h2>3.0.1   (2024-01-31)</h2>
 <ul>
   <li>
     <h3>FEATURE/功能：</h3>
@@ -359,7 +393,13 @@
         <br>
     <p>The development of this plugin was a necessary move. The previous plugin I used required entering personal OPENAI_API_KEY, but unfortunately, my account information was misused, and the data was abused, resulting in the suspension of my account.</p>
     <p>开发这个插件是一种无奈之举。我之前使用的插件要求输入个人的OPENAI_API_KEY，但不幸的是，我的账户信息被滥用，数据被滥用，导致我的账户被封禁。</p>
+        <br>
 
+    <p> it now fully supports Baidu's ERNIE Bot, also known as Wenxin Yiyan. This integration allows users to leverage the powerful capabilities of Wenxin Yiyan for even deeper and more accurate code analysis.</p>
+    <p>现在它完全支持百度的文心一言（ERNIE Bot)。这一集成使用户能够利用文心一言的强大功能进行更深入、更准确的代码分析</p>
+    <br>
+    <p>Given OpenAI's extremely unfriendly attitude towards China, resulting in a large number of account suspensions for Chinese users, I, as a programmer with integrity and spirit, have decided to embrace the excellent domestic large model product - Wenxin Yiyan. If in the future Wenxin Yiyan also fails to meet my needs or exhibits unfriendly behavior, I will resolutely turn to other trustworthy domestic vendors and continue to persevere on my programming journey.</p>
+    <p>鉴于OpenAI对中国持极为不友好的态度，频繁地对中国用户账号进行封禁，作为一名有骨气、有脾气的程序员，我毅然决定转而拥抱国内优秀的大模型产品——文心一言。未来，倘若文心一言也无法满足我的需求或展现出不友好的态度，我将毫不犹豫地转向其他值得信赖的国内厂商，继续坚守我的编程之路。</p>
     <h2>Help/帮助</h2>
     <h3>Usage Guide/使用指南</h3>
     <ol>
@@ -383,7 +423,7 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
     <depends>com.intellij.modules.lang</depends>
-    <depends>com.intellij.modules.python-core-capable</depends>
+<!--    <depends>com.intellij.modules.python-core-capable</depends>-->
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
