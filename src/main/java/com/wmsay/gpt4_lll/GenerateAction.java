@@ -433,7 +433,8 @@ public class GenerateAction extends AnAction {
         if (Boolean.FALSE.equals(replyShowInWindow) ) {
             textArea.appendContent(loadingNotice);
         }
-            try {
+        final AtomicBoolean notExpected=new AtomicBoolean(true);
+        try {
                 final AtomicBoolean isWriting=new AtomicBoolean(false);
                 final AtomicInteger countDot=new AtomicInteger(0);
                 AtomicReference<String> preEndString= new AtomicReference<>("");
@@ -441,7 +442,7 @@ public class GenerateAction extends AnAction {
                         .thenAccept(response -> {
                             response.body().forEach(line -> {
                                 if (line.startsWith("data")) {
-
+                                    notExpected.set(false);
                                     line = line.substring(5);
                                     SseResponse sseResponse = null;
                                     try {
@@ -522,6 +523,8 @@ public class GenerateAction extends AnAction {
                                             stringBuffer.append(resContent);
                                         }
                                     }
+                                }else {
+                                    stringBuffer.append(line);
                                 }
                             });
                         }).join();
@@ -535,6 +538,9 @@ public class GenerateAction extends AnAction {
             message.setContent(replyContent);
             chatHistory.add(message);
             JsonStorage.saveConservation(nowTopic,chatHistory);
+        if (notExpected.get()){
+            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()));
+        }
             return replyContent;
         }
 
