@@ -14,6 +14,7 @@ import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 
 import javax.swing.*;
@@ -43,7 +44,7 @@ public class CommentAction extends AnAction {
             }
         }
 
-        String model = "gpt-3.5-turbo-16k";
+        String model = ChatUtils.getModelName(toolWindow);
         String replyLanguage = CommonUtil.getSystemLanguage();
         Project project = e.getProject();
         if (project != null) {
@@ -61,7 +62,11 @@ public class CommentAction extends AnAction {
             }
             String selectedText = selectionModel.getSelectedText();
             Message systemMessage = new Message();
-            systemMessage.setRole("system");
+            if (model.contains("baidu")){
+                systemMessage.setRole("user");
+            }else {
+                systemMessage.setRole("system");
+            }
             systemMessage.setName("owner");
             systemMessage.setContent("你是一个资深的软件开发工程师，会写出详细的文档和代码注释，会使用md语法回复我");
 
