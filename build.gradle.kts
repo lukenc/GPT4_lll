@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.wmsay"
-version = "3.0.1"
+version = "3.2.0"
 
 repositories {
     mavenCentral()
@@ -13,7 +13,6 @@ repositories {
 }
 dependencies {
     implementation("com.alibaba:fastjson:1.2.83")
-
 }
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
