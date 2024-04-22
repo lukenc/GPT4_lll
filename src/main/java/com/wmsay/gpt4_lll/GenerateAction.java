@@ -26,6 +26,8 @@ import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
+import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
+import com.wmsay.gpt4_lll.utils.AuthUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -272,7 +274,11 @@ public class GenerateAction extends AnAction {
                 return;
             }
             Message systemMessage=new Message();
-            systemMessage.setRole("system");
+            if (model.contains("baidu")){
+                systemMessage.setRole("user");
+            }else {
+                systemMessage.setRole("system");
+            }
             systemMessage.setName("owner");
             systemMessage.setContent("你是一个有用的助手，同时也是一个计算机科学家，数据专家，有着多年的代码开发和重构经验和多年的代码优化的架构师");
 
@@ -377,28 +383,41 @@ public class GenerateAction extends AnAction {
 
     public static String chat(ChatContent content,Project project,Boolean coding,Boolean replyShowInWindow,String loadingNotice){
         MyPluginSettings settings = MyPluginSettings.getInstance();
+        String url = "";
+        if (content.getModel().contains("baidu")){
+            String accessToken= AuthUtils.getBaiduAccessToken();
+            url=settings.getBaiduApiUrl()+"?access_token="+accessToken;
+        }else {
+            url = settings.getGptUrl();
+        }
+        if (url==null||url.isEmpty()){
+            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
+            return "";
+        }
         String apiKey = settings.getApiKey();
         String proxy = settings.getProxyAddress();
-        if (StringUtils.isEmpty(apiKey)){
-            String noticeMessage = """
-                    尚未填写apikey。如果没有，先去申请一个apikey。参考：https://blog.wmsay.com/article/60/
-                    配置：
-                            Settings >> Other Settings >> GPT4 lll Settings
-                    （如果你在国内使用，需要翻墙。参考：https://blog.wmsay.com/article/chatgpt-reg-1）
-                    """;
-            String systemLanguage=CommonUtil.getSystemLanguage();
-            if (!"Chinese".equals(systemLanguage)) {
-                noticeMessage = """
-                         Please apply for an API key first and then fill it in the settings.
-                         To configure it:
+        if (url.contains("openai.com")) {
+            if (StringUtils.isEmpty(apiKey)) {
+                String noticeMessage = """
+                        尚未填写apikey。如果没有，先去申请一个apikey。参考：https://blog.wmsay.com/article/60/
+                        配置：
                                 Settings >> Other Settings >> GPT4 lll Settings
-                         Please refer to the following link for reference:https://blog.wmsay.com/article/60
+                        （如果你在国内使用，需要翻墙。参考：https://blog.wmsay.com/article/chatgpt-reg-1）
                         """;
-            }
-            String finalNoticeMessage = noticeMessage;
-            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, finalNoticeMessage, "ChatGpt", Messages.getInformationIcon()));
+                String systemLanguage = CommonUtil.getSystemLanguage();
+                if (!"Chinese".equals(systemLanguage)) {
+                    noticeMessage = """
+                             Please apply for an API key first and then fill it in the settings.
+                             To configure it:
+                                    Settings >> Other Settings >> GPT4 lll Settings
+                             Please refer to the following link for reference:https://blog.wmsay.com/article/60
+                            """;
+                }
+                String finalNoticeMessage = noticeMessage;
+                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, finalNoticeMessage, "ChatGpt", Messages.getInformationIcon()));
 
-            return "";
+                return "";
+            }
         }
 
         String requestBody= JSON.toJSONString(content);
@@ -412,7 +431,6 @@ public class GenerateAction extends AnAction {
                 SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "格式错误，格式为ip:port", "科学冲浪失败", Messages.getInformationIcon()));
             }
         }
-        String url = settings.getGptUrl();
         HttpClient client = clientBuilder
                 .build()
                 ;
@@ -445,13 +463,28 @@ public class GenerateAction extends AnAction {
                                     notExpected.set(false);
                                     line = line.substring(5);
                                     SseResponse sseResponse = null;
-                                    try {
-                                        sseResponse = JSON.parseObject(line, SseResponse.class);
-                                    } catch (Exception e) {
-                                        //// TODO: 2023/6/9
+                                    BaiduSseResponse baiduSseResponse=null;
+
+                                    if (content.getModel().contains("baidu")){
+                                        try {
+                                            baiduSseResponse = JSON.parseObject(line, BaiduSseResponse.class);
+                                        } catch (Exception e) {
+                                            //// TODO: 2023/6/9
+                                        }
+                                    }else {
+                                        try {
+                                            sseResponse = JSON.parseObject(line, SseResponse.class);
+                                        } catch (Exception e) {
+                                            //// TODO: 2023/6/9
+                                        }
                                     }
-                                    if (sseResponse != null) {
-                                        String resContent = sseResponse.getChoices().get(0).getDelta().getContent();
+                                    if (sseResponse != null||baiduSseResponse!=null) {
+                                        String resContent;
+                                        if (content.getModel().contains("baidu")){
+                                            resContent = baiduSseResponse.getResult();
+                                        }else {
+                                            resContent = sseResponse.getChoices().get(0).getDelta().getContent();
+                                        }
                                         if (resContent != null) {
                                             if (textArea != null) {
                                                 if (Boolean.TRUE.equals(replyShowInWindow)) {
@@ -464,6 +497,7 @@ public class GenerateAction extends AnAction {
                                                     }
                                                 }
                                             }
+                                            stringBuffer.append(resContent);
                                             if (Boolean.TRUE.equals(coding)) {
                                                 ApplicationManager.getApplication().invokeAndWait(() -> {
                                                     ApplicationManager.getApplication().runWriteAction(() -> {
@@ -487,7 +521,7 @@ public class GenerateAction extends AnAction {
                                                             } else { // This is not the first time, so we insert at the last insert position
                                                                 insertPosition = lastInsertPosition.get();
                                                             }
-                                                            if (resContent.endsWith("`")&&!resContent.startsWith("`")){
+                                                            if (isWriting.get()&&resContent.endsWith("`")&&!resContent.startsWith("`")){
                                                                 preEndString.set(resContent);
                                                                 System.out.println(preEndString.get());
                                                             }
@@ -509,7 +543,12 @@ public class GenerateAction extends AnAction {
                                                             if (stringBuffer.indexOf("```") >= 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```") && stringBuffer.lastIndexOf("\n") > stringBuffer.indexOf("```")) {
                                                                 // Insert a newline and the data
                                                                 isWriting.set(true);
-                                                                String textToInsert = resContent.replace("`", "");
+                                                                String textToInsert;
+                                                                if(resContent.contains("```")&&!resContent.endsWith("```")){
+                                                                    textToInsert=resContent.split("```")[1];
+                                                                }else {
+                                                                    textToInsert = resContent.replace("`", "");
+                                                                }
                                                                 WriteCommandAction.runWriteCommandAction(project, () ->
                                                                         document.insertString(insertPosition, textToInsert));
 
@@ -520,7 +559,7 @@ public class GenerateAction extends AnAction {
                                                     });
                                                 });
                                             }
-                                            stringBuffer.append(resContent);
+
                                         }
                                     }
                                 }else {
