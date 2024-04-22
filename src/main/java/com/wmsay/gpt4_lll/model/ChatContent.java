@@ -4,6 +4,7 @@ package com.wmsay.gpt4_lll.model;
 import java.util.List;
 import javax.annotation.Generated;
 import com.google.gson.annotations.Expose;
+import com.wmsay.gpt4_lll.utils.ChatUtils;
 
 @SuppressWarnings("unused")
 public class ChatContent {
@@ -23,6 +24,25 @@ public class ChatContent {
 
     public void setMessages(List<Message> messages) {
         this.messages = messages;
+        if (model!=null&&model.contains("baidu")){
+            adaptBaiduMessages();
+        }
+    }
+
+
+    public void adaptBaiduMessages() {
+        for (int i =0;i<messages.size();i++){
+            Message message=messages.get(i);
+            if (i==0){
+                message.setRole("user");
+            }else {
+                if (i%2==1){
+                    if ("user".equals(message.getRole())){
+                        messages.add(i,ChatUtils.getOddMessage4Baidu());
+                    }
+                }
+            }
+        }
     }
 
     public String getModel() {
@@ -31,6 +51,9 @@ public class ChatContent {
 
     public void setModel(String model) {
         this.model = model;
+        if (model!=null&&model.contains("baidu")&&messages!=null){
+            adaptBaiduMessages();
+        }
     }
 
     public Boolean getStream() {
