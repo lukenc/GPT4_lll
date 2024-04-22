@@ -1,10 +1,18 @@
 package com.wmsay.gpt4_lll.utils;
 
 import com.intellij.openapi.wm.ToolWindow;
+import com.wmsay.gpt4_lll.model.Message;
 
 import javax.swing.*;
 
 public class ChatUtils {
+
+    public static Message getOddMessage4Baidu(){
+        Message message = new Message();
+        message.setRole("assistant");
+        message.setContent("好的。还有更多内容需要提供么？以便让我更好解决您后面的问题。");
+        return message;
+    }
 
     public static String getModelName(ToolWindow toolWindow) {
         if (toolWindow != null && toolWindow.isVisible()) {
