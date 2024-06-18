@@ -5,6 +5,8 @@ import com.alibaba.fastjson.TypeReference;
 import com.intellij.openapi.application.PathManager;
 import com.wmsay.gpt4_lll.MyPluginSettings;
 import com.wmsay.gpt4_lll.model.baidu.TokenInfo;
+import com.wmsay.gpt4_lll.model.server.ApiResponse;
+import com.wmsay.gpt4_lll.model.server.TokenResult;
 
 import java.io.IOException;
 import java.net.URI;
@@ -26,6 +28,9 @@ public class AuthUtils {
 
     private static final String ACCESS_TOKEN_KEY="accessToken";
     private static final String ACCESS_TOKEN_EXPIRE_KEY="expireTime";
+
+    private static final String BAIDU_FREE_ACCESS_TOKEN_KEY="baiduFreeAccessToken";
+    private static final String BAIDU_FREE_ACCESS_TOKEN_EXPIRE_KEY="baiduFreeExpireTime";
 
     public static String getBaiduAccessToken(){
         String accessToken = null;
@@ -82,7 +87,7 @@ public class AuthUtils {
         // 获取当前时间的时间戳（毫秒）
         long now = System.currentTimeMillis();
         // 计算过期时间的时间戳（毫秒）
-        long expirationTimeMillis = now + ((expiresIn.get()-60) * 1000L); // 将秒转换为毫秒
+        long expirationTimeMillis = now + ((expiresIn.get() - 60) * 1000L); // 将秒转换为毫秒
         data.put(ACCESS_TOKEN_EXPIRE_KEY, String.valueOf(expirationTimeMillis));
         try {
             saveData(data);
@@ -91,6 +96,70 @@ public class AuthUtils {
         }
         return accessToken.get();
     }
+
+
+    public static String getFreeBaiduAccessToken(){
+        String accessToken = null;
+        try {
+            LinkedHashMap<String, String> accessTokenInfo= loadData();
+            if (!accessTokenInfo.isEmpty()){
+                String expStr= accessTokenInfo.get(BAIDU_FREE_ACCESS_TOKEN_EXPIRE_KEY);
+                if (expStr!=null){
+                    Long expireDateMilSec=Long.parseLong(expStr);
+                    if (expireDateMilSec> Instant.now().toEpochMilli()){
+                        accessToken=accessTokenInfo.get(BAIDU_FREE_ACCESS_TOKEN_KEY);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        // 如果本地没能成功获取accessToken，则从网络获取
+        if (accessToken==null||accessToken.isEmpty()) {
+            accessToken = getFreeBaiduAccessTokenFromServer();
+        }
+        return accessToken;
+    }
+
+    static String getFreeBaiduAccessTokenFromServer(){
+        AtomicReference<String> accessToken = new AtomicReference<>("");
+        AtomicReference<Date> expiresDate = new AtomicReference<>();
+        HttpClient client = HttpClient.newBuilder()
+                .build()
+                ;
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://blog.wmsay.com/gpt/free/getToken"))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAcceptAsync(stringHttpResponse -> {
+            ApiResponse<TokenResult> tokenInfo= JSON.parseObject(stringHttpResponse.body(), new TypeReference<ApiResponse<TokenResult>>() {});
+            if (tokenInfo.isSuccess()){
+                tokenInfo.getData().getTokenList().forEach(apiToken -> {
+                    if ("BaiduFree".equals(apiToken.getApiModel()) ){
+                        accessToken.set( apiToken.getToken());
+                        expiresDate.set(apiToken.getExpireDate());
+                    }
+                });
+            }
+        }).join();
+        LinkedHashMap<String,String> data = new LinkedHashMap<>();
+        data.put(BAIDU_FREE_ACCESS_TOKEN_KEY,accessToken.get());
+        // 获取当前时间的时间戳（毫秒）
+        data.put(BAIDU_FREE_ACCESS_TOKEN_EXPIRE_KEY, String.valueOf(expiresDate.get().getTime()));
+        try {
+            saveData(data);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return accessToken.get();
+    }
+
+
+
+
 
     public static LinkedHashMap<String, String> loadData() throws IOException {
         if (Files.notExists(FILE_PATH)) {
