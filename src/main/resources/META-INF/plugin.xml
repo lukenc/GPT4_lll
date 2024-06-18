@@ -11,9 +11,64 @@
 
     <change-notes>
         <![CDATA[
+<h2>3.7.0 (2024-06-18)</h2>
+<ul>
+    <li>
+        <h3>界面优化/UI Improvement:</h3>
+        <ul>
+            <li>我们对用户界面进行了全面调整，使其更加直观和现代，提升用户体验。</li>
+            <li>We have comprehensively adjusted the user interface to make it more intuitive and modern, enhancing the user experience.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>新功能/New Feature:</h3>
+        <ul>
+            <li>添加了多行输入框，并支持输入框placeholder提示，让用户更便捷地输入和编辑文本。</li>
+            <li>Added a multi-line input box with placeholder support for easier text input and editing.</li>
+
+            <li>引入了新建会话功能，使插件能够像web客户端一样，只需配置自己的API信息，即可流畅地与GPT进行对话，从而节省每月web端的月费。</li>
+            <li>Introduced a new conversation creation feature that allows the plugin to function like a web client, enabling smooth conversations with GPT by simply configuring your own API information, thus saving monthly web client fees.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>问题修复/Bug Fix:</h3>
+        <ul>
+            <li>修复了多轮对话终止的判断条件，确保对话可以在正确的时候停止，避免不必要的资源浪费。</li>
+            <li>Fixed the termination condition for multi-round conversations, ensuring that conversations can stop at the right time to avoid unnecessary resource wastage.</li>
+        </ul>
+    </li>
+</ul>
+
+
+
+<h2>3.6.0 (2024-05-28)</h2>
+<li>免费！免费！为了提供更好的用户体验，我们新增了免费的模型供用户使用。新用户可以通过免费模型体验插件的功能，老用户则可以通过使用免费的模型来节省自己的API和科学梯子资源。</li>
+<li>FREE!FREE! To provide a better user experience, we have added a free model for users to use. New users can experience the plugin's functionality through the free model, while existing users can save their API and proxy resources by using the free model.</li>
+
+<ul>
+    <li>
+        <h3>FEATURE/功能：</h3>
+        <ul>
+            <li> Added a free model for users. This allows new users to experience the full functionality of the plugin without any initial cost, and helps existing users save on their API usage and proxy resources.</li>
+            <li> 新增了免费的模型供用户使用。这使得新用户可以在没有任何初始费用的情况下体验插件的全部功能，并帮助老用户节省API使用和科学梯子资源。</li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/问题修复：</h3>
+        <ul>
+            <li> Resolved an issue where conversations could not proceed due to incorrect time format. This fix ensures that all conversations can continue smoothly without interruption.</li>
+            <li> 修复了由于时间格式导致无法进行对话的问题。此修复确保所有对话可以顺利进行而不中断。</li>
+        </ul>
+    </li>
+</ul>
+
+
+
+
+
 <h2>3.2.0 (2024-04-07)</h2>
 <li>近期openai对国内（中国）的api账号进行了大量封号处理，重新开一个用不了3天就会封号。故只能拥抱国内大模型--文心一言，希望国内大模型可以蓬勃发展。</li>
-<<li>Recently, OpenAI has banned a large number of API accounts in China. A newly created account would be banned within three days. Therefore, we have to embrace the domestic large model -- ERNIE Bot, hoping that it can flourish.</li>
+<li>Recently, OpenAI has banned a large number of API accounts in China. A newly created account would be banned within three days. Therefore, we have to embrace the domestic large model -- ERNIE Bot, hoping that it can flourish.</li>
 
 <ul>
     <li>
@@ -365,7 +420,10 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description>
         <![CDATA[
+
 <h2>Feature/特性</h2>
+<h4>Free AIGC Access/免费使用AIGC</h4>
+<p>The AIGC capability is now freely available to all users. Enjoy intelligent generation services at no extra cost. However, due to high demand, you may need to queue each time you use this feature. AIGC能力现已向所有用户免费开放。无需额外费用，即可享受智能化的生成服务。但由于使用人数过多，每次使用此功能时可能需要排队等待。</p>
 <h4>Code Generation Based on TODO/根据todo生成代码</h4>
 <p>Introduced the ability to generate code based on TODO comments within a project. This feature enables rapid development by transforming actionable TODOs into functional code segments. 在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
 <h4>Natural Language Recognition/自然语言识别</h4>
