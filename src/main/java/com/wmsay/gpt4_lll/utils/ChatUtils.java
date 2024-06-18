@@ -14,6 +14,13 @@ public class ChatUtils {
         return message;
     }
 
+    public static Message getContinueMessage4Baidu(){
+        Message message = new Message();
+        message.setRole("user");
+        message.setContent("请按照上面的要求，继续完成。");
+        return message;
+    }
+
     public static String getModelName(ToolWindow toolWindow) {
         if (toolWindow != null && toolWindow.isVisible()) {
             JPanel contentPanel = (JPanel) toolWindow.getContentManager().getContent(0).getComponent();
