@@ -385,72 +385,23 @@ public class GenerateAction extends AnAction {
 
     public static String chat(ChatContent content,Project project,Boolean coding,Boolean replyShowInWindow,String loadingNotice){
         MyPluginSettings settings = MyPluginSettings.getInstance();
-        String url = "";
-        if (content.getModel().contains("baidu")){
-            String accessToken= AuthUtils.getBaiduAccessToken();
-            url=settings.getBaiduApiUrl()+"?access_token="+accessToken;
-            if (content.getModel().contains("free")){
-                //todo 使用新的账号的认证。
-                accessToken=AuthUtils.getFreeBaiduAccessToken();
-                url="https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k"+"?access_token="+accessToken;
-            }
-        }else {
-            url = settings.getGptUrl();
-        }
+        String url = ChatUtils.getUrl(content, settings);
         if (url==null||url.isEmpty()){
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
             return "";
         }
         String apiKey = settings.getApiKey();
         String proxy = settings.getProxyAddress();
-        if (url.contains("openai.com")) {
-            if (StringUtils.isEmpty(apiKey)) {
-                String noticeMessage = """
-                        尚未填写apikey。如果没有，先去申请一个apikey。参考：https://blog.wmsay.com/article/60/
-                        配置：
-                                Settings >> Other Settings >> GPT4 lll Settings
-                        （如果你在国内使用，需要翻墙。参考：https://blog.wmsay.com/article/chatgpt-reg-1）
-                        """;
-                String systemLanguage = CommonUtil.getSystemLanguage();
-                if (!"Chinese".equals(systemLanguage)) {
-                    noticeMessage = """
-                             Please apply for an API key first and then fill it in the settings.
-                             To configure it:
-                                    Settings >> Other Settings >> GPT4 lll Settings
-                             Please refer to the following link for reference:https://blog.wmsay.com/article/60
-                            """;
-                }
-                String finalNoticeMessage = noticeMessage;
-                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, finalNoticeMessage, "ChatGpt", Messages.getInformationIcon()));
-
-                return "";
-            }
+        if (url.contains("openai.com")&&StringUtils.isEmpty(apiKey)) {
+            ChatUtils.showOpenaiApiKeyMessageDialog(project);
+            return "";
         }
 
         String requestBody= JSON.toJSONString(content);
-        HttpClient.Builder clientBuilder=HttpClient.newBuilder();
-        if (StringUtils.isNotEmpty(proxy)) {
-            String[] addressAndPort = proxy.split(":");
-            if (addressAndPort.length == 2 && isValidPort(addressAndPort[1])) {
-                int port = Integer.parseInt(addressAndPort[1]);
-                clientBuilder.proxy(ProxySelector.of(new InetSocketAddress(addressAndPort[0], port)));
-            } else {
-                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "格式错误，格式为ip:port", "科学冲浪失败", Messages.getInformationIcon()));
-            }
-        }
-        HttpClient client = clientBuilder
-                .build()
-                ;
 
-        HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .header("Authorization","Bearer "+apiKey)
-                    .header("Content-Type","application/json")
-                    .header("Accept","text/event-stream").timeout(Duration.ofMinutes(2))
-                    .build();
-            AtomicInteger lastInsertPosition = new AtomicInteger(-1);
-            StringBuilder stringBuffer=new StringBuilder();
+        HttpClient client = ChatUtils.buildHttpClient(proxy, project);
+        HttpRequest request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
+
         Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
         if (Boolean.FALSE.equals(replyShowInWindow) && StringUtils.isEmpty(loadingNotice)) {
             loadingNotice = "正在进行多层问题分析...\nConducting multi-step problem analysis...";
@@ -458,10 +409,13 @@ public class GenerateAction extends AnAction {
         if (Boolean.FALSE.equals(replyShowInWindow) ) {
             textArea.appendContent(loadingNotice);
         }
-        final AtomicBoolean notExpected=new AtomicBoolean(true);
+
+        AtomicInteger lastInsertPosition = new AtomicInteger(-1);
+        StringBuilder stringBuffer = new StringBuilder();
+        final AtomicBoolean notExpected = new AtomicBoolean(true);
+        final AtomicBoolean isWriting = new AtomicBoolean(false);
+        final AtomicInteger countDot = new AtomicInteger(0);
         try {
-                final AtomicBoolean isWriting=new AtomicBoolean(false);
-                final AtomicInteger countDot=new AtomicInteger(0);
             AtomicReference<String> preEndString= new AtomicReference<>("");
                 client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
                         .thenAccept(response -> {
@@ -588,17 +542,8 @@ public class GenerateAction extends AnAction {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()));
         }
         if (content.getModel().contains("baidu")){
-
-            if (!replyContent.trim().replaceAll("\\n|\\r", "").endsWith(".")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("。")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("?")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("？")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("！")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("!")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("}")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith(";")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("；")
-                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("```")) {
+            //判断是否需要继续未完成的内容
+            if (Boolean.TRUE.equals(ChatUtils.needsContinuation(replyContent))) {
                 chatHistory.add(ChatUtils.getContinueMessage4Baidu());
                 content.setMessages(chatHistory);
                 chat(content, project, coding, replyShowInWindow, loadingNotice);
@@ -608,18 +553,6 @@ public class GenerateAction extends AnAction {
         }
 
 
-
-
-        public static boolean isValidPort(String portStr) {
-            try {
-                int port = Integer.parseInt(portStr);
-            // 端口范围必须在0-65535之间
-            return port >= 0 && port <= 65535;
-        } catch (NumberFormatException e) {
-            // 如果无法解析为整数，则返回false
-            return false;
-        }
-    }
 
 
 
