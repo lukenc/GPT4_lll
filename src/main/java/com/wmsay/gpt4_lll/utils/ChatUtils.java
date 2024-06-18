@@ -30,6 +30,14 @@ public class ChatUtils {
             JRadioButton codeOption = findRadioButton(contentPanel, "code-davinci-002");
             JRadioButton gpt40TurboOption = findRadioButton(contentPanel, "gpt-4-turbo");
             JRadioButton baiduOption = findRadioButton(contentPanel, "文心一言-baidu");
+            JRadioButton freeBaiduOption = findRadioButton(contentPanel,"Free-免费");
+
+            if (freeBaiduOption != null) {
+                boolean selected = freeBaiduOption.isSelected();
+                if (selected) {
+                    return "baidu-free";
+                }
+            }
 
             if (gpt4Option != null) {
                 boolean selected = gpt4Option.isSelected();
