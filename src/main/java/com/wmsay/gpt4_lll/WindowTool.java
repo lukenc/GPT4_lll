@@ -4,8 +4,10 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.ui.CollectionListModel;
@@ -14,6 +16,7 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 
+import com.wmsay.gpt4_lll.component.Gpt4lllPlaceholderTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
@@ -27,6 +30,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
 
@@ -40,6 +44,7 @@ public class WindowTool implements ToolWindowFactory {
     private JRadioButton gpt40TurboOption ;
     private JRadioButton baiduOption ;
 
+    private JRadioButton freeOption;
 
     public static volatile Boolean isGenerating=false;
 
@@ -54,6 +59,8 @@ public class WindowTool implements ToolWindowFactory {
 
         //语言模型选择
         JPanel radioButtonPanel = new JPanel(new GridBagLayout());
+        freeOption = new JRadioButton("Free-免费");
+        freeOption.setToolTipText("use author's api usage，need to wait in line./使用作者自己的api，但需要排队等待");
         gpt4Option = new JRadioButton("gpt-4");
         gpt35TurboOption = new JRadioButton("gpt-3.5-turbo");
         codeOption = new JRadioButton("code-davinci-002");
@@ -66,14 +73,30 @@ public class WindowTool implements ToolWindowFactory {
 
 
         ButtonGroup buttonGroup = new ButtonGroup();
+        buttonGroup.add(freeOption);
         buttonGroup.add(gpt4Option);
         buttonGroup.add(gpt35TurboOption);
         buttonGroup.add(codeOption);
         buttonGroup.add(gpt40TurboOption);
         buttonGroup.add(baiduOption);
+        //第一行
         c.gridy = 0;
-        c.weightx = 0.25;
+        c.gridx = 0;
+        c.weightx = 0.4;
+        c.gridwidth = 2;
         c.weighty = 0.05;  // 10% of the vertical space
+        radioButtonPanel.add(freeOption,c);
+        c.gridx=2;
+        c.gridwidth = 2;
+        c.weightx = 0.4;
+        radioButtonPanel.add(baiduOption,c);
+
+        //第二行
+        c.gridwidth = 1;
+        c.weightx = 0.20;
+        c.weighty = 0.05;
+        c.gridy = 1;
+        c.gridx = 0;
         radioButtonPanel.add(gpt4Option, c);
         c.gridx = 1;
         radioButtonPanel.add(gpt35TurboOption, c);
@@ -81,8 +104,7 @@ public class WindowTool implements ToolWindowFactory {
         radioButtonPanel.add(codeOption, c);
         c.gridx=3;
         radioButtonPanel.add(gpt40TurboOption,c);
-        c.gridx=4;
-        radioButtonPanel.add(baiduOption,c);
+
         c.gridx = 0;
         c.gridy = 0;
         c.gridwidth = GridBagConstraints.REMAINDER;  // span across all columns
@@ -96,20 +118,23 @@ public class WindowTool implements ToolWindowFactory {
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
-        c.gridy = 1;
-        c.weightx = 1;
-        c.weighty = 0.8;  // 80% of the vertical space
-        panel.add(scrollPane,c);
-        //对话框
-        JTextField textField = new JTextField(30);
-
-        c = new GridBagConstraints();
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridx = 0;
         c.gridy = 2;
         c.weightx = 1;
-        c.weighty = 0.1;
-        panel.add(textField, c);
+        c.weighty = 0.75;  // 75% of the vertical space
+        panel.add(scrollPane,c);
+        //对话框
+
+        Gpt4lllPlaceholderTextArea textField = new Gpt4lllPlaceholderTextArea("请输入内容/input here");
+        JScrollPane scrollInputPane = new JBScrollPane(textField);
+        scrollInputPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollInputPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        c = new GridBagConstraints();
+        c.fill = GridBagConstraints.BOTH;
+        c.gridx = 0;
+        c.gridy = 3;
+        c.weightx = 1;
+        c.weighty = 0.05;
+        panel.add(scrollInputPane, c);
 
         JButton button = new JButton("发送聊天/Send message");
         button.addActionListener(new ActionListener() {
@@ -117,11 +142,15 @@ public class WindowTool implements ToolWindowFactory {
             public void actionPerformed(ActionEvent e) {
                 Gpt4lllTextArea area= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
                 String input = textField.getText();
+                if(StringUtil.isEmpty(input)){
+                    Messages.showMessageDialog(project, "Please enter what you want to say in the chat box first, and then click Send\n请先在聊天框中输入您想说的话，然后再点击发送哦~", "Error", Messages.getErrorIcon());
+                    return;
+                }
                 area.appendContent("\n\n- - - - - - - - - - - \n");
                 area.appendContent("YOU:"+input);
                 area.appendContent("\n- - - - - - - - - - - \n");
                 if (GenerateAction.nowTopic.isEmpty()){
-                    GenerateAction.nowTopic=GenerateAction.formatter.format(LocalDate.now())+"--Chat:"+input;
+                    GenerateAction.nowTopic=GenerateAction.formatter.format(LocalDateTime.now())+"--Chat:"+input;
                 }
 
                 Message message=new Message();
@@ -134,11 +163,8 @@ public class WindowTool implements ToolWindowFactory {
                 chatContent.setMessages(GenerateAction.chatHistory);
                 String model=getModelName(toolWindow);
                 chatContent.setModel(model);
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                           String res= GenerateAction.chat(chatContent,project,false,true,"");
-                        }
+                    new Thread(() -> {
+                       String res= GenerateAction.chat(chatContent,project,false,true,"");
                     }).start();
 
 
@@ -148,10 +174,32 @@ public class WindowTool implements ToolWindowFactory {
         c = new GridBagConstraints();
         c.fill = GridBagConstraints.HORIZONTAL;
         c.gridx = 0;
-        c.gridy = 3;
+        c.gridy = 4;
         c.weightx = 1;
-        c.weighty = 0.05;  // 10% of the vertical space
+//        c.weighty = 0.05;  // 10% of the vertical space
         panel.add(button, c);
+
+        JPanel newAndHistoryPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5)); // 左侧对齐，水平和垂直间隔为5像素
+
+        // 创建“新建会话”按钮并添加图标（如果需要）
+        JButton newSessionButton = new JButton("新建会话/New Session");
+        newSessionButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // todo 新建会话的逻辑
+                if (GenerateAction.chatHistory!=null&&!GenerateAction.chatHistory.isEmpty()&&!GenerateAction.nowTopic.isEmpty()){
+                    JsonStorage.saveConservation(GenerateAction.nowTopic,GenerateAction.chatHistory);
+                    GenerateAction.chatHistory.clear();
+                }
+                GenerateAction.nowTopic="";
+                readOnlyTextArea.setText("");
+
+            }
+        });
+        newAndHistoryPanel.add(newSessionButton);
+
+
+
         JButton historyButton = new JButton("历史记录/chat history");
         historyButton.addActionListener(new ActionListener() {
             @Override
@@ -159,18 +207,23 @@ public class WindowTool implements ToolWindowFactory {
                showPopup(project);
             }
         });
+        newAndHistoryPanel.add(historyButton, c);
+
         c = new GridBagConstraints();
         c.fill = GridBagConstraints.HORIZONTAL;
         c.gridx = 0;
-        c.gridy = 4;
+        c.gridy = 5;
         c.weightx = 1;
-        c.weighty = 0.05;
-        panel.add(historyButton, c);
+        c.insets = new Insets(5, 0, 5, 0); // 设置外部间距（上、左、下、右）
+        panel.add(newAndHistoryPanel,c);
+//        c.weighty = 0.05;
 
 
         SwingUtilities.invokeLater(() -> {
-            gpt35TurboOption.setSelected(true);
+            freeOption.setSelected(true);
         });
+
+
 
         // 在此处添加你的插件界面的组件和布局
         ContentFactory contentFactory = ContentFactory.getInstance();
