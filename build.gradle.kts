@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.wmsay"
-version = "3.2.0"
+version = "3.7.0"
 
 repositories {
     mavenCentral()
@@ -35,7 +35,7 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("222")
-        untilBuild.set("233.*")
+        untilBuild.set("241.*")
     }
 
     signPlugin {
