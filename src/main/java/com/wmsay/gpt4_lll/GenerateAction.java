@@ -28,6 +28,7 @@ import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
 import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
 import com.wmsay.gpt4_lll.utils.AuthUtils;
+import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -38,6 +39,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -387,6 +389,11 @@ public class GenerateAction extends AnAction {
         if (content.getModel().contains("baidu")){
             String accessToken= AuthUtils.getBaiduAccessToken();
             url=settings.getBaiduApiUrl()+"?access_token="+accessToken;
+            if (content.getModel().contains("free")){
+                //todo 使用新的账号的认证。
+                accessToken=AuthUtils.getFreeBaiduAccessToken();
+                url="https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k"+"?access_token="+accessToken;
+            }
         }else {
             url = settings.getGptUrl();
         }
@@ -440,7 +447,7 @@ public class GenerateAction extends AnAction {
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .header("Authorization","Bearer "+apiKey)
                     .header("Content-Type","application/json")
-                    .header("Accept","text/event-stream")
+                    .header("Accept","text/event-stream").timeout(Duration.ofMinutes(2))
                     .build();
             AtomicInteger lastInsertPosition = new AtomicInteger(-1);
             StringBuilder stringBuffer=new StringBuilder();
@@ -455,7 +462,7 @@ public class GenerateAction extends AnAction {
         try {
                 final AtomicBoolean isWriting=new AtomicBoolean(false);
                 final AtomicInteger countDot=new AtomicInteger(0);
-                AtomicReference<String> preEndString= new AtomicReference<>("");
+            AtomicReference<String> preEndString= new AtomicReference<>("");
                 client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
                         .thenAccept(response -> {
                             response.body().forEach(line -> {
@@ -579,6 +586,23 @@ public class GenerateAction extends AnAction {
             JsonStorage.saveConservation(nowTopic,chatHistory);
         if (notExpected.get()){
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()));
+        }
+        if (content.getModel().contains("baidu")){
+
+            if (!replyContent.trim().replaceAll("\\n|\\r", "").endsWith(".")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("。")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("?")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("？")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("！")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("!")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("}")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith(";")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("；")
+                    && !replyContent.trim().replaceAll("\\n|\\r", "").endsWith("```")) {
+                chatHistory.add(ChatUtils.getContinueMessage4Baidu());
+                content.setMessages(chatHistory);
+                chat(content, project, coding, replyShowInWindow, loadingNotice);
+            }
         }
             return replyContent;
         }
