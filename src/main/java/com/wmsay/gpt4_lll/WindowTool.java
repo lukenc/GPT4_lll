@@ -16,6 +16,7 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 
+import com.intellij.util.ui.JBUI;
 import com.wmsay.gpt4_lll.component.Gpt4lllPlaceholderTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
@@ -23,13 +24,10 @@ import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 
 import javax.swing.*;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.html.HTMLDocument;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
@@ -55,6 +53,7 @@ public class WindowTool implements ToolWindowFactory {
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
         readOnlyTextArea= new Gpt4lllTextArea();
+        readOnlyTextArea.setContentType("text/html");
         project.putUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA,readOnlyTextArea);
 
         //语言模型选择
@@ -113,14 +112,16 @@ public class WindowTool implements ToolWindowFactory {
 
         // 创建只读文本框
         readOnlyTextArea.setEditable(false);
+        readOnlyTextArea.clearShowWindow();
 
-        readOnlyTextArea.setText("");
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
+        Insets insets = JBUI.insets(0, 5, 15, 5); // 设置上下左右各10像素的边距
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
         c.gridy = 2;
-        c.weightx = 1;
+        c.weightx = 0.9;
         c.weighty = 0.75;  // 75% of the vertical space
+        c.insets = insets;
         panel.add(scrollPane,c);
         //对话框
 
@@ -192,7 +193,7 @@ public class WindowTool implements ToolWindowFactory {
                     GenerateAction.chatHistory.clear();
                 }
                 GenerateAction.nowTopic="";
-                readOnlyTextArea.setText("");
+                readOnlyTextArea.clearShowWindow();
 
             }
         });
@@ -231,26 +232,11 @@ public class WindowTool implements ToolWindowFactory {
         toolWindow.getContentManager().addContent(content);
     }
 
-    Editor getEditor(AnActionEvent e) {
-        return e.getRequiredData(CommonDataKeys.EDITOR);
-    }
-
-
-    public void clearShowWindow() {
-        readOnlyTextArea.setText("");
-    }
 
 
 
-    public static void appendContentToEditorPane(JEditorPane editorPane, String content) {
-        HTMLDocument document = (HTMLDocument) editorPane.getDocument();
-        try {
-            int length = document.getLength();
-            document.insertAfterEnd(document.getCharacterElement(length), content);
-        } catch (BadLocationException | IOException e) {
-            e.printStackTrace();
-        }
-    }
+
+
 
     public void showPopup(Project project) {
         Map<String ,List<Message>> historyData= new LinkedHashMap<>();
