@@ -1,17 +1,46 @@
 package com.wmsay.gpt4_lll.component;
 
+import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.profile.pegdown.Extensions;
+import com.vladsch.flexmark.profile.pegdown.PegdownOptionsAdapter;
+import com.vladsch.flexmark.util.data.DataHolder;
 import com.wmsay.gpt4_lll.model.Message;
 
 import javax.swing.*;
 
 public class Gpt4lllTextArea extends JEditorPane {
-    public void clearShowWindow() {
-        setText("");
+    private Parser parser;
+    private HtmlRenderer renderer;
+    private StringBuilder contentBuilder;
+
+    final private static DataHolder OPTIONS = PegdownOptionsAdapter.flexmarkOptions(
+            Extensions.ALL
+    );
+    public Gpt4lllTextArea() {
+        setContentType("text/html");
+        setEditable(false);
+        contentBuilder = new StringBuilder("<html><body style='width: 100%; word-wrap: break-word;'>");
+
+        parser = Parser.builder(OPTIONS).build();
+        renderer = HtmlRenderer.builder(OPTIONS).build();
     }
 
-    public void appendContent(String content) {
-        setText(getText()+content);
+    public void clearShowWindow() {
+        contentBuilder.setLength(0);
+        updateText();
+    }
+    private void updateText() {
+        String html = renderer.render(parser.parse(contentBuilder.toString()));
+        setText("<html><body style='width: 100%; word-wrap: break-word;'>" + html + "</body></html>");
+
         setCaretPosition(getDocument().getLength());
+    }
+
+
+    public void appendContent(String content) {
+        contentBuilder.append(content);
+        updateText();
     }
 
 
@@ -33,10 +62,23 @@ public class Gpt4lllTextArea extends JEditorPane {
             String xuqiu=str[1];
             setText(getText()+"Complete："+xuqiu);
         } else if (content.getContent().startsWith("请帮忙使用")) {
-            String[] str= content.getContent().split("代码如下:");
+            String[] str= content.getContent().split("如下代码:");
+            if (str.length<2){
+                str= content.getContent().split("代码如下:");
+            }
             String xuqiu=str[1];
             setText(getText()+"Comment："+xuqiu);
-        } else
+        }
+        else if (content.getContent().startsWith("评估不限于以下")) {
+            String[] str= content.getContent().split("如下代码:");
+            if (str.length<2){
+                str= content.getContent().split("代码如下:");
+            }
+            String xuqiu=str[1];
+            setText(getText()+"Score："+xuqiu);
+        }
+
+        else
         {
             appendContent("\n\n- - - - - - - - - - - \n");
             if (content.getRole().equals("user")){
