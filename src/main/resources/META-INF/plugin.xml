@@ -11,6 +11,33 @@
 
     <change-notes>
         <![CDATA[
+
+<h2>3.7.2 (2024-06-19)</h2>
+<ul>
+    <li>
+        <h3>界面优化/UI Improvement:</h3>
+        <ul>
+            <li>我们对聊天工具窗口内容进行了重构，使其更加美观，并能够显示 HTML 内容，例如代码块、图片等。</li>
+            <li>We have refactored the chat tool window content to make it more aesthetically pleasing and capable of displaying HTML content, such as code blocks and images.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>新功能/New Feature:</h3>
+        <ul>
+            <li>内容展示框现在将 MD 解析为 HTML。</li>
+            <li>The content display box now parses MD into HTML.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>问题修复/Bug Fix:</h3>
+        <ul>
+            <li>修复了当用户输入文本后，再次失去焦点时，如果输入的文本为空，则获取内容时为占位符的问题。</li>
+            <li>Fixed the issue where the placeholder was retrieved if the input text was empty after the user lost focus.</li>
+        </ul>
+    </li>
+</ul>
+
+
 <h2>3.7.0 (2024-06-18)</h2>
 <ul>
     <li>
