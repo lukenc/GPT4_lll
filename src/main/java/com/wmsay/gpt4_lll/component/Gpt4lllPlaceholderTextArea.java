@@ -3,6 +3,8 @@ package com.wmsay.gpt4_lll.component;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
 import java.awt.*;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
@@ -73,4 +75,20 @@ public class Gpt4lllPlaceholderTextArea extends JTextArea {
     public String getUserInput() {
         return isPlaceholderSet ? "" : getText();
     }
+
+    @Override
+    public String getText() {
+        if (isPlaceholderSet){
+            return "";
+        }
+            Document doc = getDocument();
+        String txt;
+        try {
+            txt = doc.getText(0, doc.getLength());
+        } catch (BadLocationException e) {
+            txt = null;
+        }
+        return txt;
+    }
+
 }
