@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.wmsay"
-version = "3.7.2"
+version = "3.8.1"
 
 repositories {
     mavenCentral()
@@ -13,11 +13,16 @@ repositories {
 }
 dependencies {
     implementation("com.alibaba:fastjson:1.2.83")
+    implementation("com.vladsch.flexmark:flexmark:0.64.8")
+    implementation("com.vladsch.flexmark:flexmark-util-html:0.64.8")
+    implementation("org.mozilla:rhino:1.7.15")
+    implementation("org.jsoup:jsoup:1.17.2")
+
 }
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
 intellij {
-    version.set("2022.2.5")
+    version.set("2024.1.3")
 //    type.set("IC") // Target IDE Platform
     plugins.set(listOf("com.intellij.java"))
 //    plugins.set(listOf(/* Plugin Dependencies */))
@@ -35,7 +40,7 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("222")
-        untilBuild.set("241.*")
+        untilBuild.set("242.*")
     }
 
     signPlugin {
