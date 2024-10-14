@@ -2,9 +2,7 @@ package com.wmsay.gpt4_lll.component;
 
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
-import com.vladsch.flexmark.profile.pegdown.Extensions;
-import com.vladsch.flexmark.profile.pegdown.PegdownOptionsAdapter;
-import com.vladsch.flexmark.util.data.DataHolder;
+import com.vladsch.flexmark.util.data.MutableDataSet;
 import com.wmsay.gpt4_lll.model.Message;
 
 import javax.swing.*;
@@ -14,14 +12,15 @@ public class Gpt4lllTextArea extends JEditorPane {
     private HtmlRenderer renderer;
     private StringBuilder contentBuilder;
 
-    final private static DataHolder OPTIONS = PegdownOptionsAdapter.flexmarkOptions(
-            Extensions.ALL
-    );
+
+    MutableDataSet OPTIONS ;
+
+
     public Gpt4lllTextArea() {
         setContentType("text/html");
         setEditable(false);
-        contentBuilder = new StringBuilder("<html><body style='width: 100%; word-wrap: break-word;'>");
-
+        contentBuilder = new StringBuilder();
+        OPTIONS = new MutableDataSet();
         parser = Parser.builder(OPTIONS).build();
         renderer = HtmlRenderer.builder(OPTIONS).build();
     }
@@ -32,9 +31,24 @@ public class Gpt4lllTextArea extends JEditorPane {
     }
     private void updateText() {
         String html = renderer.render(parser.parse(contentBuilder.toString()));
-        setText("<html><body style='width: 100%; word-wrap: break-word;'>" + html + "</body></html>");
+        html=""" 
+                <html>
+                   <head>
+                """
+                +
+                """
+                 </head>
+                
+                 <body style='width: 100%; word-wrap: break-word;'>
+             """
 
+                +
+                html
+                +
+                "</body></html>";
+        setText(html);
         setCaretPosition(getDocument().getLength());
+
     }
 
 
