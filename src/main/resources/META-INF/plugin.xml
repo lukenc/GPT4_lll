@@ -11,7 +11,65 @@
 
     <change-notes>
         <![CDATA[
-
+<h2>3.8.1 (2024-10-11)</h2>
+<ul>
+    <li>
+        <h3>修复/Fix:</h3>
+        <ul>
+            <li>修复：免费模型对应的对话方式未经特殊处理导致无法使用的问题。</li>
+            <li>Fix: Resolved the issue where the conversation mode for the free model was not properly handled, causing it to be unusable.</li>
+        </ul>
+</ul>
+<h2>3.8.0 (2024-10-11)</h2>
+<ul>
+    <li>
+        <h3>新功能/New Feature:</h3>
+        <ul>
+            <li>界面重构：由于模型种类增多，现根据厂商分类，用户可选择想要的模型。</li>
+            <li>Interface redesign: As the number of models grows, models are now categorized by vendor for easier selection.</li>
+            <li>通义千问：添加了更多模型选择，提升用户体验。</li>
+            <li>Qwen: Added more model options for improved user experience.</li>
+            <li>新增自定义API配置：用户可填写API地址、API key及模型名称，轻松集成。目前支持OpenAI标准接口。</li>
+            <li>New custom API configuration: Users can now input API address, API key, and model name for easy integration. Currently supports OpenAI API standards.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>优化/Optimization:</h3>
+        <ul>
+            <li>配置界面优化：将OpenAI、文心一言和通义千问的配置分开，简化切换模型的操作。</li>
+            <li>Configuration interface improved: Separated configurations for OpenAI, Baidu ERNIE, and Qwen, simplifying the model-switching process.</li>
+            <li>文心一言配置方式优化：现在只需填写API key和Secret，无需填写API地址。</li>
+            <li>Optimized Baidu ERNIE configuration: Now only API key and Secret are required, API address is no longer needed.</li>
+        </ul>
+    </li>
+</ul>
+<h2>3.7.5 (2024-08-26)</h2>
+<ul>
+    <li>
+        <h3>新功能/New Feature:</h3>
+        <ul>
+            <li>增加了对阿里云AIGC平台“通义千问”的支持。</li>
+            <li>Added support for Alibaba Cloud's AIGC platform "Qwen".</li>
+        </ul>
+    </li>
+    <li>
+        <h3>问题修复/Bug Fix:</h3>
+        <ul>
+            <li>修复了由于百度格式问题导致的回复内容无限循环的问题。</li>
+            <li>Fixed the issue of infinite looping responses due to Baidu format problems.</li>
+        </ul>
+    </li>
+</ul>
+<h2>3.7.3 (2024-06-20)</h2>
+<ul>
+    <li>
+        <h3>新功能/New Feature:</h3>
+        <ul>
+            <li>内容展示框现在将 MD 解析为 HTML，并兼容 2024.1 以后的版本。</li>
+            <li>The content display box now parses MD into HTML and is compatible with versions 2024.1 and later.</li>
+        </ul>
+    </li>
+</ul>
 <h2>3.7.2 (2024-06-19)</h2>
 <ul>
     <li>
@@ -36,8 +94,6 @@
         </ul>
     </li>
 </ul>
-
-
 <h2>3.7.0 (2024-06-18)</h2>
 <ul>
     <li>
@@ -52,7 +108,6 @@
         <ul>
             <li>添加了多行输入框，并支持输入框placeholder提示，让用户更便捷地输入和编辑文本。</li>
             <li>Added a multi-line input box with placeholder support for easier text input and editing.</li>
-
             <li>引入了新建会话功能，使插件能够像web客户端一样，只需配置自己的API信息，即可流畅地与GPT进行对话，从而节省每月web端的月费。</li>
             <li>Introduced a new conversation creation feature that allows the plugin to function like a web client, enabling smooth conversations with GPT by simply configuring your own API information, thus saving monthly web client fees.</li>
         </ul>
@@ -65,13 +120,9 @@
         </ul>
     </li>
 </ul>
-
-
-
 <h2>3.6.0 (2024-05-28)</h2>
 <li>免费！免费！为了提供更好的用户体验，我们新增了免费的模型供用户使用。新用户可以通过免费模型体验插件的功能，老用户则可以通过使用免费的模型来节省自己的API和科学梯子资源。</li>
 <li>FREE!FREE! To provide a better user experience, we have added a free model for users to use. New users can experience the plugin's functionality through the free model, while existing users can save their API and proxy resources by using the free model.</li>
-
 <ul>
     <li>
         <h3>FEATURE/功能：</h3>
@@ -88,15 +139,9 @@
         </ul>
     </li>
 </ul>
-
-
-
-
-
 <h2>3.2.0 (2024-04-07)</h2>
-<li>近期openai对国内（中国）的api账号进行了大量封号处理，重新开一个用不了3天就会封号。故只能拥抱国内大模型--文心一言，希望国内大模型可以蓬勃发展。</li>
-<li>Recently, OpenAI has banned a large number of API accounts in China. A newly created account would be banned within three days. Therefore, we have to embrace the domestic large model -- ERNIE Bot, hoping that it can flourish.</li>
-
+<li>近期openai对国内（中国）的api账号进行了大量封号处理，重新开一个用不了3天就会封号。故只能拥抱国内大模型--文心一言和同义千问，希望国内大模型可以蓬勃发展。</li>
+<li>Recently, OpenAI has banned a large number of API accounts in China. A newly created account would be banned within three days. Therefore, we have to embrace the domestic large model -- ERNIE Bot and TongYi, hoping that it can flourish.</li>
 <ul>
     <li>
         <h3>FEATURE/功能：</h3>
@@ -112,334 +157,305 @@
             <li> 修复了个别情况下生成的代码不完整的问题。此次更新确保所有生成的代码完整且准确，提高了系统的整体可靠性和可用性。 </li>
         </ul>
     </li>
-    </ul>
-
-
-
-        <h2>3.0.2   (2024-01-31)</h2>
+</ul>
+<h2>3.0.2 (2024-01-31)</h2>
+<ul>
+    <li>
+        <h3>FIX/修复：</h3>
+        <ul>
+            <li>去掉无用依赖 </li>
+            <li>remove useless depends</li>
+        </ul>
+    </li>
+</ul>
+<h2>3.0.1 (2024-01-31)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/功能：</h3>
         <ul>
             <li>
-                <h3>FIX/修复：</h3>
-                <ul>
-                          <li>去掉无用依赖 </li>
-                          <li>remove useless depends</li>
-                </ul>
+                Introduced the One-Click Unit Test Generation feature. This new feature automatically generates executable unit test files from selected code blocks, eliminating the need for manual copying and pasting. This enhancement streamlines the testing process, boosting efficiency and simplicity in code testing.
+            </li>
+            <li>
+                推出一键生成单元测试功能。这个新功能能够从选定的代码块自动生成可执行的单元测试文件，省去了手动复制和粘贴的步骤。这一增强功能简化了测试过程，提高了代码测试的效率和简便性。
+            </li>
+            <li>
+                Added a Multi-Dialogue Mechanism for improved content generation. This mechanism allows for more in-depth conversations, enabling our AIGC (Artificial Intelligence Generated Content) system to produce more accurate and refined content based on user interactions.
+            </li>
+            <li>
+                添加了多重对话机制，用于改进内容生成。该机制允许更深入的对话交流，使我们的AIGC（人工智能生成内容）系统能够基于用户互动产生更准确、更精细的内容。
             </li>
         </ul>
-
- <h2>3.0.1   (2024-01-31)</h2>
-<ul>
-  <li>
-    <h3>FEATURE/功能：</h3>
-    <ul>
-      <li>
-        Introduced the One-Click Unit Test Generation feature. This new feature automatically generates executable unit test files from selected code blocks, eliminating the need for manual copying and pasting. This enhancement streamlines the testing process, boosting efficiency and simplicity in code testing.
-      </li>
-      <li>
-        推出一键生成单元测试功能。这个新功能能够从选定的代码块自动生成可执行的单元测试文件，省去了手动复制和粘贴的步骤。这一增强功能简化了测试过程，提高了代码测试的效率和简便性。
-      </li>
-      <li>
-        Added a Multi-Dialogue Mechanism for improved content generation. This mechanism allows for more in-depth conversations, enabling our AIGC (Artificial Intelligence Generated Content) system to produce more accurate and refined content based on user interactions.
-      </li>
-      <li>
-        添加了多重对话机制，用于改进内容生成。该机制允许更深入的对话交流，使我们的AIGC（人工智能生成内容）系统能够基于用户互动产生更准确、更精细的内容。
-      </li>
-    </ul>
-  </li>
-  <li>
-    <h3>IMPROVEMENT/优化：</h3>
-    <ul>
-      <li>
-        Enhanced the interaction experience with the AIGC system, ensuring smoother and more efficient communication, leading to better understanding and more precise content results.
-      </li>
-      <li>
-        加强了与AIGC系统的互动体验，确保交流更加流畅和高效，从而更好地理解用户需求，生成更准确的内容结果。
-      </li>
-    </ul>
-  </li>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化：</h3>
+        <ul>
+            <li>
+                Enhanced the interaction experience with the AIGC system, ensuring smoother and more efficient communication, leading to better understanding and more precise content results.
+            </li>
+            <li>
+                加强了与AIGC系统的互动体验，确保交流更加流畅和高效，从而更好地理解用户需求，生成更准确的内容结果。
+            </li>
+        </ul>
+    </li>
 </ul>
-
-
-    <h2>2.12.2   (2023-11-17)</h2>
+<h2>2.12.2 (2023-11-17)</h2>
 <ul>
-  <li>
-    <h3>FEATURE/功能：</h3>
-    <ul>
-      <li>
-        Upgraded to the latest GPT-4 Turbo model released by OpenAI on November 6, 2023. This update significantly enhances code generation capabilities, ensuring compatibility with the cutting-edge language modeling advancements for improved code accuracy and execution.
-      </li>
-      <li>
-        升级至OpenAI于2023年11月6日发布的最新GPT-4 Turbo模型。此更新大幅增强了代码生成能力，确保插件与最新的语言建模技术兼容，提高了代码准确性和执行性能。
-      </li>
-      <li>
-        Extended compatibility for Idea Community version users, introducing adaptation logic for various code languages. This enhancement enables the plugin to recognize and adapt to different code languages seamlessly.
-      </li>
-      <li>
-        面向Idea Community版本的用户，增加了对其他代码语言的适配逻辑，使插件能够更好地识别和适应不同的代码语言。
-      </li>
-      <li>
-        Strengthened code assessment capabilities, ensuring stability and reliability in the scoring functionality.
-      </li>
-      <li>
-        加强了代码评估的能力，确保评分功能的稳定性和可靠性。
-      </li>
-    </ul>
-  </li>
-  <li>
-    <h3>IMPROVEMENT/优化：</h3>
-    <ul>
-      <li>
-        Implemented backend and frontend adjustments for code assessment, enhancing stability and performance in both areas.
-      </li>
-      <li>
-        为代码评估进行了前后端调整，提升了稳定性和性能。
-      </li>
-    </ul>
-  </li>
+    <li>
+        <h3>FEATURE/功能：</h3>
+        <ul>
+            <li>
+                Upgraded to the latest GPT-4 Turbo model released by OpenAI on November 6, 2023. This update significantly enhances code generation capabilities, ensuring compatibility with the cutting-edge language modeling advancements for improved code accuracy and execution.
+            </li>
+            <li>
+                升级至OpenAI于2023年11月6日发布的最新GPT-4 Turbo模型。此更新大幅增强了代码生成能力，确保插件与最新的语言建模技术兼容，提高了代码准确性和执行性能。
+            </li>
+            <li>
+                Extended compatibility for Idea Community version users, introducing adaptation logic for various code languages. This enhancement enables the plugin to recognize and adapt to different code languages seamlessly.
+            </li>
+            <li>
+                面向Idea Community版本的用户，增加了对其他代码语言的适配逻辑，使插件能够更好地识别和适应不同的代码语言。
+            </li>
+            <li>
+                Strengthened code assessment capabilities, ensuring stability and reliability in the scoring functionality.
+            </li>
+            <li>
+                加强了代码评估的能力，确保评分功能的稳定性和可靠性。
+            </li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化：</h3>
+        <ul>
+            <li>
+                Implemented backend and frontend adjustments for code assessment, enhancing stability and performance in both areas.
+            </li>
+            <li>
+                为代码评估进行了前后端调整，提升了稳定性和性能。
+            </li>
+        </ul>
+    </li>
 </ul>
-
-<h2>2.11.0   (2023-11-13)</h2>
+<h2>2.11.0 (2023-11-13)</h2>
 <ul>
-  <li>
-    <h3>IMPROVEMENT/优化：</h3>
-    <ul>
-      <li>
-        Enhanced Java Code Recognition: We've specifically focused on Java language this time, further enhancing the code recognition capabilities. This improvement aims to increase the accuracy of generated code, ensuring more precise and relevant responses for Java development scenarios.
-      </li>
-      <li>
-        针对Java的代码识别能力提升: 在这次更新中，我们特别关注了Java语言，进一步提高了其代码识别能力。此次改进旨在提高生成代码的准确度，确保在Java开发场景中获得更精准、相关的响应。
-      </li>
-    </ul>
-  </li>
+    <li>
+        <h3>IMPROVEMENT/优化：</h3>
+        <ul>
+            <li>
+                Enhanced Java Code Recognition: We've specifically focused on Java language this time, further enhancing the code recognition capabilities. This improvement aims to increase the accuracy of generated code, ensuring more precise and relevant responses for Java development scenarios.
+            </li>
+            <li>
+                针对Java的代码识别能力提升: 在这次更新中，我们特别关注了Java语言，进一步提高了其代码识别能力。此次改进旨在提高生成代码的准确度，确保在Java开发场景中获得更精准、相关的响应。
+            </li>
+        </ul>
+    </li>
 </ul>
-
-    <h2>2.10.2   (2023-10-18)</h2>
+<h2>2.10.2 (2023-10-18)</h2>
 <ul>
-  <li>
-    <h3>IMPROVEMENT/优化：</h3>
-    <ul>
-      <li>
-        Code Recognition Enhancement: In various application scenarios, we have further improved code recognition capabilities to ensure users receive the most accurate answers.
-      </li>
-      <li>
-        代码识别优化: 在各种应用场景中，我们进一步提高了代码的识别能力，确保用户能够获得更为精确的答案。
-      </li>
-      <li>
-        Response Quality Upgrade: For all application scenarios, we've refined the responses from ChatGPT, reducing and filtering out irrelevant or ineffective statements to ensure high-quality and practical content in replies.
-      </li>
-      <li>
-        回复内容升级：针对所有应用场景，我们对ChatGPT的响应进行了筛选，减少并滤除了不相关或无效的语句，以保证回复内容的高质量与实用性。
-      </li>
-    </ul>
-  </li>
+    <li>
+        <h3>IMPROVEMENT/优化：</h3>
+        <ul>
+            <li>
+                Code Recognition Enhancement: In various application scenarios, we have further improved code recognition capabilities to ensure users receive the most accurate answers.
+            </li>
+            <li>
+                代码识别优化: 在各种应用场景中，我们进一步提高了代码的识别能力，确保用户能够获得更为精确的答案。
+            </li>
+            <li>
+                Response Quality Upgrade: For all application scenarios, we've refined the responses from ChatGPT, reducing and filtering out irrelevant or ineffective statements to ensure high-quality and practical content in replies.
+            </li>
+            <li>
+                回复内容升级：针对所有应用场景，我们对ChatGPT的响应进行了筛选，减少并滤除了不相关或无效的语句，以保证回复内容的高质量与实用性。
+            </li>
+        </ul>
+    </li>
 </ul>
-
-
-
-<h2>2.10.0   (2023-09-28)</h2>
+<h2>2.10.0 (2023-09-28)</h2>
 <ul>
-  <li>
-    <h3>FEATURE/功能：</h3>
-    <ul>
-      <li>
-        For the comment generation feature; now adapts to user's naming conventions, ensuring that comments align with expectations even when naming isn't standardized.
-      </li>
-      <li>
-        生成注释的功能：现在可以适应用户的命名习惯，确保即使在命名不规范的情况下，生成的注释内容与预期一致。
-      </li>
-      <li>
-        Upgraded the todo feature; the generated methods now utilize existing methods from related functionalities, preventing repetitive generation of similar methods.
-      </li>
-      <li>
-        todo功能升级：生成的方法现在会使用当前相关功能已有的方法，避免多次生成功能相同的方法。
-      </li>
-    </ul>
-  </li>
-  <li>
-    <h3>IMPROVEMENT/优化：</h3>
-    <ul>
-      <li>
-        Optimized internal algorithms for more efficient comment and method generation.
-      </li>
-      <li>
-        优化内部算法，使注释和方法生成更加高效。
-      </li>
-    </ul>
-  </li>
+    <li>
+        <h3>FEATURE/功能：</h3>
+        <ul>
+            <li>
+                For the comment generation feature; now adapts to user's naming conventions, ensuring that comments align with expectations even when naming isn't standardized.
+            </li>
+            <li>
+                生成注释的功能：现在可以适应用户的命名习惯，确保即使在命名不规范的情况下，生成的注释内容与预期一致。
+            </li>
+            <li>
+                Upgraded the todo feature; the generated methods now utilize existing methods from related functionalities, preventing repetitive generation of similar methods.
+            </li>
+            <li>
+                todo功能升级：生成的方法现在会使用当前相关功能已有的方法，避免多次生成功能相同的方法。
+            </li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化：</h3>
+        <ul>
+            <li>
+                Optimized internal algorithms for more efficient comment and method generation.
+            </li>
+            <li>
+                优化内部算法，使注释和方法生成更加高效。
+            </li>
+        </ul>
+    </li>
 </ul>
-
-
-
-    <h2>2.9.4   (2023-09-14)</h2>
+<h2>2.9.4 (2023-09-14)</h2>
 <ul>
-  <li>
-    <h3>FEATURE/功能：</h3>
-    <ul>
-      <li>
-        For Java; Greatly enhanced the ability to generate code based on todo. The accuracy of the returned code has been significantly increased, and its executability has been qualitatively improved.
-      </li>
-      <li>
-        针对Java，极大提高了根据todo生成代码的能力，返回的代码准确度大幅增加，同时可执行度有质的提升。
-      </li>
-      <li>
-        Improved the quality of comments in the code commenting feature.
-      </li>
-      <li>
-        代码注释功能的注释质量提高。
-      </li>
-    </ul>
-  </li>
-  <li>
-    <h3>IMPROVEMENT/优化：</h3>
-    <ul>
-      <li>
-        Refactored the code for increased stability, now supports opening multiple IDEs.
-      </li>
-      <li>
-        重构代码，稳定性提高，目前已支持开启多个ide。
-      </li>
-      <li>
-        Slightly improved the stability of code assessment.
-      </li>
-      <li>
-        小幅度提升代码评估的稳定性。
-      </li>
-    </ul>
-  </li>
+    <li>
+        <h3>FEATURE/功能：</h3>
+        <ul>
+            <li>
+                For Java; Greatly enhanced the ability to generate code based on todo. The accuracy of the returned code has been significantly increased, and its executability has been qualitatively improved.
+            </li>
+            <li>
+                针对Java，极大提高了根据todo生成代码的能力，返回的代码准确度大幅增加，同时可执行度有质的提升。
+            </li>
+            <li>
+                Improved the quality of comments in the code commenting feature.
+            </li>
+            <li>
+                代码注释功能的注释质量提高。
+            </li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化：</h3>
+        <ul>
+            <li>
+                Refactored the code for increased stability, now supports opening multiple IDEs.
+            </li>
+            <li>
+                重构代码，稳定性提高，目前已支持开启多个ide。
+            </li>
+            <li>
+                Slightly improved the stability of code assessment.
+            </li>
+            <li>
+                小幅度提升代码评估的稳定性。
+            </li>
+        </ul>
+    </li>
 </ul>
-
-
-
-<h2>2.9.3   (2023-09-13)</h2>
+<h2>2.9.3 (2023-09-13)</h2>
 <ul>
-  <li>
-    <h3>FIX/修复：</h3>
-    <ul>
-      <li>
-        Fixed the issue where the plugin failed to recognize the language model selection when manually entering chat content.
-      </li>
-      <li>
-        修复了插件在直接手动输入聊天内容时，选择语言模型无效的问题。
-      </li>
-    </ul>
-  </li>
+    <li>
+        <h3>FIX/修复：</h3>
+        <ul>
+            <li>
+                Fixed the issue where the plugin failed to recognize the language model selection when manually entering chat content.
+            </li>
+            <li>
+                修复了插件在直接手动输入聊天内容时，选择语言模型无效的问题。
+            </li>
+        </ul>
+    </li>
 </ul>
-
-
-
-    <h2>2.9.2 (2023-09-05)</h2>
+<h2>2.9.2 (2023-09-05)</h2>
 <ul>
-  <li>
-    <h3>New Features/新功能：</h3>
-    <ul>
-      <li>Added a feature that allows you to auto-generate code based on the selected TODO descriptions. By highlighting the TODO comment, the plugin can generate code snippets to potentially fulfill the described task. 添加了一个功能，可以根据选中的TODO描述自动生成代码。只需高亮显示TODO注释，插件就可以生成代码片段，可能完成描述的任务。</li>
-    </ul>
-  </li>
+    <li>
+        <h3>New Features/新功能：</h3>
+        <ul>
+            <li>Added a feature that allows you to auto-generate code based on the selected TODO descriptions. By highlighting the TODO comment, the plugin can generate code snippets to potentially fulfill the described task. 添加了一个功能，可以根据选中的TODO描述自动生成代码。只需高亮显示TODO注释，插件就可以生成代码片段，可能完成描述的任务。</li>
+        </ul>
+    </li>
 </ul>
-
-
-<h2>2.9.0   (2023-08-06)</h2>
+<h2>2.9.0 (2023-08-06)</h2>
 <ul>
-  <li>
-    <h3>New Features/新功能：</h3>
-    <ul>
-      <li>Added a feature that allows you to auto-generate code comments using ChatGPT. By simply highlighting the code, the plugin will call on the ChatGPT AI model to generate comprehensive and contextually appropriate code comments. 添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。</li>
-      <li>Introduced an AI-assisted development mode. This feature enables developers to get on-the-fly code suggestions, increasing coding efficiency. 引入了AI辅助开发模式，开发者可以得到实时的代码建议，提高编码效率。</li>
-    </ul>
-  </li>
-  <li>
-    <h3>Optimizations/优化：</h3>
-    <ul>
-      <li>Enhanced the stability of the plugin during continuous coding sessions. 提高了连续编码会话中插件的稳定性。</li>
-    </ul>
-  </li>
+    <li>
+        <h3>New Features/新功能：</h3>
+        <ul>
+            <li>Added a feature that allows you to auto-generate code comments using ChatGPT. By simply highlighting the code, the plugin will call on the ChatGPT AI model to generate comprehensive and contextually appropriate code comments. 添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。</li>
+            <li>Introduced an AI-assisted development mode. This feature enables developers to get on-the-fly code suggestions, increasing coding efficiency. 引入了AI辅助开发模式，开发者可以得到实时的代码建议，提高编码效率。</li>
+        </ul>
+    </li>
+    <li>
+        <h3>Optimizations/优化：</h3>
+        <ul>
+            <li>Enhanced the stability of the plugin during continuous coding sessions. 提高了连续编码会话中插件的稳定性。</li>
+        </ul>
+    </li>
 </ul>
-
-
-
-    <h2>2.8.6   (2023-06-22)</h2>
+<h2>2.8.6 (2023-06-22)</h2>
 <ul>
-  <li>
-    <h3>New Features/新功能：</h3>
-    <ul>
-      <li>Added a Code Evaluation feature to allow team leaders to control the quality of the code. 添加了代码评估功能，方便团队领导来把控代码质量。</li>
-    </ul>
-  </li>
-  <li>
-    <h3>Optimizations/优化：</h3>
-    <ul>
-      <li>Optimized the dialogue box to follow input and prevent erratic jumping. 优化了对话框跟随输入，避免乱跳。</li>
-      <li>Improved natural language recognition logic for enhanced accuracy and performance. 自然语言识别逻辑已经优化，现在识别准确度和性能得到提升。</li>
-    </ul>
-  </li>
-  <li>
-    <h3>Bug Fixes/Bug修复：</h3>
-    <ul>
-      <li>Fixed the issue where pop-ups for new users failed to appear. 修复了新用户弹窗弹出失败的问题。</li>
-    </ul>
-  </li>
+    <li>
+        <h3>New Features/新功能：</h3>
+        <ul>
+            <li>Added a Code Evaluation feature to allow team leaders to control the quality of the code. 添加了代码评估功能，方便团队领导来把控代码质量。</li>
+        </ul>
+    </li>
+    <li>
+        <h3>Optimizations/优化：</h3>
+        <ul>
+            <li>Optimized the dialogue box to follow input and prevent erratic jumping. 优化了对话框跟随输入，避免乱跳。</li>
+            <li>Improved natural language recognition logic for enhanced accuracy and performance. 自然语言识别逻辑已经优化，现在识别准确度和性能得到提升。</li>
+        </ul>
+    </li>
+    <li>
+        <h3>Bug Fixes/Bug修复：</h3>
+        <ul>
+            <li>Fixed the issue where pop-ups for new users failed to appear. 修复了新用户弹窗弹出失败的问题。</li>
+        </ul>
+    </li>
 </ul>
-
-
-
-        <h2>2.5.2   (2023-06-14)</h2>
+<h2>2.5.2 (2023-06-14)</h2>
 <ul>
-  <li>
-    <h3>新功能：</h3>
-    <ul>
-      <li>添加历史记录功能，方便用户查看之前的对话和操作记录。[Added history recording feature for users to view previous conversations and actions.]</li>
-      <li>界面添加英语提示，使插件更加友好，方便外国友人使用。[Added English prompts to the interface for improved usability and foreign user-friendliness.]</li>
-    </ul>
-  </li>
-  <li>
-    <h3>优化：</h3>
-    <ul>
-      <li>自然语言识别逻辑已经优化，现在识别准确度和性能得到提升。[Improved natural language recognition logic for enhanced accuracy and performance.]</li>
-      <li>代码输入逻辑经过优化，解决了代码输入不完整的问题，提供更流畅的代码补全体验。[Optimized code input logic to address incomplete code input and provide smoother code autocompletion experience.]</li>
-    </ul>
-  </li>
-  <li>
-    <h3>Bug修复：</h3>
-    <ul>
-      <li>修复了对话框未清空的问题，现在每次新的对话都会自动清空对话框，方便用户进行新的输入。[Fixed the issue where the dialogue box was not cleared, now it gets automatically cleared for each new conversation, allowing convenient input.]</li>
-    </ul>
-  </li>
+    <li>
+        <h3>新功能：</h3>
+        <ul>
+            <li>添加历史记录功能，方便用户查看之前的对话和操作记录。[Added history recording feature for users to view previous conversations and actions.]</li>
+            <li>界面添加英语提示，使插件更加友好，方便外国友人使用。[Added English prompts to the interface for improved usability and foreign user-friendliness.]</li>
+        </ul>
+    </li>
+    <li>
+        <h3>优化：</h3>
+        <ul>
+            <li>自然语言识别逻辑已经优化，现在识别准确度和性能得到提升。[Improved natural language recognition logic for enhanced accuracy and performance.]</li>
+            <li>代码输入逻辑经过优化，解决了代码输入不完整的问题，提供更流畅的代码补全体验。[Optimized code input logic to address incomplete code input and provide smoother code autocompletion experience.]</li>
+        </ul>
+    </li>
+    <li>
+        <h3>Bug修复：</h3>
+        <ul>
+            <li>修复了对话框未清空的问题，现在每次新的对话都会自动清空对话框，方便用户进行新的输入。[Fixed the issue where the dialogue box was not cleared, now it gets automatically cleared for each new conversation, allowing convenient input.]</li>
+        </ul>
+    </li>
 </ul>
-
-
-    <h2>2.0.1   (2023-06-09)</h2>
-    <ul>
-        <li><h3> 自然语言识别</h3>
+<h2>2.0.1 (2023-06-09)</h2>
+<ul>
+    <li>
+        <h3> 自然语言识别</h3>
         <p>我们知道，在阅读代码或者尝试理解一个新的函数或模块时，不同的人可能使用不同的语言或术语。因此，我们的插件现在可以自动识别用户的自然语言，并将返回的注释和解释设为用户的常用语言。这意味着不论您是使用中文，英文，法文还是其他任何语言，我们的插件都可以为您提供便利。这使得在多语言团队中的合作变得更加无缝，并且能更好地理解和学习新的代码。</p>
-        </li>
-        <li><h3>按需生成代码</h3>
+    </li>
+    <li>
+        <h3>按需生成代码</h3>
         <p>在此次重大更新中，我们的插件现在可以根据您的需求生成代码。只需简单地描述您需要什么，插件就会为您生成对应的代码。无论您是需要一个新的函数，一个数据库查询，或是一段复杂的逻辑，我们的插件都能帮助您快速地生成代码，大大提高了您的工作效率。</p>
-        </li>
-        <li><h3>自动识别代码类型</h3>
+    </li>
+    <li>
+        <h3>自动识别代码类型</h3>
         我们的插件现在可以自动识别您正在处理的代码类型，无论是 Kotlin（Kt），Java，Go，还是 SQL。这意味着您无需花费额外的时间去配置或切换不同的工具或模式。我们的插件会根据您的代码智能地适应并提供相应的支持。
-        </li>
-    </ul>
+    </li>
+</ul>
+<h2>1.0.6 (2023-06-07)</h2>
+<ul>
+    <li>添加私有化的gpt的支持。出于代码安全，很多公司选择自建gpt服务，避免关键代码泄漏</li>
+    <li>优化：选中代码，交由gpt优化后，自动打开gpt对话框</li>
+    <li>添加支持gpt-3.5-turbo</li>
+</ul>
+<br>
+<h2>1.0.5 (2023-06-05)</h2>
+<ul>
+    <li>布局更换为JEditorPane</li>
+    <li>添加支持MD语法的展示框</li>
+</ul>
 
+<h3>next version</h2>
+  <ul>
+    <li>pre Feature modify the code where you selected</li>
+    <li>下个版本，添加直接修改你选中的代码</li>
+  </ul>
 
-        <h2>1.0.6   (2023-06-07)</h2>
-    <ul>
-        <li>添加私有化的gpt的支持。出于代码安全，很多公司选择自建gpt服务，避免关键代码泄漏</li>
-        <li>优化：选中代码，交由gpt优化后，自动打开gpt对话框</li>
-        <li>添加支持gpt-3.5-turbo</li>
-    </ul>
-    <br>
-
-    <h2>1.0.5   (2023-06-05)</h2>
-    <ul>
-        <li>布局更换为JEditorPane</li>
-        <li>添加支持MD语法的展示框</li>
-    </ul>
-
-        <h3>next version</h2>
-    <ul>
-        <li>pre Feature modify the code where you selected</li>
-        <li>下个版本，添加直接修改你选中的代码</li>
-    </ul>
             ]]>
     </change-notes>
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
@@ -451,6 +467,15 @@
 <h2>Feature/特性</h2>
 <h4>Free AIGC Access/免费使用AIGC</h4>
 <p>The AIGC capability is now freely available to all users. Enjoy intelligent generation services at no extra cost. However, due to high demand, you may need to queue each time you use this feature. AIGC能力现已向所有用户免费开放。无需额外费用，即可享受智能化的生成服务。但由于使用人数过多，每次使用此功能时可能需要排队等待。</p>
+
+<h4>Multi-Platform Support/多平台支持</h4>
+<p>
+    The plugin now supports multiple platforms, including not only OpenAI's ChatGPT but also Baidu's ERNIE Bot (Wenxin Yiyan) and Alibaba's Tongyi Qianwen.
+    This ensures that users can leverage the strengths of various AI models. In the future, we plan to extend compatibility to even more platforms, providing
+    greater flexibility and choice for our users. 插件现已支持多个平台，不仅支持OpenAI的ChatGPT，还支持百度的文心一言和阿里的通义千问。
+    这确保了用户可以利用各种AI模型的优势。未来，我们计划进一步扩展兼容性，支持更多平台，为用户提供更大的灵活性和选择。
+</p>
+
 <h4>Code Generation Based on TODO/根据todo生成代码</h4>
 <p>Introduced the ability to generate code based on TODO comments within a project. This feature enables rapid development by transforming actionable TODOs into functional code segments. 在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
 <h4>Natural Language Recognition/自然语言识别</h4>
@@ -484,7 +509,7 @@
     <p>现在它完全支持百度的文心一言（ERNIE Bot)。这一集成使用户能够利用文心一言的强大功能进行更深入、更准确的代码分析</p>
     <br>
     <p>Given OpenAI's extremely unfriendly attitude towards China, resulting in a large number of account suspensions for Chinese users, I, as a programmer with integrity and spirit, have decided to embrace the excellent domestic large model product - Wenxin Yiyan. If in the future Wenxin Yiyan also fails to meet my needs or exhibits unfriendly behavior, I will resolutely turn to other trustworthy domestic vendors and continue to persevere on my programming journey.</p>
-    <p>鉴于OpenAI对中国持极为不友好的态度，频繁地对中国用户账号进行封禁，作为一名有骨气、有脾气的程序员，我毅然决定转而拥抱国内优秀的大模型产品——文心一言。未来，倘若文心一言也无法满足我的需求或展现出不友好的态度，我将毫不犹豫地转向其他值得信赖的国内厂商，继续坚守我的编程之路。</p>
+    <p>鉴于OpenAI对中国持极为不友好的态度，频繁地对中国用户账号进行封禁，作为一名有骨气、有脾气的程序员，我毅然决定转而拥抱国内优秀的大模型产品——文心一言和通义千问。未来，倘若文心一言也无法满足我的需求或展现出不友好的态度，我将毫不犹豫地转向其他值得信赖的国内厂商，继续坚守我的编程之路。</p>
     <h2>Help/帮助</h2>
     <h3>Usage Guide/使用指南</h3>
     <ol>
