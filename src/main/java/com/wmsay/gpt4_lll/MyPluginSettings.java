@@ -4,8 +4,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.*;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nullable;
-import javax.swing.*;
+
 
 @State(
         name = "MyPluginSettings",
@@ -13,13 +12,20 @@ import javax.swing.*;
 )
 public class MyPluginSettings implements PersistentStateComponent<MyPluginSettings.State> {
     public static class State {
-        public String apiKey;
         public String proxyAddress;
-        public String gptUrl;
 
+        public String apiKey;
+        //百度配置
         public String baiduAPIKey;
         public String baiduSecretKey;
-        public String baiduApiUrl;
+
+        //自定义配置
+        public String personalApiUrl;
+        public String personalModel;
+        public String personalApiKey;
+        //通义千问配置
+        public String tongyiApiKey;
+
     }
 
     private State state = new State();
@@ -28,7 +34,6 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
         return ApplicationManager.getApplication().getService(MyPluginSettings.class);
     }
 
-    @Nullable
     @Override
     public State getState() {
         return state;
@@ -71,22 +76,30 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
         state.baiduSecretKey = baiduSecretKey;
     }
 
-    public String getBaiduApiUrl() {
-        return state.baiduApiUrl;
+    public void setPersonalApiKey(String personalApiKey) {
+        state.personalApiKey = personalApiKey;
+    }
+    public String getPersonalApiKey() {
+        return state.personalApiKey;
+    }
+    public void setPersonalApiUrl(String personalApiUrl) {
+        state.personalApiUrl = personalApiUrl;
+    }
+    public String getPersonalApiUrl() {
+        return state.personalApiUrl;
     }
 
-    public void setBaiduApiUrl(String baiduApiUrl) {
-        state.baiduApiUrl = baiduApiUrl;
+    public void setPersonalModel(String personalModel) {
+        state.personalModel = personalModel;
+    }
+    public String getPersonalModel() {
+        return state.personalModel;
     }
 
-    public String getGptUrl() {
-        if (state.gptUrl==null|| state.gptUrl.isEmpty()){
-            return "https://api.openai.com/v1/chat/completions";
-        }
-        return state.gptUrl;
+    public void setTongyiApiKey(String tongyiApiKey) {
+        state.tongyiApiKey = tongyiApiKey;
     }
-
-    public void setGptUrl(String gptUrl) {
-        state.gptUrl = gptUrl;
+    public String getTongyiApiKey() {
+        return state.tongyiApiKey;
     }
 }
