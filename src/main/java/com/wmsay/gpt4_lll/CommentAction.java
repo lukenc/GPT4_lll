@@ -14,6 +14,7 @@ import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 
@@ -44,7 +45,7 @@ public class CommentAction extends AnAction {
             }
         }
 
-        String model = ChatUtils.getModelName(toolWindow);
+        String model = ChatUtils.getModelName();
         String replyLanguage = CommonUtil.getSystemLanguage();
         Project project = e.getProject();
         if (project != null) {
@@ -62,7 +63,7 @@ public class CommentAction extends AnAction {
             }
             String selectedText = selectionModel.getSelectedText();
             Message systemMessage = new Message();
-            if (model.contains("baidu")){
+            if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())){
                 systemMessage.setRole("user");
             }else {
                 systemMessage.setRole("system");
