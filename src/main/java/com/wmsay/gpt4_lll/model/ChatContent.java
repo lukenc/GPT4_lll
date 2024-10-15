@@ -4,6 +4,8 @@ package com.wmsay.gpt4_lll.model;
 import java.util.List;
 import javax.annotation.Generated;
 import com.google.gson.annotations.Expose;
+import com.wmsay.gpt4_lll.WindowTool;
+import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 
 @SuppressWarnings("unused")
@@ -24,7 +26,12 @@ public class ChatContent {
 
     public void setMessages(List<Message> messages) {
         this.messages = messages;
-        if (model!=null&&model.contains("baidu")){
+        if (model != null &&
+                (
+                        ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())
+                                || ProviderNameEnum.FREE.getProviderName().equals(WindowTool.getSelectedProvider())
+                )
+        ) {
             adaptBaiduMessages();
         }
     }
@@ -51,7 +58,10 @@ public class ChatContent {
 
     public void setModel(String model) {
         this.model = model;
-        if (model!=null&&model.contains("baidu")&&messages!=null){
+        if (model != null &&
+                (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())
+                        || ProviderNameEnum.FREE.getProviderName().equals(WindowTool.getSelectedProvider()))
+                && messages != null) {
             adaptBaiduMessages();
         }
     }
