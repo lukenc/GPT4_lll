@@ -74,17 +74,24 @@ public class ChatUtils {
      * @return API URL
      */
     public static String getUrl(ChatContent content, MyPluginSettings settings) {
-        if (content.getModel().contains("baidu")) {
+        String provider = WindowTool.getSelectedProvider();
+        if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
             String accessToken = AuthUtils.getBaiduAccessToken();
-            String url = settings.getBaiduApiUrl() + "?access_token=" + accessToken;
-            if (content.getModel().contains("free")) {
-                accessToken = AuthUtils.getFreeBaiduAccessToken();
-                url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + "?access_token=" + accessToken;
-            }
+            String url = ModelUtils.getUrlByProvider(provider)+ ModelUtils.getModelNameByDisplay(WindowTool.getSelectedModel().getDisplayName()) + "?access_token=" + accessToken;
             return url;
-        } else {
-            return settings.getGptUrl();
         }
+        //todo 当前只有百度是免费的 所以先将免费的都写成百度的
+        if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
+            String accessToken = AuthUtils.getFreeBaiduAccessToken();
+            String url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + "?access_token=" + accessToken;
+            return url;
+        }
+        if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
+            return settings.getPersonalApiUrl();
+        }
+        // 处理标准接口的公有平台url
+        String url = ModelUtils.getUrlByProvider(provider);
+        return url;
     }
 
 
