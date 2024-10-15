@@ -2,11 +2,13 @@ package com.wmsay.gpt4_lll.utils;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.wm.ToolWindow;
 import com.wmsay.gpt4_lll.MyPluginSettings;
+import com.wmsay.gpt4_lll.WindowTool;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
-import org.apache.commons.lang.StringUtils;
+import com.wmsay.gpt4_lll.model.SelectModelOption;
+import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
 import java.net.InetSocketAddress;
@@ -94,6 +96,30 @@ public class ChatUtils {
         return url;
     }
 
+
+
+    public static String getApiKey(MyPluginSettings settings) {
+        String provider = WindowTool.getSelectedProvider();
+        if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
+            String accessToken = AuthUtils.getBaiduAccessToken();
+            return accessToken;
+        }
+        //todo 当前只有百度是免费的 所以先将免费的都写成百度的
+        if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
+            String accessToken = AuthUtils.getFreeBaiduAccessToken();
+            return accessToken;
+        }
+        if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
+            return settings.getPersonalApiKey();
+        }
+        if (ProviderNameEnum.OPEN_AI.getProviderName().equals(provider)){
+            return settings.getApiKey();
+        }
+        if (ProviderNameEnum.ALI.getProviderName().equals(provider)){
+            return settings.getTongyiApiKey();
+        }
+        return "";
+    }
 
     public static Boolean needsContinuation(String replyContent) {
         String cleanedReplyContent = replyContent.trim().replaceAll("\\n|\\r", "");
