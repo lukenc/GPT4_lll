@@ -1,9 +1,7 @@
 package com.wmsay.gpt4_lll;
 
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
-import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.Pair;
@@ -22,6 +20,8 @@ import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.model.SelectModelOption;
+import com.wmsay.gpt4_lll.utils.ModelUtils;
 
 import javax.swing.*;
 import java.awt.*;
@@ -36,16 +36,12 @@ import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 
 public class WindowTool implements ToolWindowFactory {
     private Gpt4lllTextArea readOnlyTextArea;
-    private JRadioButton gpt4Option ;
-    private JRadioButton gpt35TurboOption ;
-    private JRadioButton codeOption;
-    private JRadioButton gpt40TurboOption ;
-    private JRadioButton baiduOption ;
-
-    private JRadioButton freeOption;
 
     public static volatile Boolean isGenerating=false;
 
+    private Map<String, List<SelectModelOption>> providerModels = ModelUtils.provider2ModelList;
+    private static ComboBox<String> providerComboBox;
+    private static ComboBox<SelectModelOption> modelComboBox;
 
     @Override
     public void createToolWindowContent(Project project, ToolWindow toolWindow) {
@@ -56,59 +52,13 @@ public class WindowTool implements ToolWindowFactory {
         readOnlyTextArea.setContentType("text/html");
         project.putUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA,readOnlyTextArea);
 
-        //语言模型选择
-        JPanel radioButtonPanel = new JPanel(new GridBagLayout());
-        freeOption = new JRadioButton("Free-免费");
-        freeOption.setToolTipText("use author's api usage，need to wait in line./使用作者自己的api，但需要排队等待");
-        gpt4Option = new JRadioButton("gpt-4");
-        gpt35TurboOption = new JRadioButton("gpt-3.5-turbo");
-        codeOption = new JRadioButton("code-davinci-002");
-        codeOption.setToolTipText("这是一个专门为代码训练的Gpt3.5模型，token是普通的3.5turbo的2倍，笔者正在努力开发中");
-        codeOption.setEnabled(true);
-        gpt40TurboOption=new JRadioButton("gpt-4-turbo");
-        gpt40TurboOption.setToolTipText("GPT-4是最新的模型，具备改进的指令跟随、JSON模式、可复现的输出、并行函数调用等功能。该模型最多返回4,096个输出令牌。这个预览模型目前还不适合用于生产环境的流量。");
-        baiduOption=new JRadioButton("文心一言-baidu");
-        baiduOption.setToolTipText("这是一个很多样性的平台，有各种模型（例如Gemma-7B-it、Llama-2-70b-chat），通过不同Api Url来区分，具体参考：https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Nlks5zkzu");
-
-
-        ButtonGroup buttonGroup = new ButtonGroup();
-        buttonGroup.add(freeOption);
-        buttonGroup.add(gpt4Option);
-        buttonGroup.add(gpt35TurboOption);
-        buttonGroup.add(codeOption);
-        buttonGroup.add(gpt40TurboOption);
-        buttonGroup.add(baiduOption);
-        //第一行
-        c.gridy = 0;
-        c.gridx = 0;
-        c.weightx = 0.4;
-        c.gridwidth = 2;
-        c.weighty = 0.05;  // 10% of the vertical space
-        radioButtonPanel.add(freeOption,c);
-        c.gridx=2;
-        c.gridwidth = 2;
-        c.weightx = 0.4;
-        radioButtonPanel.add(baiduOption,c);
-
-        //第二行
-        c.gridwidth = 1;
-        c.weightx = 0.20;
-        c.weighty = 0.05;
-        c.gridy = 1;
-        c.gridx = 0;
-        radioButtonPanel.add(gpt4Option, c);
-        c.gridx = 1;
-        radioButtonPanel.add(gpt35TurboOption, c);
-        c.gridx = 2;
-        radioButtonPanel.add(codeOption, c);
-        c.gridx=3;
-        radioButtonPanel.add(gpt40TurboOption,c);
-
+        JPanel modelSelectionPanel = createModelSelectionPanel();
         c.gridx = 0;
         c.gridy = 0;
-        c.gridwidth = GridBagConstraints.REMAINDER;  // span across all columns
+        c.weightx = 1;
+        c.weighty = 0.1;
         c.fill = GridBagConstraints.HORIZONTAL;
-        panel.add(radioButtonPanel, c);
+        panel.add(modelSelectionPanel, c);
 
         // 创建只读文本框
         readOnlyTextArea.setEditable(false);
@@ -162,7 +112,7 @@ public class WindowTool implements ToolWindowFactory {
 
                 ChatContent chatContent= new ChatContent();
                 chatContent.setMessages(GenerateAction.chatHistory);
-                String model=getModelName(toolWindow);
+                String model=getModelName();
                 chatContent.setModel(model);
                     new Thread(() -> {
                        String res= GenerateAction.chat(chatContent,project,false,true,"");
@@ -217,12 +167,7 @@ public class WindowTool implements ToolWindowFactory {
         c.weightx = 1;
         c.insets = new Insets(5, 0, 5, 0); // 设置外部间距（上、左、下、右）
         panel.add(newAndHistoryPanel,c);
-//        c.weighty = 0.05;
 
-
-        SwingUtilities.invokeLater(() -> {
-            freeOption.setSelected(true);
-        });
 
 
 
@@ -299,5 +244,104 @@ public class WindowTool implements ToolWindowFactory {
         } else {
             return str.substring(0, length);
         }
+    }
+
+
+
+    private JPanel createModelSelectionPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = JBUI.insets(5);
+
+        // Create and populate the provider combo box
+        providerComboBox = new ComboBox<>(providerModels.keySet().toArray(new String[0]));
+        setUpProviderComboBox(providerComboBox);
+
+        // Create the model combo box
+        modelComboBox = new ComboBox<>();
+        setUpComboBox(modelComboBox);
+
+        // Add action listener to provider combo box
+        providerComboBox.addActionListener(e -> updateModelComboBox());
+
+        // Initialize model combo box
+        updateModelComboBox();
+
+
+        // Add components to panel
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0;
+        panel.add(new JLabel("Provider: "), gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.4;
+        panel.add(providerComboBox, gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+        panel.add(Box.createHorizontalStrut(10), gbc);
+
+        gbc.gridx = 3;
+        gbc.gridy = 0;
+        gbc.weightx = 0;
+        panel.add(new JLabel("Model: "), gbc);
+
+        gbc.gridx = 4;
+        gbc.weightx = 0.6;
+        panel.add(modelComboBox, gbc);
+
+        return panel;
+    }
+
+    private void updateModelComboBox() {
+        String selectedProvider = (String) providerComboBox.getSelectedItem();
+        modelComboBox.removeAllItems();
+        for (SelectModelOption model : providerModels.get(selectedProvider)) {
+            modelComboBox.addItem(model);
+        }
+    }
+
+    private void setUpComboBox(JComboBox<SelectModelOption> comboBox) {
+        comboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                JLabel renderer = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value != null) {
+                    renderer.setText(((SelectModelOption) value).getDisplayName());
+                    renderer.setToolTipText(((SelectModelOption) value).getDescription());
+                }
+                return renderer;
+            }
+        });
+    }
+
+
+    private void setUpProviderComboBox(JComboBox<String> comboBox) {
+        comboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                JLabel renderer = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value != null) {
+                    renderer.setToolTipText(value.toString());
+                }
+                return renderer;
+            }
+        });
+    }
+
+    public static SelectModelOption getSelectedModel() {
+        if (modelComboBox != null) {
+            return  (SelectModelOption)modelComboBox.getSelectedItem();
+        }
+        return null;
+    }
+
+    public static String  getSelectedProvider() {
+        if (providerComboBox != null) {
+            return  (String) providerComboBox.getSelectedItem();
+        }
+        return null;
     }
 }
