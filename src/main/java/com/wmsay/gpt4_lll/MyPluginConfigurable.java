@@ -194,12 +194,16 @@ public class MyPluginConfigurable implements Configurable {
     @Override
     public boolean isModified() {
         MyPluginSettings settings = MyPluginSettings.getInstance();
-        return !apiKeyField.getText().equals(settings.getApiKey()) ||
-                !gptAddressField.getText().equals(settings.getGptUrl())||
-                !proxyAddressField.getText().equals(settings.getProxyAddress())||
-                !baiduUrlField.getText().equals(settings.getGptUrl())||
-                !baiduAPIKeyField.getText().equals(settings.getGptUrl())||
-                !baiduSecretKeyField.getText().equals(settings.getGptUrl());
+        return
+                !proxyAddressField.getText().equals(settings.getProxyAddress()) ||
+                        !apiKeyField.getText().equals(settings.getApiKey()) ||
+                        !baiduAPIKeyField.getText().equals(settings.getBaiduAPIKey()) ||
+                        !baiduSecretKeyField.getText().equals(settings.getBaiduSecretKey()) ||
+                        !tongyiApiKeyField.getText().equals(settings.getTongyiApiKey()) ||
+                        !personalAddressField.getText().equals(settings.getPersonalApiUrl()) ||
+                        !personalApiKeyField.getText().equals(settings.getPersonalApiKey()) ||
+                        !personalModelField.getText().equals(settings.getPersonalModel());
+
     }
 
     @Override
