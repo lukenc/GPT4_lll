@@ -27,6 +27,7 @@ import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
 import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
+import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.utils.AuthUtils;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -381,31 +382,46 @@ public class GenerateAction extends AnAction {
         // TODO: insert action logic here
     }
 
+    public static String chat(ChatContent content, Project project, Boolean coding, Boolean replyShowInWindow, String loadingNotice) {
+        return chat(content, project, coding, replyShowInWindow, loadingNotice, 0);
+    }
 
-    public static String chat(ChatContent content,Project project,Boolean coding,Boolean replyShowInWindow,String loadingNotice){
+    public static String chat(ChatContent content, Project project, Boolean coding, Boolean replyShowInWindow, String loadingNotice, Integer retryTime) {
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String url = ChatUtils.getUrl(content, settings);
-        if (url==null||url.isEmpty()){
-            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
+        if (url == null || url.isBlank()) {
+            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api url/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
             return "";
         }
-        String apiKey = settings.getApiKey();
+        String apiKey = ChatUtils.getApiKey(settings);
+        if (apiKey==null ||apiKey.isBlank()){
+            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct apikey/请输入正确apikey。", "GPT4_LLL", Messages.getInformationIcon()));
+            return "";
+        }
         String proxy = settings.getProxyAddress();
-        if (url.contains("openai.com")&&StringUtils.isEmpty(apiKey)) {
-            ChatUtils.showOpenaiApiKeyMessageDialog(project);
-            return "";
-        }
 
-        String requestBody= JSON.toJSONString(content);
+        String requestBody = JSON.toJSONString(content);
 
         HttpClient client = ChatUtils.buildHttpClient(proxy, project);
-        HttpRequest request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
+        HttpRequest request;
+        try {
+             request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
+        }catch (IllegalArgumentException exception){
+            if (exception.getMessage().equals("URI with undefined scheme")) {
+                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api url/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
+                return "";
+            } else {
+                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Request establishment failed, please check the relevant settings and input./建立请求失败，请检查相关设置与输入", "GPT4_LLL", Messages.getInformationIcon()));
+                return "";
+            }
+        }
+
 
         Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
         if (Boolean.FALSE.equals(replyShowInWindow) && StringUtils.isEmpty(loadingNotice)) {
             loadingNotice = "正在进行多层问题分析...\nConducting multi-step problem analysis...";
         }
-        if (Boolean.FALSE.equals(replyShowInWindow) ) {
+        if (Boolean.FALSE.equals(replyShowInWindow)) {
             textArea.appendContent(loadingNotice);
         }
 
@@ -415,141 +431,144 @@ public class GenerateAction extends AnAction {
         final AtomicBoolean isWriting = new AtomicBoolean(false);
         final AtomicInteger countDot = new AtomicInteger(0);
         try {
-            AtomicReference<String> preEndString= new AtomicReference<>("");
-                client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
-                        .thenAccept(response -> {
-                            response.body().forEach(line -> {
-                                if (line.startsWith("data")) {
-                                    notExpected.set(false);
-                                    line = line.substring(5);
-                                    SseResponse sseResponse = null;
-                                    BaiduSseResponse baiduSseResponse=null;
+            AtomicReference<String> preEndString = new AtomicReference<>("");
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
+                    .thenAccept(response -> {
+                        response.body().forEach(line -> {
+                            if (line.startsWith("data")) {
+                                notExpected.set(false);
+                                line = line.substring(5);
+                                SseResponse sseResponse = null;
+                                BaiduSseResponse baiduSseResponse = null;
 
-                                    if (content.getModel().contains("baidu")){
-                                        try {
-                                            baiduSseResponse = JSON.parseObject(line, BaiduSseResponse.class);
-                                        } catch (Exception e) {
-                                            //// TODO: 2023/6/9
-                                        }
-                                    }else {
-                                        try {
-                                            sseResponse = JSON.parseObject(line, SseResponse.class);
-                                        } catch (Exception e) {
-                                            //// TODO: 2023/6/9
-                                        }
+                                if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())||ProviderNameEnum.FREE.getProviderName().equals(WindowTool.getSelectedProvider())) {
+                                    try {
+                                        baiduSseResponse = JSON.parseObject(line, BaiduSseResponse.class);
+                                    } catch (Exception e) {
+                                        //// TODO: 2023/6/9
                                     }
-                                    if (sseResponse != null||baiduSseResponse!=null) {
-                                        String resContent;
-                                        if (content.getModel().contains("baidu")){
-                                            resContent = baiduSseResponse.getResult();
-                                        }else {
-                                            resContent = sseResponse.getChoices().get(0).getDelta().getContent();
-                                        }
-                                        if (resContent != null) {
-                                            if (textArea != null) {
-                                                if (Boolean.TRUE.equals(replyShowInWindow)) {
-                                                    textArea.appendContent(resContent);
-                                                }else {
-                                                    if (countDot.get()%4==0&&countDot.get()!=0){
-                                                        textArea.setText(textArea.getText().substring(0,textArea.getText().length()-3));
-                                                    }else {
-                                                        textArea.appendContent(".");
-                                                    }
+                                } else {
+                                    try {
+                                        sseResponse = JSON.parseObject(line, SseResponse.class);
+                                    } catch (Exception e) {
+                                        //// TODO: 2023/6/9
+                                    }
+                                }
+                                if (sseResponse != null || baiduSseResponse != null) {
+                                    String resContent;
+                                    if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())||ProviderNameEnum.FREE.getProviderName().equals(WindowTool.getSelectedProvider())) {
+                                        resContent = baiduSseResponse.getResult();
+                                    } else {
+                                        resContent = sseResponse.getChoices().get(0).getDelta().getContent();
+                                    }
+                                    if (resContent != null) {
+                                        if (textArea != null) {
+                                            if (Boolean.TRUE.equals(replyShowInWindow)) {
+                                                textArea.appendContent(resContent);
+                                            } else {
+                                                if (countDot.get() % 4 == 0 && countDot.get() != 0) {
+                                                    textArea.setText(textArea.getText().substring(0, textArea.getText().length() - 3));
+                                                } else {
+                                                    textArea.appendContent(".");
                                                 }
                                             }
-                                            stringBuffer.append(resContent);
-                                            if (Boolean.TRUE.equals(coding)) {
-                                                ApplicationManager.getApplication().invokeAndWait(() -> {
-                                                    ApplicationManager.getApplication().runWriteAction(() -> {
-                                                        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-                                                        if (editor != null) {
-                                                            Document document = editor.getDocument();
-                                                            SelectionModel selectionModel = editor.getSelectionModel();
+                                        }
+                                        stringBuffer.append(resContent);
+                                        if (Boolean.TRUE.equals(coding)) {
+                                            ApplicationManager.getApplication().invokeAndWait(() -> {
+                                                ApplicationManager.getApplication().runWriteAction(() -> {
+                                                    Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+                                                    if (editor != null) {
+                                                        Document document = editor.getDocument();
+                                                        SelectionModel selectionModel = editor.getSelectionModel();
 
-                                                            int insertPosition;
-                                                            if (lastInsertPosition.get() == -1) { // This means it's the first time to insert
-                                                                if (selectionModel.hasSelection()) {
-                                                                    // If there's a selection, find the end line of the selection
-                                                                    int selectionEnd = selectionModel.getSelectionEnd();
-                                                                    int endLine = document.getLineNumber(selectionEnd);
-                                                                    // Insert at the end of the line where the selection ends
-                                                                    insertPosition = document.getLineEndOffset(endLine);
-                                                                } else {
-                                                                    // If there's no selection, insert at the end of the document
-                                                                    insertPosition = document.getTextLength();
-                                                                }
-                                                            } else { // This is not the first time, so we insert at the last insert position
-                                                                insertPosition = lastInsertPosition.get();
+                                                        int insertPosition;
+                                                        if (lastInsertPosition.get() == -1) { // This means it's the first time to insert
+                                                            if (selectionModel.hasSelection()) {
+                                                                // If there's a selection, find the end line of the selection
+                                                                int selectionEnd = selectionModel.getSelectionEnd();
+                                                                int endLine = document.getLineNumber(selectionEnd);
+                                                                // Insert at the end of the line where the selection ends
+                                                                insertPosition = document.getLineEndOffset(endLine);
+                                                            } else {
+                                                                // If there's no selection, insert at the end of the document
+                                                                insertPosition = document.getTextLength();
                                                             }
-                                                            if (isWriting.get()&&resContent.endsWith("`")&&!resContent.startsWith("`")){
-                                                                preEndString.set(resContent);
-                                                                System.out.println(preEndString.get());
-                                                            }
-                                                            if (isWriting.get()&&stringBuffer.indexOf("```") != stringBuffer.lastIndexOf("```") ){
-                                                                isWriting.set(false);
-                                                                if (resContent.contains("```")){
-                                                                    String textToInsert = resContent.split("```")[0];
-                                                                    WriteCommandAction.runWriteCommandAction(project, () ->
-                                                                            document.insertString(insertPosition, textToInsert));
-                                                                    lastInsertPosition.set(insertPosition + textToInsert.length());
-                                                                }else {
-                                                                    String textToInsert = preEndString.get().replace("`","");
-                                                                    WriteCommandAction.runWriteCommandAction(project, () ->
-                                                                            document.insertString(insertPosition, textToInsert));
-                                                                    lastInsertPosition.set(insertPosition + textToInsert.length());
-                                                                }
-                                                            }
-
-                                                            if (stringBuffer.indexOf("```") >= 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```") && stringBuffer.lastIndexOf("\n") > stringBuffer.indexOf("```")) {
-                                                                // Insert a newline and the data
-                                                                isWriting.set(true);
-                                                                String textToInsert;
-                                                                if(resContent.contains("```")&&!resContent.endsWith("```")){
-                                                                    textToInsert=resContent.split("```")[1];
-                                                                }else {
-                                                                    textToInsert = resContent.replace("`", "");
-                                                                }
+                                                        } else { // This is not the first time, so we insert at the last insert position
+                                                            insertPosition = lastInsertPosition.get();
+                                                        }
+                                                        if (isWriting.get() && resContent.endsWith("`") && !resContent.startsWith("`")) {
+                                                            preEndString.set(resContent);
+                                                            System.out.println(preEndString.get());
+                                                        }
+                                                        if (isWriting.get() && stringBuffer.indexOf("```") != stringBuffer.lastIndexOf("```")) {
+                                                            isWriting.set(false);
+                                                            if (resContent.contains("```")) {
+                                                                String textToInsert = resContent.split("```")[0];
                                                                 WriteCommandAction.runWriteCommandAction(project, () ->
                                                                         document.insertString(insertPosition, textToInsert));
-
-                                                                // Update the last insert position to the end of the inserted text
+                                                                lastInsertPosition.set(insertPosition + textToInsert.length());
+                                                            } else {
+                                                                String textToInsert = preEndString.get().replace("`", "");
+                                                                WriteCommandAction.runWriteCommandAction(project, () ->
+                                                                        document.insertString(insertPosition, textToInsert));
                                                                 lastInsertPosition.set(insertPosition + textToInsert.length());
                                                             }
                                                         }
-                                                    });
-                                                });
-                                            }
 
+                                                        if (stringBuffer.indexOf("```") >= 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```") && stringBuffer.lastIndexOf("\n") > stringBuffer.indexOf("```")) {
+                                                            // Insert a newline and the data
+                                                            isWriting.set(true);
+                                                            String textToInsert;
+                                                            if (resContent.contains("```") && !resContent.endsWith("```")) {
+                                                                textToInsert = resContent.split("```")[1];
+                                                            } else {
+                                                                textToInsert = resContent.replace("`", "");
+                                                            }
+                                                            WriteCommandAction.runWriteCommandAction(project, () ->
+                                                                    document.insertString(insertPosition, textToInsert));
+
+                                                            // Update the last insert position to the end of the inserted text
+                                                            lastInsertPosition.set(insertPosition + textToInsert.length());
+                                                        }
+                                                    }
+                                                });
+                                            });
                                         }
+
                                     }
-                                }else {
-                                    stringBuffer.append(line);
                                 }
-                            });
-                        }).join();
-            }catch (Exception e){
-                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, e.getMessage(), "ChatGpt", Messages.getInformationIcon()));
-                e.printStackTrace();
-            }
-            String replyContent=stringBuffer.toString();
-            Message message = new Message();
-            message.setRole("assistant");
-            message.setContent(replyContent);
-            chatHistory.add(message);
-            JsonStorage.saveConservation(nowTopic,chatHistory);
-        if (notExpected.get()){
+                            } else {
+                                stringBuffer.append(line);
+                            }
+                        });
+                    }).join();
+        } catch (Exception e) {
+            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, e.getMessage(), "ChatGpt", Messages.getInformationIcon()));
+            e.printStackTrace();
+        }
+//        if (textArea != null) {
+//            textArea.highlight();
+//        }
+        String replyContent = stringBuffer.toString();
+        Message message = new Message();
+        message.setRole("assistant");
+        message.setContent(replyContent);
+        chatHistory.add(message);
+        JsonStorage.saveConservation(nowTopic, chatHistory);
+        if (notExpected.get()) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()));
         }
-        if (content.getModel().contains("baidu")){
+        if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())) {
             //判断是否需要继续未完成的内容
-            if (Boolean.TRUE.equals(ChatUtils.needsContinuation(replyContent))) {
+            if (Boolean.TRUE.equals(ChatUtils.needsContinuation(replyContent)) && retryTime < 2) {
                 chatHistory.add(ChatUtils.getContinueMessage4Baidu());
                 content.setMessages(chatHistory);
-                chat(content, project, coding, replyShowInWindow, loadingNotice);
+                chat(content, project, coding, replyShowInWindow, loadingNotice, retryTime + 1);
             }
         }
-            return replyContent;
-        }
+        return replyContent;
+    }
 
 
 
