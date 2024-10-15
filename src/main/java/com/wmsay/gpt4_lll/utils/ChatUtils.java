@@ -32,54 +32,16 @@ public class ChatUtils {
         return message;
     }
 
-    public static String getModelName(ToolWindow toolWindow) {
-        if (toolWindow != null && toolWindow.isVisible()) {
-            JPanel contentPanel = (JPanel) toolWindow.getContentManager().getContent(0).getComponent();
 
-            JRadioButton gpt4Option = findRadioButton(contentPanel, "gpt-4");
-            JRadioButton gpt35TurboOption = findRadioButton(contentPanel, "gpt-3.5-turbo");
-            JRadioButton codeOption = findRadioButton(contentPanel, "code-davinci-002");
-            JRadioButton gpt40TurboOption = findRadioButton(contentPanel, "gpt-4-turbo");
-            JRadioButton baiduOption = findRadioButton(contentPanel, "文心一言-baidu");
-            JRadioButton freeBaiduOption = findRadioButton(contentPanel,"Free-免费");
 
-            if (freeBaiduOption != null) {
-                boolean selected = freeBaiduOption.isSelected();
-                if (selected) {
-                    return "baidu-free";
-                }
-            }
+    public static String getModelName() {
+        SelectModelOption selectedModel=  WindowTool.getSelectedModel();
+        if (selectedModel!=null){
+            System.out.printf("选中的模型是====="+selectedModel.getModelName());
+            if ("".equals( selectedModel.getProvider())){
 
-            if (gpt4Option != null) {
-                boolean selected = gpt4Option.isSelected();
-                if (selected) {
-                    return "gpt-4";
-                }
             }
-            if (gpt35TurboOption != null) {
-                boolean selected = gpt35TurboOption.isSelected();
-                if (selected) {
-                    return "gpt-3.5-turbo";
-                }
-            }
-            if (codeOption != null) {
-                boolean selected = codeOption.isSelected();
-                if (selected) {
-                    return "code-davinci-002";
-                }
-            }
-            if (gpt40TurboOption != null) {
-                boolean selected = gpt40TurboOption.isSelected();
-                if (selected) {
-                    return "gpt-4-turbo-preview";
-                }
-            }
-            if (baiduOption!=null){
-                boolean selected = baiduOption.isSelected();
-                if (selected) {
-                    return "baidu";
-                }
-            }
+            return selectedModel.getModelName();
         }
         return "gpt-3.5-turbo";
     }
