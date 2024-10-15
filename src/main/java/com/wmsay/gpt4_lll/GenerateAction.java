@@ -53,8 +53,8 @@ import java.util.regex.Pattern;
 import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 
 public class GenerateAction extends AnAction {
-    public static HashMap<String ,String > languageMap=new HashMap<>();
-    static  {
+    public static HashMap<String, String> languageMap = new HashMap<>();
+    static {
         languageMap.put("ab", "Abkhazian");
         languageMap.put("aa", "Afar");
         languageMap.put("af", "Afrikaans");
@@ -664,11 +664,11 @@ public class GenerateAction extends AnAction {
         return false;
     }
 
-    public String  getSystemLanguage() {
+    public String getSystemLanguage() {
         Locale locale = Locale.getDefault();
         String languageCode = locale.getLanguage();
-        String language=languageMap.get(languageCode);
-        if (language==null){
+        String language = languageMap.get(languageCode);
+        if (language == null) {
             return "中文";
         }
         return language;
@@ -676,7 +676,7 @@ public class GenerateAction extends AnAction {
 
 
 
-    public String getCommentTODO(Project project,Editor editor){
+    public String getCommentTODO(Project project, Editor editor) {
         SelectionModel selectionModel = editor.getSelectionModel();
         int start = selectionModel.getSelectionStart();
         int end = selectionModel.getSelectionEnd();
@@ -702,7 +702,7 @@ public class GenerateAction extends AnAction {
                 if (!todoContent.isEmpty()) {
                     return todoContent;
                 }
-            }else {
+            } else {
                 continue;
             }
         }
@@ -761,7 +761,7 @@ public class GenerateAction extends AnAction {
         if (fileIndex.isInSourceContent(virtualFile)) {
             // 获取PsiClass对象的所有字段
             PsiField[] fields = psiClass.getFields();
-            PsiMethod[] methods= psiClass.getMethods();
+            PsiMethod[] methods = psiClass.getMethods();
             // 创建一个新的Message对象
             Message classMessage = new Message();
             classMessage.setRole("user");
@@ -917,7 +917,6 @@ public class GenerateAction extends AnAction {
         // 返回转换后的Message对象
         return classMessage;
     }
-
 
 
     private PsiElement getNextElement(PsiElement element, PsiElement stopElement) {
