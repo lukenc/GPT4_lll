@@ -2,181 +2,145 @@ package com.wmsay.gpt4_lll;
 
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
-import com.intellij.openapi.ui.ComboBox;
+import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+
 
 public class MyPluginConfigurable implements Configurable {
-    private JTextField apiKeyField;
+    //代理 通用配置
     private JTextField proxyAddressField;
-    private JTextField gptAddressField;
+
+    //OpenAi配置
+    private JTextField apiKeyField;
+
+    //百度配置
     private JTextField baiduAPIKeyField;
     private JTextField baiduSecretKeyField;
-    private JTextField baiduUrlField;
-    private JPanel panel;
+    //千问配置
+    private JTextField tongyiApiKeyField;
+    //自定义的配置
+    private JTextField personalApiKeyField;
+    private JTextField personalAddressField;
+    private JTextField personalModelField;
 
-    private Map<String, String> modelToUrlMap;
-    private JComboBox<String> modelComboBox;
+    private JPanel panel;
 
 
     public MyPluginConfigurable() {
-        modelToUrlMap = new LinkedHashMap<>();
-        modelToUrlMap.put("CodeLlama-7b-Instruct", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/completions/codellama_7b_instruct");
-        modelToUrlMap.put("ERNIE-4.0-8K", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions_pro");
-        modelToUrlMap.put("Mixtral-8x7B-Instruct-v0.1【个人推荐】", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/mixtral_8x7b_instruct");
-
-
+        Font titleFont = UIManager.getFont("Label.font").deriveFont(Font.BOLD);
         panel = new JPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
-        {
-            JLabel apiKeyLabel = new JLabel("API Key: ");
-            c.gridx = 0;
-            c.gridy = 0;
-            c.anchor = GridBagConstraints.EAST;
-            panel.add(apiKeyLabel, c);
+        Insets insets = JBUI.insets(20, 0, 10, 0);
+        JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
 
-            apiKeyField = new JTextField();
-            apiKeyField.setColumns(20);
-            apiKeyField.setToolTipText("Enter your API Key here");
-            c.gridx = 1;
-            c.gridy = 0;
-            c.anchor = GridBagConstraints.WEST;
-            panel.add(apiKeyField, c);
-        }
-        {
-            JLabel proxyAddressLabel = new JLabel("科学冲浪地址(格式 IP:port): ");
-            c.gridx = 0;
-            c.gridy = 1;
-            c.anchor = GridBagConstraints.EAST;
-            panel.add(proxyAddressLabel, c);
+        // 设置列宽
+        panel.setLayout(new GridBagLayout());
+        ((GridBagLayout)panel.getLayout()).columnWidths = new int[]{200, 0};
+        ((GridBagLayout)panel.getLayout()).columnWeights = new double[]{0.0, 1.0};
 
-            proxyAddressField = new JTextField();
-            proxyAddressField.setColumns(20);
-            proxyAddressField.setToolTipText("冲浪吧，格式IP:port");
-            c.gridx = 1;
-            c.gridy = 1;
-            c.anchor = GridBagConstraints.WEST;
-            panel.add(proxyAddressField, c);
-        }
-        {
-            JLabel privateUrl = new JLabel("GPT address（maybe build by your company）");
-            c.gridx = 0;
-            c.gridy = 2;
-            c.anchor = GridBagConstraints.EAST;
-            panel.add(privateUrl, c);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.insets = new Insets(5, 5, 5, 5);
 
-            gptAddressField = new JTextField();
-            gptAddressField.setColumns(20);
-            gptAddressField.setText("https://api.openai.com/v1/chat/completions");
-            gptAddressField.setToolTipText("default：https://api.openai.com/v1/chat/completions");
-            c.gridx = 1;
-            c.gridy = 2;
-            c.anchor = GridBagConstraints.WEST;
-            panel.add(gptAddressField, c);
-        }
+        int gridy = 0;
 
-        // 添加横向提示标签
-        JLabel hintLabel = new JLabel("百度文心一言配置：");
-        c.gridx = 0;
-        c.gridy = 6;
+        // 通用设置标题
+        addTitleLabel(panel, c, gridy++, "通用设置/common configuration");
+
+        // 代理地址设置
+        addLabelAndField(panel, c, gridy++, "科学冲浪地址(格式 IP:port): ", proxyAddressField = new JTextField(20));
+        proxyAddressField.setToolTipText("冲浪吧，格式IP:port");
+
+        // 分隔线
+        addSeparator(panel, c, gridy++);
+
+        // OpenAI 设置标题
+        addTitleLabel(panel, c, gridy++, "ChatGpt 配置/OpenAi(gpt) configuration");
+
+        // OpenAI API Key 设置
+        addLabelAndField(panel, c, gridy++, "OpenAi(gpt) API Key: ", apiKeyField = new JTextField(20));
+        apiKeyField.setToolTipText("Enter your API Key here");
+
+        // 分隔线
+        addSeparator(panel, c, gridy++);
+
+        // 百度文心一言设置标题
+        addTitleLabel(panel, c, gridy++, "百度文心一言配置/Baidu ERNIE Configuration");
+
+        // 百度 API Key 设置
+        addLabelAndField(panel, c, gridy++, "百度API Key:", baiduAPIKeyField = new JTextField(20));
+        baiduAPIKeyField.setToolTipText("输入您的百度API Key");
+
+        // 百度 Secret Key 设置
+        addLabelAndField(panel, c, gridy++, "百度Secret Key:", baiduSecretKeyField = new JTextField(20));
+        baiduSecretKeyField.setToolTipText("输入您的百度Secret Key");
+
+        // 分隔线
+        addSeparator(panel, c, gridy++);
+
+        // 通义千问设置标题
+        addTitleLabel(panel, c, gridy++, "通义千问配置/Tongyi Qwen Configuration");
+
+        // 通义千问 API Key 设置
+        addLabelAndField(panel, c, gridy++, "通义千问Api Key:", tongyiApiKeyField = new JTextField(20));
+        tongyiApiKeyField.setToolTipText("输入您的通义千问Api Key");
+
+        // 分隔线
+        addSeparator(panel, c, gridy++);
+
+        // 自定义配置标题
+        addTitleLabel(panel, c, gridy++, "自定义Api配置（遵循OpenAI接口规范）/Custom API Configuration (Following OpenAI Interface Standards)");
+        addTitleLabel(panel, c, gridy++, "可以是私有化部署的服务，例如ollama");
+
+        // 自定义 API 地址设置
+        addLabelAndField(panel, c, gridy++, "Api address:", personalAddressField = new JTextField(20));
+        personalAddressField.setToolTipText("输入您的自定义的api地址");
+
+        // 自定义 API 模型设置
+        addLabelAndField(panel, c, gridy++, "Api model:", personalModelField = new JTextField(20));
+
+        // 自定义 API Key 设置
+        addLabelAndField(panel, c, gridy++, "personal Api Key:", personalApiKeyField = new JTextField(20));
+
+        // 添加一个占位组件来吸收多余的垂直空间
+        c.weighty = 1.0;
         c.gridwidth = 2;
-        c.anchor = GridBagConstraints.CENTER;
-        panel.add(hintLabel, c);
+        panel.add(new JPanel(), c);
+    }
 
-        // 重置GridBagConstraints的gridwidth
+    private void addTitleLabel(JPanel panel, GridBagConstraints c, int gridy, String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(label.getFont().deriveFont(Font.BOLD));
+        c.gridx = 0;
+        c.gridy = gridy;
+        c.gridwidth = 2;
+        c.anchor = GridBagConstraints.WEST;
+        panel.add(label, c);
         c.gridwidth = 1;
+    }
 
-        {
-            // 添加百度API Key输入框
-            JLabel baiduAPIKeyLabel = new JLabel("百度API Key:");
-            c.gridx = 0;
-            c.gridy = 7;
-            c.anchor = GridBagConstraints.EAST;
-            panel.add(baiduAPIKeyLabel, c);
+    private void addLabelAndField(JPanel panel, GridBagConstraints c, int gridy, String labelText, JTextField field) {
+        JLabel label = new JLabel(labelText);
+        c.gridx = 0;
+        c.gridy = gridy;
+        c.anchor = GridBagConstraints.EAST;
+        panel.add(label, c);
 
-            baiduAPIKeyField = new JTextField();
-            baiduAPIKeyField.setColumns(20);
-            baiduAPIKeyField.setToolTipText("输入您的百度API Key");
-            c.gridx = 1;
-            c.gridy = 7;
-            c.anchor = GridBagConstraints.WEST;
-            panel.add(baiduAPIKeyField, c);
-        }
-        {
-            // 添加百度Secret Key输入框
-            JLabel baiduSecretKeyLabel = new JLabel("百度Secret Key:");
-            c.gridx = 0;
-            c.gridy = 8;
-            c.anchor = GridBagConstraints.EAST;
-            panel.add(baiduSecretKeyLabel, c);
+        c.gridx = 1;
+        c.anchor = GridBagConstraints.WEST;
+        panel.add(field, c);
+    }
 
-            baiduSecretKeyField = new JTextField();
-            baiduSecretKeyField.setColumns(20);
-            baiduSecretKeyField.setToolTipText("输入您的百度Secret Key");
-            c.gridx = 1;
-            c.gridy = 8;
-            c.anchor = GridBagConstraints.WEST;
-            panel.add(baiduSecretKeyField, c);
-        }
-        {
-            // 添加百度Api地址输入框
-            JLabel baiduSecretKeyLabel = new JLabel("百度请求地址（百度根据地址选择不同模型）:");
-            c.gridx = 0;
-            c.gridy = 9;
-            c.anchor = GridBagConstraints.EAST;
-            panel.add(baiduSecretKeyLabel, c);
-
-            modelComboBox = new ComboBox<>(modelToUrlMap.keySet().toArray(new String[0]));
-            modelComboBox.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    String selectedModel = (String) modelComboBox.getSelectedItem();
-                    baiduUrlField.setText(modelToUrlMap.get(selectedModel));
-                }
-            });
-            c.gridx = 1;
-            c.gridy = 9;
-            c.anchor = GridBagConstraints.WEST;
-            panel.add(modelComboBox,c);
-
-
-            baiduUrlField = new JTextField();
-            baiduUrlField.setColumns(20);
-            baiduUrlField.setToolTipText("输入您的百度Api地址");
-            c.gridx = 1;
-            c.gridy = 10;
-            c.anchor = GridBagConstraints.WEST;
-            panel.add(baiduUrlField, c);
-        }
-        // 设置百度分割线与上一行之间的间距
-        Insets insets = new Insets(20, 0, 10, 0); // 上、左、下、右的间距
-        c.insets = insets;
+    private void addSeparator(JPanel panel, GridBagConstraints c, int gridy) {
         JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
         c.gridx = 0;
-        c.gridy = 5; // 设置分割线的位置
-        c.gridwidth = 2; // 横跨两列
-        c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridy = gridy;
+        c.gridwidth = 2;
+        c.insets = JBUI.insets(20, 0, 10, 0);
         panel.add(separator, c);
-        // 重置GridBagConstraints的gridwidth
-        c.gridwidth = 1;
-
-        // 设置百度分割线与上一行之间的间距
-        Insets commonInsets = new Insets(0, 0, 10, 0); // 上、左、下、右的间距
-        c.insets = commonInsets;
-        JSeparator commonSeparator = new JSeparator(SwingConstants.HORIZONTAL);
-        c.gridx = 0;
-        c.gridy = 5; // 设置分割线的位置
-        c.gridwidth = 2; // 横跨两列
-        c.fill = GridBagConstraints.HORIZONTAL;
-        panel.add(commonSeparator, c);
-        // 重置GridBagConstraints的gridwidth
+        c.insets = JBUI.insets(5);
         c.gridwidth = 1;
     }
 
@@ -211,21 +175,25 @@ public class MyPluginConfigurable implements Configurable {
         MyPluginSettings settings = MyPluginSettings.getInstance();
         settings.setApiKey(apiKeyField.getText());
         settings.setProxyAddress(proxyAddressField.getText());
-        settings.setGptUrl(gptAddressField.getText());
         settings.setBaiduAPIKey(baiduAPIKeyField.getText());
         settings.setBaiduSecretKey(baiduSecretKeyField.getText());
-        settings.setBaiduApiUrl(baiduUrlField.getText());
+        settings.setTongyiApiKey(tongyiApiKeyField.getText());
+        settings.setPersonalApiKey(personalApiKeyField.getText());
+        settings.setPersonalApiUrl(personalAddressField.getText());
+        settings.setPersonalModel(personalModelField.getText());
     }
 
     @Override
     public void reset() {
         MyPluginSettings settings = MyPluginSettings.getInstance();
-        apiKeyField.setText(settings.getApiKey());
         proxyAddressField.setText(settings.getProxyAddress());
-        gptAddressField.setText(settings.getGptUrl());
+        apiKeyField.setText(settings.getApiKey());
         baiduAPIKeyField.setText(settings.getBaiduAPIKey());
         baiduSecretKeyField.setText(settings.getBaiduSecretKey());
-        baiduUrlField.setText(settings.getBaiduApiUrl());
+        tongyiApiKeyField.setText(settings.getTongyiApiKey());
+        personalAddressField.setText(settings.getPersonalApiUrl());
+        personalModelField.setText(settings.getPersonalModel());
+        personalApiKeyField.setText(settings.getPersonalApiKey());
     }
 }
 
