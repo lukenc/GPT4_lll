@@ -610,13 +610,13 @@ public class GenerateAction extends AnAction {
 
 
     /**
-     *
      * 检查是否都是注释
-    * @author liuchuan
-    * @date 2023/6/8 2:06 PM
+     *
      * @param project
      * @return java.lang.Boolean
-    */
+     * @author liuchuan
+     * @date 2023/6/8 2:06 PM
+     */
     public boolean isSelectedTextAllComments(Project project) {
         Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
 
