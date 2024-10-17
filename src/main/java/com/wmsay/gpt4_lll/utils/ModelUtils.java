@@ -1,5 +1,7 @@
 package com.wmsay.gpt4_lll.utils;
 
+import com.intellij.openapi.project.Project;
+import com.wmsay.gpt4_lll.component.Gpt4lllComboxKey;
 import com.wmsay.gpt4_lll.model.ModelProvider;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
 import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
@@ -79,5 +81,13 @@ public class ModelUtils {
         return url;
     }
 
+
+    public static SelectModelOption getSelectedModel(Project project) {
+       return (SelectModelOption) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_MODEL_COMBO_BOX).getSelectedItem();
+    }
+
+    public static String getSelectedProvider(Project project) {
+        return (String) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_PROVIDER_COMBO_BOX).getSelectedItem();
+    }
 
 }
