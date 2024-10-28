@@ -51,7 +51,8 @@ Added a history recording feature to prevent data loss. Every conversation will 
 Introduced a new Code Assessment feature, allowing team leaders to evaluate team members' code.  
 新引入了代码评估功能，允许团队领导评估团队成员的代码。
 
-![代码评估截图](截图.png)  <!-- 插入代码评估的截图 -->
+[观看代码评估功能演示](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/71961e75-8bf8-488c-a430-aa243534ea2a)
+
 
 ## Installation/安装
 1. Open IntelliJ IDEA.
