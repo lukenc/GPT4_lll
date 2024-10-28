@@ -1,5 +1,9 @@
 # GPT4_lll Plugin for IntelliJ IDEA
 
+![JetBrains Plugin Downloads](https://img.shields.io/jetbrains/plugin/d/21935?logo=jetbrains&link=https%3A%2F%2Fplugins.jetbrains.com%2Fembeddable%2Finstall%2F21935)
+![JetBrains Plugin Rating](https://img.shields.io/jetbrains/plugin/r/rating/21935?logo=intellijidea)
+
+
 ## Introduction
 
 GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。
