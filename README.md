@@ -41,7 +41,8 @@ Implemented the capability to generate code on demand, providing code snippets w
 Added a feature that allows you to auto-generate code comments using ChatGPT by simply highlighting the code.  
 添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。
 
-![自动生成注释截图](截图.png)  <!-- 插入自动生成注释的截图 -->
+[观看自动生成代码注释演示](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/1650c220-b7db-489d-8a82-e35e5882d201) <!-- 插入自动生成注释的截图 -->
+
 
 ### History Recording Feature/历史记录功能
 Added a history recording feature to prevent data loss. Every conversation will now be recorded for easy access.  
