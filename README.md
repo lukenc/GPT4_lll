@@ -28,7 +28,9 @@ The plugin supports multiple platforms, including OpenAI's ChatGPT, Baidu's ERNI
 Introduced the ability to generate code based on TODO comments within a project.  
 在项目中根据TODO评论生成代码的能力已被引入。
 
-![TODO功能截图](截图.png) 
+[观看TODO功能自动生成演示](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/192f0812-f9c2-42c5-89b9-23e4e8c0861d)
+[观看TODO功能自动生成演示2](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/29c80575-0c3b-4530-9ef4-dd764e5b7d4c)
+
 
 ### Natural Language Recognition/自然语言识别
 Improved the logic for natural language recognition, enhancing accuracy and performance.  
