@@ -1,6 +1,7 @@
 # GPT4_lll Plugin for IntelliJ IDEA
 
 ## Introduction
+
 GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。
 
 ![插件界面截图](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/7f3f8611-6fca-499a-a9c9-673cb2e3aae1)  <!-- 插入插件界面的截图 -->
