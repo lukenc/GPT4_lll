@@ -123,8 +123,8 @@ public class ChatUtils {
 
 
 
-    public static String getApiKey(MyPluginSettings settings) {
-        String provider = WindowTool.getSelectedProvider();
+    public static String getApiKey(MyPluginSettings settings,Project project) {
+        String provider = ModelUtils.getSelectedProvider(project);
         if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
             String accessToken = AuthUtils.getBaiduAccessToken();
             return accessToken;
@@ -142,6 +142,9 @@ public class ChatUtils {
         }
         if (ProviderNameEnum.ALI.getProviderName().equals(provider)){
             return settings.getTongyiApiKey();
+        }
+        if (ProviderNameEnum.GROK.getProviderName().equals(provider)){
+            return settings.getGrokApiKey();
         }
         return "";
     }
