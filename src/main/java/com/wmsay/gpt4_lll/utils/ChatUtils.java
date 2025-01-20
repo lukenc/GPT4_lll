@@ -1,13 +1,16 @@
 package com.wmsay.gpt4_lll.utils;
 
+import com.alibaba.fastjson.JSON;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.wmsay.gpt4_lll.MyPluginSettings;
-import com.wmsay.gpt4_lll.WindowTool;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
+import com.wmsay.gpt4_lll.model.SseResponse;
+import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
 import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
@@ -16,7 +19,10 @@ import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ChatUtils {
 
@@ -36,8 +42,8 @@ public class ChatUtils {
 
 
 
-    public static String getModelName() {
-        SelectModelOption selectedModel=  WindowTool.getSelectedModel();
+    public static String getModelName(Project project) {
+        SelectModelOption selectedModel=  ModelUtils.getSelectedModel(project);
         if (selectedModel!=null){
             System.out.printf("选中的模型是====="+selectedModel.getModelName());
             if ("".equals( selectedModel.getProvider())){
