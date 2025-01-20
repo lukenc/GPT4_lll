@@ -78,14 +78,33 @@ public class ChatUtils {
     /**
      * 获取API URL。
      *
-     * @param content 聊天内容
      * @return API URL
      */
-    public static String getUrl(ChatContent content, MyPluginSettings settings) {
-        String provider = WindowTool.getSelectedProvider();
+    public static String getUrlByProvider(MyPluginSettings settings,String  provider,String modelName) {
         if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
             String accessToken = AuthUtils.getBaiduAccessToken();
-            String url = ModelUtils.getUrlByProvider(provider)+ ModelUtils.getModelNameByDisplay(WindowTool.getSelectedModel().getDisplayName()) + "?access_token=" + accessToken;
+            String url = ModelUtils.getUrlByProvider(provider)+ modelName + "?access_token=" + accessToken;
+            return url;
+        }
+        //todo 当前只有百度是免费的 所以先将免费的都写成百度的
+        if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
+            String accessToken = AuthUtils.getFreeBaiduAccessToken();
+            String url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + "?access_token=" + accessToken;
+            return url;
+        }
+        if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
+            return settings.getPersonalApiUrl();
+        }
+        // 处理标准接口的公有平台url
+        String url = ModelUtils.getUrlByProvider(provider);
+        return url;
+    }
+
+    public static String getUrl(MyPluginSettings settings,Project project) {
+        String provider = ModelUtils.getSelectedProvider(project);
+        if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
+            String accessToken = AuthUtils.getBaiduAccessToken();
+            String url = ModelUtils.getUrlByProvider(provider)+ ModelUtils.getModelNameByDisplay(ModelUtils.getSelectedModel(project).getDisplayName()) + "?access_token=" + accessToken;
             return url;
         }
         //todo 当前只有百度是免费的 所以先将免费的都写成百度的
