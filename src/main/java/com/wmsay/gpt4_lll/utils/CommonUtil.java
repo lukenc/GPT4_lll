@@ -15,6 +15,8 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.GPT_4_LLL_RUNNING_STATUS;
+
 public class CommonUtil {
     private static final String TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
     public static HashMap<String ,String > languageMap=new HashMap<>();
@@ -265,6 +267,17 @@ public class CommonUtil {
         Matcher sqlMatcher = sqlPattern.matcher(selectedText);
         boolean isNormalSQL = sqlMatcher.find();
         return isMyBatisSQL||isNormalSQL;
+    }
+
+
+    public static void stopRunningStatus(Project project){
+        project.putUserData(GPT_4_LLL_RUNNING_STATUS,false);
+    }
+    public static void startRunningStatus(Project project){
+        project.putUserData(GPT_4_LLL_RUNNING_STATUS,true);
+    }
+    public static Boolean isRunningStatus(Project project){
+        return Boolean.TRUE.equals( project.getUserData(GPT_4_LLL_RUNNING_STATUS));
     }
 
 
