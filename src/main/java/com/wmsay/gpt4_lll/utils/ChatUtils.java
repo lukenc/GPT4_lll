@@ -202,6 +202,20 @@ public class ChatUtils {
         return clientBuilder.build();
     }
 
+    public static HttpClient buildHttpClient(String proxy) {
+        HttpClient.Builder clientBuilder = HttpClient.newBuilder();
+        if (StringUtils.isNotEmpty(proxy)) {
+            String[] addressAndPort = proxy.split(":");
+            if (addressAndPort.length == 2 && isValidPort(addressAndPort[1])) {
+                int port = Integer.parseInt(addressAndPort[1]);
+                clientBuilder.proxy(ProxySelector.of(new InetSocketAddress(addressAndPort[0], port)));
+            } else {
+                throw  new IllegalArgumentException("格式错误，格式为ip:port");
+            }
+        }
+        return clientBuilder.build();
+    }
+
 
     public static HttpRequest buildHttpRequest(String url, String requestBody, String apiKey) {
         return HttpRequest.newBuilder()
@@ -230,4 +244,92 @@ public class ChatUtils {
         SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, message, title, Messages.getInformationIcon()));
     }
 
+    public static List<Message> getProjectChatHistory(Project project){
+        if (project.getUserData(Gpt4lllChatKey.GPT_4_LLL_CONVERSATION_HISTORY)==null){
+            project.putUserData(Gpt4lllChatKey.GPT_4_LLL_CONVERSATION_HISTORY,new ArrayList<>());
+        }
+        return project.getUserData(Gpt4lllChatKey.GPT_4_LLL_CONVERSATION_HISTORY);
+    }
+
+    public static String getProjectTopic(Project project){
+        if (project.getUserData(Gpt4lllChatKey.GPT_4_LLL_NOW_TOPIC)==null){
+            project.putUserData(Gpt4lllChatKey.GPT_4_LLL_NOW_TOPIC,"");
+        }
+        return project.getUserData(Gpt4lllChatKey.GPT_4_LLL_NOW_TOPIC);
+    }
+
+    public static void setProjectTopic(Project project,String topic){
+        project.putUserData(Gpt4lllChatKey.GPT_4_LLL_NOW_TOPIC,topic);
+    }
+
+
+    public static String pureChat(String provider,String apiKey,ChatContent content) throws IllegalArgumentException{
+        System.out.println();
+        MyPluginSettings settings = MyPluginSettings.getInstance();
+        String url = ChatUtils.getUrlByProvider( settings,provider,content.getModel());
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("Input the correct api url/请输入正确api地址。");
+        }
+        if (apiKey==null ||apiKey.isBlank()){
+            throw new IllegalArgumentException("Input the correct apikey/请输入正确apikey。");
+        }
+        String proxy = settings.getProxyAddress();
+
+        String requestBody = JSON.toJSONString(content);
+
+        HttpClient client = ChatUtils.buildHttpClient(proxy);
+        HttpRequest request;
+        try {
+            request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
+        }catch (IllegalArgumentException exception){
+            if (exception.getMessage().equals("URI with undefined scheme")) {
+                throw new IllegalArgumentException("Input the correct api url/请输入正确api地址。");
+            } else {
+                throw new IllegalArgumentException("Request establishment failed, please check the relevant settings and input./建立请求失败，请检查相关设置与输入");
+            }
+        }
+        StringBuilder stringBuffer = new StringBuilder();
+
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
+                .thenAccept(response -> {
+                    response.body().forEach(line -> {
+                        if (line.startsWith("data")) {
+//                            notExpected.set(false);
+                            line = line.substring(5);
+                            SseResponse sseResponse = null;
+                            BaiduSseResponse baiduSseResponse = null;
+
+                            if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)||ProviderNameEnum.FREE.getProviderName().equals(provider)) {
+                                try {
+                                    baiduSseResponse = JSON.parseObject(line, BaiduSseResponse.class);
+                                } catch (Exception e) {
+                                    //// TODO: 2023/6/9
+                                }
+                            } else {
+                                try {
+                                    sseResponse = JSON.parseObject(line, SseResponse.class);
+                                } catch (Exception e) {
+                                    //// TODO: 2023/6/9
+                                }
+                            }
+                            if (sseResponse != null || baiduSseResponse != null) {
+                                String resContent;
+                                if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)||ProviderNameEnum.FREE.getProviderName().equals(provider)) {
+                                    resContent = baiduSseResponse.getResult();
+                                } else {
+                                    resContent = sseResponse.getChoices().get(0).getDelta().getContent();
+                                }
+                                if (resContent != null) {
+                                    stringBuffer.append(resContent);
+                                }
+                            }
+                        } else {
+                            stringBuffer.append(line);
+                        }
+                    });
+                }).join();
+        return stringBuffer.toString();
+
+
+    }
 }
