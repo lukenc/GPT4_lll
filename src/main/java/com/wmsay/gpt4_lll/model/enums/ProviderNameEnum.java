@@ -5,7 +5,9 @@ public enum ProviderNameEnum {
     PERSONAL("Personal"),
     BAIDU("Baidu"),
     ALI("Alibaba"),
-    OPEN_AI("OpenAI");
+    OPEN_AI("OpenAI"),
+    GROK("X-GROK")
+    ;
     final String providerName;
 
 
