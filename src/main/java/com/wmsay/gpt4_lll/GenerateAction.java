@@ -912,30 +912,32 @@ public class GenerateAction extends AnAction {
         // 创建一个StringBuffer对象，用于存储类的信息
         StringBuffer classInfoSb = new StringBuffer();
         // 添加类名和属性信息到StringBuffer对象中
-        classInfoSb.append("已知").append(psiClass.getName()).append("类包含以下属性：");
-        for (PsiField field : fields) {
-            // 添加字段类型和字段名到StringBuffer对象中
-            classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
-            // 如果字段有备注，则把备注也append进去
-            PsiDocComment docComment = field.getDocComment();
-            if (docComment != null) {
-                String commentText = extractContentFromDocComment(docComment);
-                classInfoSb.append("，描述为:").append(commentText);
-            } else {
-                PsiAnnotation[] annotations = field.getAnnotations();
-                // 遍历注解数组
-                for (PsiAnnotation annotation : annotations) {
-                    PsiAnnotationMemberValue value = annotation.findAttributeValue("description");
-                    if (value != null) {
-                        classInfoSb.append("，描述为:").append(value.getText());
-                        break;
+        if (fields!=null&&fields.length>0) {
+            classInfoSb.append("已知").append(psiClass.getName()).append("类包含以下属性：");
+            for (PsiField field : fields) {
+                // 添加字段类型和字段名到StringBuffer对象中
+                classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
+                // 如果字段有备注，则把备注也append进去
+                PsiDocComment docComment = field.getDocComment();
+                if (docComment != null) {
+                    String commentText = extractContentFromDocComment(docComment);
+                    classInfoSb.append("，描述为:").append(commentText);
+                } else {
+                    PsiAnnotation[] annotations = field.getAnnotations();
+                    // 遍历注解数组
+                    for (PsiAnnotation annotation : annotations) {
+                        PsiAnnotationMemberValue value = annotation.findAttributeValue("description");
+                        if (value != null) {
+                            classInfoSb.append("，描述为:").append(value.getText());
+                            break;
+                        }
                     }
                 }
+                //每个字段需要分隔开
+                classInfoSb.append(" \n");
             }
-            //每个字段需要分隔开
-            classInfoSb.append(" \n");
         }
-        if (methods.length > 0) {
+        if (methods!=null&&methods.length > 0) {
             Set<String> getterAndSetterNames = new HashSet<>();
             for (PsiField field : psiClass.getFields()) {
                 String fieldName = field.getName();
