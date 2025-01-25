@@ -1,13 +1,12 @@
 package com.wmsay.gpt4_lll.utils;
 
 import com.intellij.openapi.project.Project;
-import com.wmsay.gpt4_lll.component.Gpt4lllComboxKey;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllComboxKey;
 import com.wmsay.gpt4_lll.model.ModelProvider;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
 import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,6 +29,8 @@ public class ModelUtils {
         modelProviders.add(new ModelProvider(ProviderNameEnum.BAIDU.getProviderName(), "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/", "一个特立独行的哨兵供应商，瞎立什么规范"));
         modelProviders.add(new ModelProvider(ProviderNameEnum.OPEN_AI.getProviderName(), "https://api.openai.com/v1/chat/completions", ""));
         modelProviders.add(new ModelProvider(ProviderNameEnum.ALI.getProviderName(), "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "国内厂商中头部水平了"));
+        modelProviders.add(new ModelProvider(ProviderNameEnum.GROK.getProviderName(), "https://api.x.ai/v1/chat/completions", "国内厂商中头部水平了"));
+
         provider2Url = modelProviders.stream().collect(Collectors.toMap(ModelProvider::getName, ModelProvider::getUrl));
         // 免费模型
         modelOptions.add(new SelectModelOption("baidu-free", "免费的模型", ProviderNameEnum.FREE.getProviderName(), "免费/Free"));
@@ -44,7 +45,8 @@ public class ModelUtils {
         modelOptions.add(new SelectModelOption("llama_3_70b", "Meta AI于2024年4月18日发布的Meta Llama 3系列70B参数大语言模型", ProviderNameEnum.BAIDU.getProviderName(), "Meta-Llama-3-70B-Instruct"));
 
         // Alibaba 模型
-        modelOptions.add(new SelectModelOption("qwen-coder-turbo", "推荐：稳定版的专门搞代码的模型，便宜。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Turbo"));
+        modelOptions.add(new SelectModelOption("qwen-coder-plus", "推荐：稳定版的专门搞代码的模型。好于turbo。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Plus(better then turbo)"));
+        modelOptions.add(new SelectModelOption("qwen-coder-turbo", "稳定版的专门搞代码的模型，便宜。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Turbo"));
         modelOptions.add(new SelectModelOption("qwen-coder-turbo-latest", "推荐：最新版本的专门搞代码的模型，便宜。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Turbo Latest"));
         modelOptions.add(new SelectModelOption("qwen-max", "Max系列是阿里系最高规格的模型，这个是稳定版", ProviderNameEnum.ALI.getProviderName(), "Qwen Max"));
         modelOptions.add(new SelectModelOption("qwen-max-latest", "Max系列是阿里系最高规格的模型，这个是最新版", ProviderNameEnum.ALI.getProviderName(), "Qwen Max Latest"));
@@ -54,6 +56,9 @@ public class ModelUtils {
         modelOptions.add(new SelectModelOption("qwen-turbo", "turbo稳定版。速度最快、成本很低的模型，适合简单任务", ProviderNameEnum.ALI.getProviderName(), "Qwen Turbo"));
         modelOptions.add(new SelectModelOption("qwen-turbo-latest", "turbo最新版。速度最快、成本很低的模型，适合简单任务", ProviderNameEnum.ALI.getProviderName(), "Qwen Turbo Latest"));
         modelOptions.add(new SelectModelOption("qwen-long", "Long-context handling version of Qwen", ProviderNameEnum.ALI.getProviderName(), "Qwen Long"));
+        //X 的GROK 系列
+        modelOptions.add(new SelectModelOption("grok-beta", "X打造的大模型，提供简洁、有效的代码解决方案。", ProviderNameEnum.GROK.getProviderName(), " grok"));
+
         //允许用户使用自己公司或个人的接口
         modelOptions.add(new SelectModelOption("","用户自己提供的api",ProviderNameEnum.PERSONAL.getProviderName(),"自定义/Personal"));
 
