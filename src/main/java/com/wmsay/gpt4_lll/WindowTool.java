@@ -331,11 +331,17 @@ public class WindowTool implements ToolWindowFactory {
         });
     }
 
-    public static SelectModelOption getSelectedModel() {
-        if (modelComboBox != null) {
-            return  (SelectModelOption)modelComboBox.getSelectedItem();
-        }
-        return null;
+
+    public SelectModelOption getSelectedModel(Project project) {
+        return project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_MODEL_COMBO_BOX) != null
+                ? (SelectModelOption) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_MODEL_COMBO_BOX).getSelectedItem()
+                : null;
+    }
+
+    public String getSelectedProvider(Project project) {
+        return project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_PROVIDER_COMBO_BOX) != null
+                ? (String) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_PROVIDER_COMBO_BOX).getSelectedItem()
+                : null;
     }
 
     public static String  getSelectedProvider() {
