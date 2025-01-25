@@ -344,10 +344,24 @@ public class WindowTool implements ToolWindowFactory {
                 : null;
     }
 
-    public static String  getSelectedProvider() {
-        if (providerComboBox != null) {
-            return  (String) providerComboBox.getSelectedItem();
+    public static WindowTool getInstance(Project project) {
+        if (project == null) return null;
+        return projectInstances.get(project.getName());
+    }
+
+
+    private void initializeComboBoxes(Project project) {
+        // 初始化提供商下拉框
+        providerComboBox.removeAllItems();
+        for (String provider : providerModels.keySet()) {
+            providerComboBox.addItem(provider);
         }
-        return null;
+
+        // 确保选择了一个提供商
+        if (providerComboBox.getItemCount() > 0) {
+            providerComboBox.setSelectedIndex(0);
+            // 初始化模型下拉框
+            updateModelComboBox(project);
+        }
     }
 }
