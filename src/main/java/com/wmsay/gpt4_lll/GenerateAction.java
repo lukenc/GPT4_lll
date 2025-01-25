@@ -22,34 +22,32 @@ import com.intellij.psi.*;
 import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
 import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
 import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
-import com.wmsay.gpt4_lll.utils.AuthUtils;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
+import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import javax.swing.*;
-import java.net.InetSocketAddress;
-import java.net.ProxySelector;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.*;
 import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 
 public class GenerateAction extends AnAction {
@@ -239,8 +237,22 @@ public class GenerateAction extends AnAction {
         languageMap.put("za", "Zhuang, Chuang");
         languageMap.put("zu", "Zulu");
     }
-    public static List<Message> chatHistory = new ArrayList<>();
-    public static String nowTopic = "";
+
+    public static String TODO_PROMPT= """
+            根据以下代码中的todo注释，请实现注释中描述的每个功能。请遵循以下要求：
+                        
+            - 编程语言：{FILE_TYPE}
+            - 回复语言：{REPLY_LANGUAGE}
+            - 返回的代码应放在Markdown格式的代码块中，且仅有一个代码块。
+            - TODO后描述的每个功能点必须完整实现，且符合所需的逻辑和语法。
+            - 仅实现与todo注释相关的功能，不要添加额外逻辑或修改其他部分。
+            - 遵守{FILE_TYPE}编程的最佳实践和编码规范。
+            - 提供必要的清晰的说明或提示。
+            - 保持代码上下文不变，只修改或添加todo相关的代码。
+                        
+            请按以上要求严格补全代码。需要补全实现的代码如下：
+            {SELECTED_TEXT}
+            """;
 
     //单机应用就是好，没有并发就是爽
     public static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
