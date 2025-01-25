@@ -3,6 +3,7 @@ package com.wmsay.gpt4_lll.component;
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
+import com.wmsay.gpt4_lll.CommentAction;
 import com.wmsay.gpt4_lll.model.Message;
 
 import javax.swing.*;
@@ -59,15 +60,13 @@ public class Gpt4lllTextArea extends JEditorPane {
 
 
     public  void appendMessage(Message content) {
-        if (content.getContent().startsWith("你是一个有用的助手，")){
+        if (content.getContent().startsWith("你是一个")){
             return;
-        }else
-        if (content.getContent().startsWith("请帮我完成下面的功能，同时使用")){
+        } else if (content.getContent().startsWith("请帮我完成下面的功能，同时使用")){
             String[] str= content.getContent().split("回复我，功能如下：");
             String xuqiu=str[1];
             setText(getText()+"Generate："+xuqiu);
-        }else
-        if (content.getContent().startsWith("请帮我重构下面的代码，不局限于代码性能优化、命名优化、增加注释、简化代码、优化逻辑，请使用")){
+        }else if (content.getContent().startsWith("请帮我重构下面的代码，不局限于代码性能优化、命名优化、增加注释、简化代码、优化逻辑，请使用")){
             String[] str= content.getContent().split("回复我，代码如下：");
             String xuqiu=str[1];
             setText(getText()+"Optimize："+xuqiu);
@@ -75,19 +74,14 @@ public class Gpt4lllTextArea extends JEditorPane {
             String[] str= content.getContent().split("需要实现的代码如下：");
             String xuqiu=str[1];
             setText(getText()+"Complete："+xuqiu);
-        } else if (content.getContent().startsWith("请帮忙使用")) {
-            String[] str= content.getContent().split("如下代码:");
-            if (str.length<2){
-                str= content.getContent().split("代码如下:");
-            }
+        } else if (content.getContent().startsWith(CommentAction.PROMPT.split("\n")[0])) {
+            String[] str= content.getContent().split("代码内容：");
             String xuqiu=str[1];
+            xuqiu=xuqiu.split("2. 注释要求：")[0];
             setText(getText()+"Comment："+xuqiu);
         }
         else if (content.getContent().startsWith("评估不限于以下")) {
             String[] str= content.getContent().split("如下代码:");
-            if (str.length<2){
-                str= content.getContent().split("代码如下:");
-            }
             String xuqiu=str[1];
             setText(getText()+"Score："+xuqiu);
         }
