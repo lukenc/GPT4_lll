@@ -441,12 +441,12 @@ public class GenerateAction extends AnAction {
 
     public static String chat(ChatContent content, Project project, Boolean coding, Boolean replyShowInWindow, String loadingNotice, Integer retryTime) {
         MyPluginSettings settings = MyPluginSettings.getInstance();
-        String url = ChatUtils.getUrl(content, settings);
+        String url = ChatUtils.getUrl(settings,project);
         if (url == null || url.isBlank()) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api url/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
             return "";
         }
-        String apiKey = ChatUtils.getApiKey(settings);
+        String apiKey = ChatUtils.getApiKey(settings,project);
         if (apiKey==null ||apiKey.isBlank()){
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct apikey/请输入正确apikey。", "GPT4_LLL", Messages.getInformationIcon()));
             return "";
