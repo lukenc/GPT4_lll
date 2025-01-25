@@ -259,11 +259,28 @@ public class GenerateAction extends AnAction {
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-        if (chatHistory != null && !chatHistory.isEmpty() && !nowTopic.isEmpty()) {
+        if (e.getProject()==null){
+            Messages.showMessageDialog(e.getProject(), "不是一个项目/no project here", "Error", Messages.getErrorIcon());
+            return;
+        }
+       if(CommonUtil.isRunningStatus(e.getProject())){
+           Messages.showMessageDialog(e.getProject(), "Please wait, another task is running", "Error", Messages.getErrorIcon());
+           return;
+       }else {
+           CommonUtil.startRunningStatus(e.getProject());
+       }
+
+        List<Message> chatHistory = e.getProject().getUserData(GPT_4_LLL_CONVERSATION_HISTORY);
+        String nowTopic = e.getProject().getUserData(GPT_4_LLL_NOW_TOPIC);
+        if (chatHistory != null && !chatHistory.isEmpty() && nowTopic!=null && !nowTopic.isEmpty()) {
             JsonStorage.saveConservation(nowTopic, chatHistory);
             chatHistory.clear();
         }
         nowTopic = "";
+        e.getProject().putUserData(GPT_4_LLL_NOW_TOPIC,nowTopic);
+        if (chatHistory==null){
+            e.getProject().putUserData(GPT_4_LLL_CONVERSATION_HISTORY,new ArrayList<>());
+        }
         ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(e.getProject());
         ToolWindow toolWindow = toolWindowManager.getToolWindow("GPT4_lll");
         if (toolWindow != null && toolWindow.isVisible()) {
@@ -273,27 +290,41 @@ public class GenerateAction extends AnAction {
             // 工具窗口未打开
             if (toolWindow != null) {
                 toolWindow.show(); // 打开工具窗口
+                int tryTimes=0;
+                while (!toolWindow.isVisible()&&tryTimes<3) {
+                    tryTimes++;
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(1000);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
         }
-        String model = getModelName();
+        String model = getModelName(e.getProject());
         String replyLanguage = getSystemLanguage();
         Project project = e.getProject();
         if (project != null) {
-            Editor editor = e.getRequiredData(CommonDataKeys.EDITOR);
+            Editor editor = e.getData(CommonDataKeys.EDITOR);
+            if (editor==null){
+                Messages.showMessageDialog(project, "Editor is not open. Please open the file that you want to do something", "Error", Messages.getErrorIcon());
+                CommonUtil.stopRunningStatus(project);
+                return;
+            }
             String fileType = getOpenFileType(project);
             SelectionModel selectionModel = editor.getSelectionModel();
             String selectedText = selectionModel.getSelectedText();
             if (selectedText == null || selectedText.isEmpty()) {
                 Messages.showMessageDialog(project, "No text selected. Please select the code you want to do something", "Error", Messages.getErrorIcon());
+                CommonUtil.stopRunningStatus(project);
                 return;
             }
             Message systemMessage = new Message();
-            if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())  ) {
+            if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))  ) {
                 systemMessage.setRole("user");
             } else {
                 systemMessage.setRole("system");
             }
-            systemMessage.setName("owner");
             systemMessage.setContent("你是一个有用的助手，同时也是一个计算机科学家，数据专家，有着多年的代码开发和重构经验和多年的代码优化的架构师");
 
             Message message = new Message();
@@ -305,16 +336,22 @@ public class GenerateAction extends AnAction {
                 nowTopic = formatter.format(now);
                 if (Boolean.TRUE.equals(isSelectedTextAllComments(project))) {
                     nowTopic = nowTopic + "--Generate:" + selectedText;
+                    project.putUserData(GPT_4_LLL_NOW_TOPIC,nowTopic);
                     coding = true;
                     message.setRole("user");
                     message.setName("owner");
                     message.setContent("请帮我完成下面的功能，同时使用" + fileType + "，注释语言请使用" + replyLanguage + "的语言,代码部分要包含代码和注释，所有的返回代码应该在代码块中,请使用" + replyLanguage + "回复我，功能如下：" + selectedText);
                 } else if (StringUtils.isNotEmpty(getCommentTODO(project, editor))) {
                     nowTopic = nowTopic + "--Complete:" + selectedText;
+                    project.putUserData(GPT_4_LLL_NOW_TOPIC,nowTopic);
                     coding = true;
                     message.setRole("user");
                     message.setName("owner");
-                    message.setContent("todo后的文字是需要完成的功能，请帮我实现这些描述的功能，同时使用" + fileType + "。代码要严格按照描述，实现所有todo后的功能，所有的返回代码应该在一个Markdown的代码块中，非todo后的描述的需求不要出现在代码块中，请使用" + replyLanguage + "回复我，需要实现的代码如下：" + selectedText);
+                    String prompt=TODO_PROMPT.replace("{FILE_TYPE}", fileType)
+                            .replace("{REPLY_LANGUAGE}", replyLanguage)
+                            .replace("{SELECTED_TEXT}", selectedText);
+//                    message.setContent("todo后的文字是需要完成的功能，请帮我实现这些描述的功能，同时使用" + fileType + "。代码要严格按照描述，实现所有todo后的功能，所有的返回代码应该在一个Markdown的代码块中，非todo后的描述的需求不要出现在代码块中，请使用" + replyLanguage + "回复我，需要实现的代码如下：" + selectedText);
+                    message.setContent(prompt);
                     if ("java".equalsIgnoreCase(fileType)) {
                         List<Message> messageList = getClassInfoToMessageType(project, editor);
                         if (!messageList.isEmpty()) {
@@ -342,6 +379,7 @@ public class GenerateAction extends AnAction {
                     }
                 } else {
                     nowTopic = nowTopic + "--Optimize" + selectedText;
+                    project.putUserData(GPT_4_LLL_NOW_TOPIC,nowTopic);
                     coding = false;
                     message.setRole("user");
                     message.setName("owner");
@@ -371,11 +409,14 @@ public class GenerateAction extends AnAction {
                 List<Message> sendMessageList = new ArrayList<>(List.of(systemMessage, message));
                 if (!moreMessageList.isEmpty()) {
                     sendMessageList.addAll(1, moreMessageList);
-                    chatContent.setMessages(sendMessageList);
+                    chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
                 }
-                chatContent.setMessages(sendMessageList);
+                chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
                 chatContent.setModel(model);
-                chatHistory.addAll(List.of(systemMessage, message));
+                if (project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY)==null){
+                    project.putUserData(GPT_4_LLL_CONVERSATION_HISTORY,new ArrayList<>());
+                }
+                project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).addAll(List.of(systemMessage, message));
                 Boolean finalCoding = coding;
                 //清理界面
                 Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
