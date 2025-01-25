@@ -21,6 +21,7 @@ public class MyPluginConfigurable implements Configurable {
     private JTextField baiduSecretKeyField;
     //千问配置
     private JTextField tongyiApiKeyField;
+    private JTextField grokApiKeyField;
     //自定义的配置
     private JTextField personalApiKeyField;
     private JTextField personalAddressField;
@@ -86,6 +87,15 @@ public class MyPluginConfigurable implements Configurable {
         // 通义千问 API Key 设置
         addLabelAndField(panel, c, gridy++, "通义千问Api Key:", tongyiApiKeyField = new JTextField(20));
         tongyiApiKeyField.setToolTipText("输入您的通义千问Api Key");
+
+        // 分隔线
+        addSeparator(panel, c, gridy++);
+
+        addTitleLabel(panel, c, gridy++, "X-GROK配置/X-GROK Configuration");
+
+        // Grok API Key 设置
+        addLabelAndField(panel, c, gridy++, "GROK Api Key:", grokApiKeyField = new JTextField(20));
+        tongyiApiKeyField.setToolTipText("输入您的GROK Api Key");
 
         // 分隔线
         addSeparator(panel, c, gridy++);
@@ -166,7 +176,9 @@ public class MyPluginConfigurable implements Configurable {
                         !tongyiApiKeyField.getText().equals(settings.getTongyiApiKey()) ||
                         !personalAddressField.getText().equals(settings.getPersonalApiUrl()) ||
                         !personalApiKeyField.getText().equals(settings.getPersonalApiKey()) ||
-                        !personalModelField.getText().equals(settings.getPersonalModel());
+                        !personalModelField.getText().equals(settings.getPersonalModel())||
+                        !grokApiKeyField.getText().equals(settings.getGrokApiKey())
+                ;
 
     }
 
@@ -181,6 +193,7 @@ public class MyPluginConfigurable implements Configurable {
         settings.setPersonalApiKey(personalApiKeyField.getText());
         settings.setPersonalApiUrl(personalAddressField.getText());
         settings.setPersonalModel(personalModelField.getText());
+        settings.setGrokApiKey(grokApiKeyField.getText());
     }
 
     @Override
@@ -194,6 +207,7 @@ public class MyPluginConfigurable implements Configurable {
         personalAddressField.setText(settings.getPersonalApiUrl());
         personalModelField.setText(settings.getPersonalModel());
         personalApiKeyField.setText(settings.getPersonalApiKey());
+        grokApiKeyField.setText(settings.getGrokApiKey());
     }
 }
 

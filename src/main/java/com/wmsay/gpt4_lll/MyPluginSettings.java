@@ -26,6 +26,9 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
         //通义千问配置
         public String tongyiApiKey;
 
+        //Grok配置
+        public String grokApiKey;
+
     }
 
     private State state = new State();
@@ -101,5 +104,12 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
     }
     public String getTongyiApiKey() {
         return state.tongyiApiKey;
+    }
+
+    public void setGrokApiKey(String grokApiKey) {
+        state.grokApiKey = grokApiKey;
+    }
+    public String getGrokApiKey() {
+        return state.grokApiKey;
     }
 }
