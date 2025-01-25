@@ -2,7 +2,6 @@ package com.wmsay.gpt4_lll;
 
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -18,9 +17,11 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.utils.ChatUtils;
+import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.jps.model.java.JavaSourceRootType;
 
@@ -33,21 +34,24 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.wmsay.gpt4_lll.GenerateAction.*;
-import static com.wmsay.gpt4_lll.GenerateAction.nowTopic;
 import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 import static com.wmsay.gpt4_lll.utils.CommonUtil.getSystemLanguage;
 
 public class UnitTestAction extends AnAction {
-    public static String nowTopic = "";
+
     //1、创建文件
     //2、多次对话 最后输出功能
     //3、写入文件
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
-        if (chatHistory != null && !chatHistory.isEmpty() && !nowTopic.isEmpty()) {
-            JsonStorage.saveConservation(nowTopic, chatHistory);
-            chatHistory.clear();
+        Project project = e.getProject();
+        if (project==null){
+            return;
+        }
+        if (ChatUtils.getProjectChatHistory(project) != null && !ChatUtils.getProjectChatHistory(project).isEmpty() && !ChatUtils.getProjectTopic(project).isEmpty()) {
+            JsonStorage.saveConservation(ChatUtils.getProjectTopic(project), ChatUtils.getProjectChatHistory(project));
+            ChatUtils.getProjectChatHistory(project).clear();
         }
         ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(e.getProject());
         ToolWindow toolWindow = toolWindowManager.getToolWindow("GPT4_lll");
@@ -64,19 +68,22 @@ public class UnitTestAction extends AnAction {
 
 
 
-        Project project = e.getProject();
         // 获取当前活动编辑器的文件
         VirtualFile currentFile = FileEditorManager.getInstance(project).getSelectedFiles()[0];
         String packageName = "";
         PsiFile psiFile = e.getData(LangDataKeys.PSI_FILE);
         String fileName = "Test" + currentFile.getName();
         FileType fileType = FileTypeManager.getInstance().getFileTypeByFileName(fileName);
-        Editor editor = e.getRequiredData(CommonDataKeys.EDITOR);
+        Editor editor = e.getData(CommonDataKeys.EDITOR);
+        if (editor==null){
+            Messages.showMessageDialog(project, "Editor is not open. Please open the file that you want to do something", "Error", Messages.getErrorIcon());
+            return;
+        }
         SelectionModel selectionModel = editor.getSelectionModel();
         String selectedText = selectionModel.getSelectedText();
         String replyLanguage= getSystemLanguage();
         String model="gpt-3.5-turbo";
-        model = getModelName(toolWindow);
+        model = getModelName(project);
 
         //生成文件所需要的变量赋值
         String targetPackageName="";
@@ -168,29 +175,29 @@ public class UnitTestAction extends AnAction {
             return;
         }
         // 如果聊天历史不为空且当前主题不为空
-        if (chatHistory != null && !chatHistory.isEmpty() && !nowTopic.isEmpty()) {
+        if (ChatUtils.getProjectChatHistory(project) != null && !ChatUtils.getProjectChatHistory(project).isEmpty() && !ChatUtils.getProjectTopic(project).isEmpty()) {
             // 调用JsonStorage类的saveConservation方法，保存当前主题的聊天历史
-            JsonStorage.saveConservation(nowTopic, chatHistory);
+            JsonStorage.saveConservation(ChatUtils.getProjectTopic(project), ChatUtils.getProjectChatHistory(project));
             // 清空聊天历史
-            chatHistory.clear();
+            ChatUtils.getProjectChatHistory(project).clear();
         }
 
 
         Message systemMessage=new Message();
         systemMessage.setRole("system");
-        systemMessage.setName("owner");
+//        systemMessage.setName("owner");
         systemMessage.setContent("你是一个有用的助手，同时也是一个资深的测试专家，会对每一个方法内部的逻辑进行分析，找到方法的边界条件和用例。");
         List<Message> moreMessageList=new ArrayList<>();
         Message messageFirst=new Message();
-        nowTopic=formatter.format(LocalDateTime.now())+"--UnitTest:"+selectedText;
+        ChatUtils.setProjectTopic(project,formatter.format(LocalDateTime.now())+"--UnitTest:"+selectedText);
         messageFirst.setRole("user");
         messageFirst.setContent("请你根据代码逻辑，及逻辑内的各种边界条件,仔细思考，给出全面的所有的测试用例和用例的期望，要包括成功的，失败的，请使用"+replyLanguage+"回复我，代码如下：" + selectedText);
 
         ChatContent chatContent = new ChatContent();
         List<Message> sendMessageList= new ArrayList<>(List.of(systemMessage,messageFirst));
-        chatHistory.addAll(sendMessageList);
+        ChatUtils.getProjectChatHistory(project).addAll(sendMessageList);
 
-        chatContent.setMessages(sendMessageList);
+        chatContent.setMessages(sendMessageList, ModelUtils.getSelectedProvider(project));
         chatContent.setModel(model);
 
         Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
@@ -211,12 +218,12 @@ public class UnitTestAction extends AnAction {
             sendMessageList.add(replyFirst);
             Message askSecond=new Message();
             askSecond.setRole("user");
-            askSecond.setContent("请根据这些测试用例，编写成可用的单元测试代码，要求使用"+fileType+",确保代码可以执行,所以要包含一个可以执行的代码的所有部分,其文件名为"+fileName);
+            askSecond.setContent("请根据这些测试用例，编写成可用的单元测试代码，要求使用"+fileType+",确保代码可以执行,所以要包含一个可以执行的代码的所有部分，代码要实现你所说的所有的测试用例,其文件名为"+fileName);
             if ("java".equalsIgnoreCase(fileType.getName())){
                 askSecond.setContent(askSecond.getContent()+",使用junit测试框架。返回的代码要在md的代码块中");
             }
             sendMessageList.add(askSecond);
-            chatContent.setMessages(sendMessageList);
+            chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
             secondResponse.set(chat(chatContent, project, false, true, ""));
 
 
