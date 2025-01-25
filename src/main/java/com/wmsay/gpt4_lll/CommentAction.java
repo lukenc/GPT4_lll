@@ -77,9 +77,21 @@ public class CommentAction extends AnAction {
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-        if (chatHistory != null && !chatHistory.isEmpty() && !nowTopic.isEmpty()) {
-            JsonStorage.saveConservation(nowTopic, chatHistory);
-            chatHistory.clear();
+        Project project = e.getProject();
+        if (project==null){
+            Messages.showMessageDialog(e.getProject(), "不是一个项目/no project here", "Error", Messages.getErrorIcon());
+            return;
+        }
+        if(CommonUtil.isRunningStatus(project)){
+            Messages.showMessageDialog(project, "Please wait, another task is running", "Error", Messages.getErrorIcon());
+            return;
+        }else {
+            CommonUtil.startRunningStatus(project);
+        }
+
+        if (ChatUtils.getProjectChatHistory(project) != null && !ChatUtils.getProjectChatHistory(project).isEmpty() &&ChatUtils.getProjectTopic(project)!=null && !ChatUtils.getProjectTopic(project).isEmpty()) {
+            JsonStorage.saveConservation(ChatUtils.getProjectTopic(project), ChatUtils.getProjectChatHistory(project));
+            ChatUtils.getProjectChatHistory(project).clear();
         }
         ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(e.getProject());
         ToolWindow toolWindow = toolWindowManager.getToolWindow("GPT4_lll");
@@ -93,11 +105,15 @@ public class CommentAction extends AnAction {
             }
         }
 
-        String model = ChatUtils.getModelName();
+        String model = ChatUtils.getModelName(e.getProject());
         String replyLanguage = CommonUtil.getSystemLanguage();
-        Project project = e.getProject();
         if (project != null) {
-            Editor editor = e.getRequiredData(CommonDataKeys.EDITOR);
+            Editor editor = e.getData(CommonDataKeys.EDITOR);
+            if (editor==null){
+                Messages.showMessageDialog(project, "Editor is not open. Please open the file that you want to do something", "Error", Messages.getErrorIcon());
+                CommonUtil.stopRunningStatus(project);
+                return;
+            }
             String fileType = CommonUtil.getOpenFileType(project);
             SelectionModel selectionModel = editor.getSelectionModel();
             int selectStartPosition;
@@ -110,25 +126,34 @@ public class CommentAction extends AnAction {
                 selectStartPosition = 0;
             }
             String selectedText = selectionModel.getSelectedText();
+            if (selectedText == null || selectedText.isEmpty()) {
+                Messages.showMessageDialog(project, "No text selected. Please select the code you want to do something", "Error", Messages.getErrorIcon());
+                CommonUtil.stopRunningStatus(project);
+                return;
+            }
             Message systemMessage = new Message();
-            if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())){
+            if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))){
                 systemMessage.setRole("user");
             }else {
                 systemMessage.setRole("system");
             }
-            systemMessage.setName("owner");
+            //systemMessage.setName("owner");
             systemMessage.setContent("你是一个资深的软件开发工程师，会写出详细的文档和代码注释，会使用md语法回复我");
 
             Message message = new Message();
             List<Message> moreMessageList=new ArrayList<>();
             if (selectedText != null) {
-                chatHistory.clear();
+                ChatUtils.getProjectChatHistory(project).clear();
                 selectedText = selectedText.trim();
-                nowTopic = CommonUtil.generateTopicByMethodAndTime(selectedText, "Score");
+                ChatUtils.setProjectTopic(project,CommonUtil.generateTopicByMethodAndTime(selectedText, "Comment"));
 
                 message.setRole("user");
                 message.setName("owner");
-                message.setContent("请帮忙使用" + replyLanguage + "语言，在不改变任何逻辑与命名的情况下，写出下面的" + fileType + "代码的注释，注释需要清晰规范，注释不需要每一行都写注释，但是关键步骤必须写注释,所有的返回代码应该在一个Markdown语法的代码块中，且回复中只能存在一个代码块，且使用行上注释的方式，注释范围仅为如下代码:" + selectedText);
+                String prompt=PROMPT
+                        .replace("${replyLanguage}", replyLanguage)
+                        .replace("${fileType}", fileType)
+                        .replace("${selectedText}", selectedText);
+                message.setContent(prompt);
                 if ("java".equalsIgnoreCase(fileType)) {
                     List<Message> messageList = GenerateAction.getClassInfoToMessageType(project, editor);
                     if (!messageList.isEmpty()) {
@@ -136,15 +161,19 @@ public class CommentAction extends AnAction {
                     }
                 }
                 ChatContent chatContent = new ChatContent();
-                List<Message> sendMessageList= new ArrayList<>(List.of(message, systemMessage));
+                List<Message> sendMessageList= new ArrayList<>();
                 if (!moreMessageList.isEmpty()){
-                    sendMessageList.addAll(1,moreMessageList);
-                    chatContent.setMessages(sendMessageList);
+                    sendMessageList.add(systemMessage);
+                    sendMessageList.addAll(moreMessageList);
+                    sendMessageList.add(message);
+                    chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
+                }else {
+                    sendMessageList = new ArrayList<>(List.of(systemMessage,message));
                 }
-                chatContent.setMessages(sendMessageList);
+                chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
                 chatContent.setModel(model);
                 chatContent.setTemperature(0.2);
-                chatHistory.addAll(List.of(message, systemMessage));
+                ChatUtils.getProjectChatHistory(project).addAll(chatContent.getMessages());
 
                 //清理界面
                 Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
@@ -158,6 +187,7 @@ public class CommentAction extends AnAction {
                 dochatThread.start();
             }
         }
+        CommonUtil.stopRunningStatus(project);
         // TODO: insert action logic here
     }
 
