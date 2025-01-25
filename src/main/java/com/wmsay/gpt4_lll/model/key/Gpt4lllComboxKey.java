@@ -1,4 +1,4 @@
-package com.wmsay.gpt4_lll.component;
+package com.wmsay.gpt4_lll.model.key;
 
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.util.Key;
