@@ -1,6 +1,9 @@
 package com.wmsay.gpt4_lll;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.project.ProjectManagerListener;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -13,35 +16,50 @@ import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
-
 import com.intellij.util.ui.JBUI;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllComboxKey;
 import com.wmsay.gpt4_lll.component.Gpt4lllPlaceholderTextArea;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextAreaKey;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllHistoryButtonKey;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
+import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.*;
 import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
+import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.GPT_4_LLL_NOW_TOPIC;
 import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 
 public class WindowTool implements ToolWindowFactory {
+    private static final ConcurrentHashMap<String, WindowTool> projectInstances = new ConcurrentHashMap<>();
+
     private Gpt4lllTextArea readOnlyTextArea;
 
-    public static volatile Boolean isGenerating=false;
+    public static volatile Boolean isGenerating = false;
 
-    private Map<String, List<SelectModelOption>> providerModels = ModelUtils.provider2ModelList;
-    private static ComboBox<String> providerComboBox;
-    private static ComboBox<SelectModelOption> modelComboBox;
+    private final Map<String, List<SelectModelOption>> providerModels;
+    private ComboBox<String> providerComboBox;
+    private ComboBox<SelectModelOption> modelComboBox;
+    private JButton historyButton;
+    private Project currentProject;
+
+    public WindowTool() {
+        providerModels = new HashMap<>(ModelUtils.provider2ModelList);
+    }
 
     @Override
     public void createToolWindowContent(Project project, ToolWindow toolWindow) {
