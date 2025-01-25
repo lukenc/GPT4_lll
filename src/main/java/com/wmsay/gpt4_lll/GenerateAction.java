@@ -494,7 +494,7 @@ public class GenerateAction extends AnAction {
                                 SseResponse sseResponse = null;
                                 BaiduSseResponse baiduSseResponse = null;
 
-                                if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())||ProviderNameEnum.FREE.getProviderName().equals(WindowTool.getSelectedProvider())) {
+                                if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))||ProviderNameEnum.FREE.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
                                     try {
                                         baiduSseResponse = JSON.parseObject(line, BaiduSseResponse.class);
                                     } catch (Exception e) {
@@ -509,7 +509,7 @@ public class GenerateAction extends AnAction {
                                 }
                                 if (sseResponse != null || baiduSseResponse != null) {
                                     String resContent;
-                                    if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())||ProviderNameEnum.FREE.getProviderName().equals(WindowTool.getSelectedProvider())) {
+                                    if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))||ProviderNameEnum.FREE.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
                                         resContent = baiduSseResponse.getResult();
                                     } else {
                                         resContent = sseResponse.getChoices().get(0).getDelta().getContent();
@@ -557,10 +557,18 @@ public class GenerateAction extends AnAction {
                                                         if (isWriting.get() && stringBuffer.indexOf("```") != stringBuffer.lastIndexOf("```")) {
                                                             isWriting.set(false);
                                                             if (resContent.contains("```")) {
-                                                                String textToInsert = resContent.split("```")[0];
-                                                                WriteCommandAction.runWriteCommandAction(project, () ->
-                                                                        document.insertString(insertPosition, textToInsert));
-                                                                lastInsertPosition.set(insertPosition + textToInsert.length());
+                                                                String textToInsert;
+                                                                String[] parts = resContent.split("```");
+                                                                if (parts.length>0){
+                                                                    textToInsert=parts[0];
+                                                                } else {
+                                                                    textToInsert = null;
+                                                                }
+                                                                if (!StringUtils.isEmpty(textToInsert)){
+                                                                    WriteCommandAction.runWriteCommandAction(project, () ->
+                                                                            document.insertString(insertPosition, textToInsert));
+                                                                    lastInsertPosition.set(insertPosition + textToInsert.length());
+                                                                }
                                                             } else {
                                                                 String textToInsert = preEndString.get().replace("`", "");
                                                                 WriteCommandAction.runWriteCommandAction(project, () ->
@@ -607,16 +615,16 @@ public class GenerateAction extends AnAction {
         Message message = new Message();
         message.setRole("assistant");
         message.setContent(replyContent);
-        chatHistory.add(message);
-        JsonStorage.saveConservation(nowTopic, chatHistory);
+        project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(message);
+        JsonStorage.saveConservation(project.getUserData(GPT_4_LLL_NOW_TOPIC), project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY));
         if (notExpected.get()) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()));
         }
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(WindowTool.getSelectedProvider())) {
+        if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
             //判断是否需要继续未完成的内容
             if (Boolean.TRUE.equals(ChatUtils.needsContinuation(replyContent)) && retryTime < 2) {
-                chatHistory.add(ChatUtils.getContinueMessage4Baidu());
-                content.setMessages(chatHistory);
+                project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(ChatUtils.getContinueMessage4Baidu());
+                content.setMessages(project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY),ModelUtils.getSelectedProvider(project));
                 chat(content, project, coding, replyShowInWindow, loadingNotice, retryTime + 1);
             }
         }
