@@ -333,13 +333,24 @@ public class WindowTool implements ToolWindowFactory {
         return panel;
     }
 
-    private void updateModelComboBox() {
-        String selectedProvider = (String) providerComboBox.getSelectedItem();
-        modelComboBox.removeAllItems();
-        for (SelectModelOption model : providerModels.get(selectedProvider)) {
-            modelComboBox.addItem(model);
-        }
+    private void updateModelComboBox(Project project) {
+        String selectedProvider = (String) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_PROVIDER_COMBO_BOX).getSelectedItem();
+
+        // 在EDT中执行UI更新
+        ApplicationManager.getApplication().invokeLater(() -> {
+            project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_MODEL_COMBO_BOX).removeAllItems();
+
+            if (selectedProvider != null) {
+                List<SelectModelOption> models = providerModels.get(selectedProvider);
+                if (models != null) {
+                    for (SelectModelOption model : models) {
+                        project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_MODEL_COMBO_BOX).addItem(model);
+                    }
+                }
+            }
+        });
     }
+
 
     private void setUpComboBox(JComboBox<SelectModelOption> comboBox) {
         comboBox.setRenderer(new DefaultListCellRenderer() {
