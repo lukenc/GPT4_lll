@@ -11,6 +11,97 @@
 
     <change-notes>
         <![CDATA[
+
+<h2>3.8.11 (2024-12-19)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>插件新增功能：在 IDEA 右侧的文件列表中选中需要评估的代码文件或文件夹，选择 <code>GPT4lll:Score Files</code>，即可生成所有文件的评估内容。</li>
+            <li>Added a new feature: Select the desired code files or folders in the file list on the right side of IDEA, choose <code>GPT4lll:Score Files</code>, and generate evaluation content for all selected files.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.10 (2024-12-2)</h2>
+<ul>
+    <li>
+        <h3>修复/FIX:</h3>
+        <ul>
+            <li>修复了由于个别AIGC平台返回格式导致的错误。</li>
+            <li>Fixed errors caused by the return format from certain AIGC platforms.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.9 (2024-11-29)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>完全适配idea 2024.3，提高兼容性和使用体验。</li>
+            <li>Fully adapted to idea 2024.3, enhancing compatibility and user experience.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.8 (2024-11-29)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>完全适配X的Grok，提高兼容性和使用体验。</li>
+            <li>Fully adapted to X's Grok, enhancing compatibility and user experience.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>新增支持阿里coder-plus模型，为开发者提供更强大的代码辅助功能。</li>
+            <li>Added support for Alibaba's coder-plus model, providing developers with more powerful code assistance features.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.5 (2024-10-29)</h2>
+<ul>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>多项目同时开启时，历史记录列表展示逻辑优化：将出现在当前试用的项目中。</li>
+            <li>When multiple projects are opened simultaneously, the logic for displaying the history list is optimized: it will appear in the currently selected project.</li>
+        </ul>
+</ul>
+<h2>3.8.4 (2024-10-24)</h2>
+<ul>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>多项目同时开启时，聊天内容可以分开，这样更符合使用场景</li>
+            <li>When multiple projects are opened at the same time, the chat content can be separated, which is more suitable for the usage scenario</li>
+        </ul>
+</ul>
+
+<h2>3.8.3 (2024-10-17)</h2>
+<ul>
+    <li>
+        <h3>修复/FIX:</h3>
+        <ul>
+            <li>修复多窗口情况下，模型选择下拉栏混乱的问题</li>
+            <li>Fixed the issue of model selection drop-down list being confusing in multi-window mode.</li>
+        </ul>
+</ul>
+
+<h2>3.8.2 (2024-10-16)</h2>
+<ul>
+    <li>
+        <h3>新功能/New Feature:</h3>
+        <ul>
+            <li>插件支持2024.2系列的IntelliJ IDEA</li>
+            <li>The plugin supports the IntelliJ IDEA 2024.2 series.</li>
+        </ul>
+</ul>
+
 <h2>3.8.1 (2024-10-11)</h2>
 <ul>
     <li>
