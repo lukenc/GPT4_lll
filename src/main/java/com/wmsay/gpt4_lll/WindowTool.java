@@ -285,29 +285,37 @@ public class WindowTool implements ToolWindowFactory {
     }
 
 
-
-    private JPanel createModelSelectionPanel() {
+    private JPanel createModelSelectionPanel(Project project) {
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = JBUI.insets(5);
 
-        // Create and populate the provider combo box
-        providerComboBox = new ComboBox<>(providerModels.keySet().toArray(new String[0]));
-        setUpProviderComboBox(providerComboBox);
+        // 添加提供商下拉框的监听器
+//        providerComboBox.addItemListener(e -> {
+//            if (e.getStateChange() == ItemEvent.SELECTED) {
+//                ApplicationManager.getApplication().invokeLater(() -> {
+//                    String projectName = currentProject.getName();
+//                    System.out.println("Updating models for project: " + projectName);
+//                    WindowTool instance = projectInstances.get(projectName);
+//                    if (instance != null) {
+//                        instance.updateModelComboBox();
+//                    } else {
+//                        System.out.println("No instance found for project: " + projectName);
+//                    }
+//                });
+//            }
+//        });
+        // 添加提供商下拉框的监听器
+        providerComboBox.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    updateModelComboBox(project);
+                });
+            }
+        });
 
-        // Create the model combo box
-        modelComboBox = new ComboBox<>();
-        setUpComboBox(modelComboBox);
-
-        // Add action listener to provider combo box
-        providerComboBox.addActionListener(e -> updateModelComboBox());
-
-        // Initialize model combo box
-        updateModelComboBox();
-
-
-        // Add components to panel
+        // 添加组件到面板
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 0;
@@ -322,7 +330,6 @@ public class WindowTool implements ToolWindowFactory {
         panel.add(Box.createHorizontalStrut(10), gbc);
 
         gbc.gridx = 3;
-        gbc.gridy = 0;
         gbc.weightx = 0;
         panel.add(new JLabel("Model: "), gbc);
 
