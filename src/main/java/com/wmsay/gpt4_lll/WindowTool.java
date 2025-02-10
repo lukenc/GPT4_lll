@@ -63,14 +63,28 @@ public class WindowTool implements ToolWindowFactory {
 
     @Override
     public void createToolWindowContent(Project project, ToolWindow toolWindow) {
+        this.currentProject = project;
+        projectInstances.put(project.getName(), this);
+        // 创建 ComboBox 实例
+        providerComboBox = new ComboBox<>();
+        modelComboBox = new ComboBox<>();
+        project.putUserData(Gpt4lllComboxKey.GPT_4_LLL_MODEL_COMBO_BOX, modelComboBox);
+        project.putUserData(Gpt4lllComboxKey.GPT_4_LLL_PROVIDER_COMBO_BOX, providerComboBox);
+
+        historyButton = new JButton("历史记录/chat history");
+        project.putUserData(Gpt4lllHistoryButtonKey.GPT_4_LLL_HISTORY_BUTTON,historyButton);
+        // 设置渲染器
+        setUpProviderComboBox(providerComboBox);
+        setUpComboBox(modelComboBox);
+
         // 创建工具窗口内容
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
-        readOnlyTextArea= new Gpt4lllTextArea();
+        readOnlyTextArea = new Gpt4lllTextArea();
         readOnlyTextArea.setContentType("text/html");
-        project.putUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA,readOnlyTextArea);
+        project.putUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA, readOnlyTextArea);
 
-        JPanel modelSelectionPanel = createModelSelectionPanel();
+        JPanel modelSelectionPanel = createModelSelectionPanel(project);
         c.gridx = 0;
         c.gridy = 0;
         c.weightx = 1;
@@ -90,7 +104,7 @@ public class WindowTool implements ToolWindowFactory {
         c.weightx = 0.9;
         c.weighty = 0.75;  // 75% of the vertical space
         c.insets = insets;
-        panel.add(scrollPane,c);
+        panel.add(scrollPane, c);
         //对话框
 
         Gpt4lllPlaceholderTextArea textField = new Gpt4lllPlaceholderTextArea("请输入内容/input here");
@@ -109,32 +123,32 @@ public class WindowTool implements ToolWindowFactory {
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Gpt4lllTextArea area= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+                Gpt4lllTextArea area = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
                 String input = textField.getText();
-                if(StringUtil.isEmpty(input)){
+                if (StringUtil.isEmpty(input)) {
                     Messages.showMessageDialog(project, "Please enter what you want to say in the chat box first, and then click Send\n请先在聊天框中输入您想说的话，然后再点击发送哦~", "Error", Messages.getErrorIcon());
                     return;
                 }
                 area.appendContent("\n\n- - - - - - - - - - - \n");
-                area.appendContent("YOU:"+input);
+                area.appendContent("YOU:" + input);
                 area.appendContent("\n- - - - - - - - - - - \n");
-                if (GenerateAction.nowTopic.isEmpty()){
-                    GenerateAction.nowTopic=GenerateAction.formatter.format(LocalDateTime.now())+"--Chat:"+input;
+                if (project.getUserData(GPT_4_LLL_NOW_TOPIC)==null||project.getUserData(GPT_4_LLL_NOW_TOPIC).isEmpty()) {
+                    project.putUserData(GPT_4_LLL_NOW_TOPIC,GenerateAction.formatter.format(LocalDateTime.now()) + "--Chat:" + input);
                 }
 
-                Message message=new Message();
+                Message message = new Message();
                 message.setRole("user");
                 message.setName("owner");
                 message.setContent(input);
-                GenerateAction.chatHistory.add(message);
+                ChatUtils.getProjectChatHistory(project).add(message);
 
-                ChatContent chatContent= new ChatContent();
-                chatContent.setMessages(GenerateAction.chatHistory);
-                String model=getModelName();
+                ChatContent chatContent = new ChatContent();
+                chatContent.setMessages(ChatUtils.getProjectChatHistory(project), ModelUtils.getSelectedProvider(project));
+                String model = getModelName(project);
                 chatContent.setModel(model);
-                    new Thread(() -> {
-                       String res= GenerateAction.chat(chatContent,project,false,true,"");
-                    }).start();
+                new Thread(() -> {
+                    String res = GenerateAction.chat(chatContent, project, false, true, "");
+                }).start();
 
 
                 textField.setText("");
@@ -156,24 +170,24 @@ public class WindowTool implements ToolWindowFactory {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // todo 新建会话的逻辑
-                if (GenerateAction.chatHistory!=null&&!GenerateAction.chatHistory.isEmpty()&&!GenerateAction.nowTopic.isEmpty()){
-                    JsonStorage.saveConservation(GenerateAction.nowTopic,GenerateAction.chatHistory);
-                    GenerateAction.chatHistory.clear();
+                if (ChatUtils.getProjectChatHistory(project) != null && !ChatUtils.getProjectChatHistory(project).isEmpty() && !ChatUtils.getProjectTopic(project).isEmpty()) {
+                    JsonStorage.saveConservation(ChatUtils.getProjectTopic(project), ChatUtils.getProjectChatHistory(project));
+                    ChatUtils.getProjectChatHistory(project).clear();
                 }
-                GenerateAction.nowTopic="";
-                readOnlyTextArea.clearShowWindow();
+                ChatUtils.setProjectTopic(project,"");
+                project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).clearShowWindow();
 
             }
         });
         newAndHistoryPanel.add(newSessionButton);
 
 
+        project.getUserData(Gpt4lllHistoryButtonKey.GPT_4_LLL_HISTORY_BUTTON);
 
-        JButton historyButton = new JButton("历史记录/chat history");
         historyButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-               showPopup(project);
+                showPopup(project);
             }
         });
         newAndHistoryPanel.add(historyButton, c);
@@ -184,21 +198,26 @@ public class WindowTool implements ToolWindowFactory {
         c.gridy = 5;
         c.weightx = 1;
         c.insets = new Insets(5, 0, 5, 0); // 设置外部间距（上、左、下、右）
-        panel.add(newAndHistoryPanel,c);
+        panel.add(newAndHistoryPanel, c);
 
 
+        initializeComboBoxes(project);
 
 
         // 在此处添加你的插件界面的组件和布局
         ContentFactory contentFactory = ContentFactory.getInstance();
         Content content = contentFactory.createContent(panel, "", false);
         toolWindow.getContentManager().addContent(content);
+
+
+        // 添加项目关闭监听器
+        project.getMessageBus().connect().subscribe(ProjectManager.TOPIC, new ProjectManagerListener() {
+            @Override
+            public void projectClosing(@NotNull Project project) {
+                projectInstances.remove(project.getName());
+            }
+        });
     }
-
-
-
-
-
 
 
     public void showPopup(Project project) {
