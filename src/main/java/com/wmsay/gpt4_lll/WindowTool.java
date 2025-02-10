@@ -221,18 +221,18 @@ public class WindowTool implements ToolWindowFactory {
 
 
     public void showPopup(Project project) {
-        Map<String ,List<Message>> historyData= new LinkedHashMap<>();
+        Map<String, List<Message>> historyData = new LinkedHashMap<>();
         try {
-            historyData= JsonStorage.loadData();
+            historyData = JsonStorage.loadData();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         // 构建列表数据
-        List<Pair<String,String>> data = new ArrayList<Pair<String,String>>();
+        List<Pair<String, String>> data = new ArrayList<Pair<String, String>>();
 
-        for (String topic:
-        historyData.keySet()) {
-            data.add(Pair.create(take(topic,100),topic));
+        for (String topic :
+                historyData.keySet()) {
+            data.add(Pair.create(take(topic, 100), topic));
         }
 
         // 构建列表模型
@@ -253,12 +253,12 @@ public class WindowTool implements ToolWindowFactory {
                 project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).clearShowWindow();
                 String selectedItem = list.getSelectedValue().second;
                 // 实现你想要的点击事件逻辑
-                List<Message> messageList= finalHistoryData.get(selectedItem);
+                List<Message> messageList = finalHistoryData.get(selectedItem);
                 messageList.forEach(message -> {
                     project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).appendMessage(message);
                 });
-                GenerateAction.nowTopic=selectedItem;
-                GenerateAction.chatHistory=messageList;
+                ChatUtils.setProjectTopic(project,selectedItem);
+                project.putUserData(Gpt4lllChatKey.GPT_4_LLL_CONVERSATION_HISTORY,messageList);
             }
         });
 
@@ -270,6 +270,7 @@ public class WindowTool implements ToolWindowFactory {
         JBPopupFactory.getInstance()
                 .createComponentPopupBuilder(scrollPane, null)
                 .setTitle("Gpt History")
+                .setProject(project)
                 .createPopup()
                 .showInFocusCenter();
     }
