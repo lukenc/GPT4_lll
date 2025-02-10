@@ -565,7 +565,16 @@
     This ensures that users can leverage the strengths of various AI models. In the future, we plan to extend compatibility to even more platforms, providing
     greater flexibility and choice for our users. 插件现已支持多个平台，不仅支持OpenAI的ChatGPT，还支持百度的文心一言和阿里的通义千问。
     这确保了用户可以利用各种AI模型的优势。未来，我们计划进一步扩展兼容性，支持更多平台，为用户提供更大的灵活性和选择。
+    <<h5>支持列表</h5></h5>
+    <ul>
+        <li>openai</li>
+        <li>grok</li>
+        <li>tongyi/通义</li>
+        <li>ERNIE/文心一言</li>
+        <li>openai standard personal api/openai标准的自定义接口</li>
+    </ul>
 </p>
+
 
 <h4>Code Generation Based on TODO/根据todo生成代码</h4>
 <p>Introduced the ability to generate code based on TODO comments within a project. This feature enables rapid development by transforming actionable TODOs into functional code segments. 在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
@@ -651,6 +660,12 @@
         <action id="UnitTestId" class="com.wmsay.gpt4_lll.UnitTestAction" text="Gpt4UnitTest(Java)"
                 description="单元测试生成">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        <action id="ScoreFiles"
+                class="com.wmsay.gpt4_lll.ScoreFilesAction2"
+                text="GPT4lll:Score Files"
+                description="Score files and create score files">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
     </actions>
 
