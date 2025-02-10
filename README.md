@@ -1,6 +1,11 @@
 # GPT4_lll Plugin for IntelliJ IDEA
 
+![JetBrains Plugin Downloads](https://img.shields.io/jetbrains/plugin/d/21935?logo=jetbrains&link=https%3A%2F%2Fplugins.jetbrains.com%2Fembeddable%2Finstall%2F21935)
+![JetBrains Plugin Rating](https://img.shields.io/jetbrains/plugin/r/rating/21935?logo=intellijidea)
+
+
 ## Introduction
+
 GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。
 
 ![插件界面截图](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/7f3f8611-6fca-499a-a9c9-673cb2e3aae1)  <!-- 插入插件界面的截图 -->
@@ -23,7 +28,10 @@ The plugin supports multiple platforms, including OpenAI's ChatGPT, Baidu's ERNI
 Introduced the ability to generate code based on TODO comments within a project.  
 在项目中根据TODO评论生成代码的能力已被引入。
 
-![TODO功能截图](截图.png) 
+[观看TODO功能自动生成演示](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/192f0812-f9c2-42c5-89b9-23e4e8c0861d)
+[观看TODO功能自动生成演示2](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/29c80575-0c3b-4530-9ef4-dd764e5b7d4c)
+[观看TODO功能自动生成演示3](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/5330c0ec-39c9-4207-aa10-a527238351f1)
+[观看TODO功能自动生成演示4](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/bff2e642-c0e5-4cd2-afb5-af2a55832800)
 
 ### Natural Language Recognition/自然语言识别
 Improved the logic for natural language recognition, enhancing accuracy and performance.  
@@ -41,7 +49,8 @@ Implemented the capability to generate code on demand, providing code snippets w
 Added a feature that allows you to auto-generate code comments using ChatGPT by simply highlighting the code.  
 添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。
 
-![自动生成注释截图](截图.png)  <!-- 插入自动生成注释的截图 -->
+[观看自动生成代码注释演示](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/1650c220-b7db-489d-8a82-e35e5882d201) <!-- 插入自动生成注释的截图 -->
+
 
 ### History Recording Feature/历史记录功能
 Added a history recording feature to prevent data loss. Every conversation will now be recorded for easy access.  
@@ -51,7 +60,8 @@ Added a history recording feature to prevent data loss. Every conversation will 
 Introduced a new Code Assessment feature, allowing team leaders to evaluate team members' code.  
 新引入了代码评估功能，允许团队领导评估团队成员的代码。
 
-![代码评估截图](截图.png)  <!-- 插入代码评估的截图 -->
+[观看代码评估功能演示](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/71961e75-8bf8-488c-a430-aa243534ea2a)
+
 
 ## Installation/安装
 1. Open IntelliJ IDEA.
