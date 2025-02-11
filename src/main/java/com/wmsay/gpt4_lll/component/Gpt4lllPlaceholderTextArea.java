@@ -1,5 +1,7 @@
 package com.wmsay.gpt4_lll.component;
 
+import com.intellij.ui.Gray;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -13,7 +15,7 @@ public class Gpt4lllPlaceholderTextArea extends JTextArea {
     private String placeholder;
     private boolean isPlaceholderSet;
     private Color defaultTextColor;
-    private Color placeholderColor = new Color(150, 150, 150); // 一种较淡的灰色
+    private Color placeholderColor = Gray._150; // 一种较淡的灰色
 
     public Gpt4lllPlaceholderTextArea(String placeholder) {
         this.placeholder = placeholder;
