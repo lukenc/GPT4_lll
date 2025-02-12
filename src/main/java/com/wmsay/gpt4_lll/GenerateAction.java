@@ -5,6 +5,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -444,6 +445,7 @@ public class GenerateAction extends AnAction {
         String url = ChatUtils.getUrl(settings,project);
         if (url == null || url.isBlank()) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api url/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
+
             return "";
         }
         String apiKey = ChatUtils.getApiKey(settings,project);
@@ -467,6 +469,8 @@ public class GenerateAction extends AnAction {
                 SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Request establishment failed, please check the relevant settings and input./建立请求失败，请检查相关设置与输入", "GPT4_LLL", Messages.getInformationIcon()));
                 return "";
             }
+        }finally {
+            CommonUtil.stopRunningStatus(project);
         }
 
 
@@ -481,6 +485,9 @@ public class GenerateAction extends AnAction {
         AtomicInteger lastInsertPosition = new AtomicInteger(-1);
         StringBuilder stringBuffer = new StringBuilder();
         final AtomicBoolean notExpected = new AtomicBoolean(true);
+        final AtomicBoolean firstThinkingAnswer = new AtomicBoolean(false);
+        final AtomicBoolean startReasonedAnswer = new AtomicBoolean(false);
+
         final AtomicBoolean isWriting = new AtomicBoolean(false);
         final AtomicInteger countDot = new AtomicInteger(0);
         try {
@@ -508,13 +515,36 @@ public class GenerateAction extends AnAction {
                                     }
                                 }
                                 if (sseResponse != null || baiduSseResponse != null) {
+                                    // 处理思考内容
+                                    if (sseResponse!=null && sseResponse.getChoices().get(0).getDelta().getReasoningContent()!=null && !sseResponse.getChoices().get(0).getDelta().getReasoningContent().isEmpty()){
+                                        if (!firstThinkingAnswer.get()){
+                                            firstThinkingAnswer.set(true);
+                                            if (textArea != null) {
+                                                textArea.appendThingkingTitle();
+                                            }
+                                        }
+                                        if (textArea != null) {
+                                            if (Boolean.TRUE.equals(replyShowInWindow)) {
+                                                textArea.appendContent(sseResponse.getChoices().get(0).getDelta().getReasoningContent());
+                                            } else {
+                                                textArea.appendContent(sseResponse.getChoices().get(0).getDelta().getReasoningContent());
+                                            }
+                                        }
+                                    }
+
                                     String resContent;
                                     if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))||ProviderNameEnum.FREE.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
                                         resContent = baiduSseResponse.getResult();
                                     } else {
                                         resContent = sseResponse.getChoices().get(0).getDelta().getContent();
                                     }
-                                    if (resContent != null) {
+                                    if (resContent != null && !resContent.isEmpty()) {
+                                        if (firstThinkingAnswer.get()&& !startReasonedAnswer.get()){
+                                            startReasonedAnswer.set(true);
+                                            if (textArea != null) {
+                                                textArea.appendThingkingEnd();
+                                            }
+                                        }
                                         if (textArea != null) {
                                             if (Boolean.TRUE.equals(replyShowInWindow)) {
                                                 textArea.appendContent(resContent);
@@ -607,6 +637,8 @@ public class GenerateAction extends AnAction {
         } catch (Exception e) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, e.getMessage(), "ChatGpt", Messages.getInformationIcon()));
             e.printStackTrace();
+        }finally {
+            CommonUtil.stopRunningStatus(project);
         }
 //        if (textArea != null) {
 //            textArea.highlight();
@@ -618,7 +650,10 @@ public class GenerateAction extends AnAction {
         project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(message);
         JsonStorage.saveConservation(project.getUserData(GPT_4_LLL_NOW_TOPIC), project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY));
         if (notExpected.get()) {
-            SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()));
+            ApplicationManager.getApplication().invokeLater(
+                    () -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()),
+                    ModalityState.current()
+            );
         }
         if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
             //判断是否需要继续未完成的内容

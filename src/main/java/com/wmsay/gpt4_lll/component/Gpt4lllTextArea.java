@@ -52,6 +52,14 @@ public class Gpt4lllTextArea extends JEditorPane {
 
     }
 
+    public void appendThingkingTitle() {
+        appendContent("====思考过程/Reasoning Process==== \n\n");
+    }
+
+    public void appendThingkingEnd() {
+        appendContent("\n\n====思考过程结束/Reasoning Process End====\n\n\n");
+        appendContent("====完整回复/Reasoned response====\n");
+    }
 
     public void appendContent(String content) {
         contentBuilder.append(content);
