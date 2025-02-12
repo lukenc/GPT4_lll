@@ -21,7 +21,10 @@ public class MyPluginConfigurable implements Configurable {
     private JTextField baiduSecretKeyField;
     //千问配置
     private JTextField tongyiApiKeyField;
+    //grok
     private JTextField grokApiKeyField;
+    //deepseek
+    private JTextField deepseekApiKeyField;
     //自定义的配置
     private JTextField personalApiKeyField;
     private JTextField personalAddressField;
@@ -96,6 +99,13 @@ public class MyPluginConfigurable implements Configurable {
         // Grok API Key 设置
         addLabelAndField(panel, c, gridy++, "GROK Api Key:", grokApiKeyField = new JTextField(20));
         tongyiApiKeyField.setToolTipText("输入您的GROK Api Key");
+
+        // 分隔线
+        addSeparator(panel, c, gridy++);
+        addTitleLabel(panel, c, gridy++, "DeepSeek配置/DeepSeek Configuration");
+        // DeepSeek API Key 设置
+        addLabelAndField(panel, c, gridy++, "DeepSeek Api Key:", deepseekApiKeyField = new JTextField(20));
+        tongyiApiKeyField.setToolTipText("输入您的DeepSeek Api Key");
 
         // 分隔线
         addSeparator(panel, c, gridy++);
@@ -177,7 +187,8 @@ public class MyPluginConfigurable implements Configurable {
                         !personalAddressField.getText().equals(settings.getPersonalApiUrl()) ||
                         !personalApiKeyField.getText().equals(settings.getPersonalApiKey()) ||
                         !personalModelField.getText().equals(settings.getPersonalModel())||
-                        !grokApiKeyField.getText().equals(settings.getGrokApiKey())
+                        !grokApiKeyField.getText().equals(settings.getGrokApiKey())||
+                        !deepseekApiKeyField.getText().equals(settings.getDeepSeekApiKey())
                 ;
 
     }
@@ -194,6 +205,7 @@ public class MyPluginConfigurable implements Configurable {
         settings.setPersonalApiUrl(personalAddressField.getText());
         settings.setPersonalModel(personalModelField.getText());
         settings.setGrokApiKey(grokApiKeyField.getText());
+        settings.setDeepSeekApiKey(deepseekApiKeyField.getText());
     }
 
     @Override
@@ -208,6 +220,7 @@ public class MyPluginConfigurable implements Configurable {
         personalModelField.setText(settings.getPersonalModel());
         personalApiKeyField.setText(settings.getPersonalApiKey());
         grokApiKeyField.setText(settings.getGrokApiKey());
+        deepseekApiKeyField.setText(settings.getDeepSeekApiKey());
     }
 }
 

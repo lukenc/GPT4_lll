@@ -29,7 +29,8 @@ public class ModelUtils {
         modelProviders.add(new ModelProvider(ProviderNameEnum.BAIDU.getProviderName(), "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/", "一个特立独行的哨兵供应商，瞎立什么规范"));
         modelProviders.add(new ModelProvider(ProviderNameEnum.OPEN_AI.getProviderName(), "https://api.openai.com/v1/chat/completions", ""));
         modelProviders.add(new ModelProvider(ProviderNameEnum.ALI.getProviderName(), "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "国内厂商中头部水平了"));
-        modelProviders.add(new ModelProvider(ProviderNameEnum.GROK.getProviderName(), "https://api.x.ai/v1/chat/completions", "国内厂商中头部水平了"));
+        modelProviders.add(new ModelProvider(ProviderNameEnum.GROK.getProviderName(), "https://api.x.ai/v1/chat/completions", "X出的的平台，马斯克早的应该不错。"));
+        modelProviders.add(new ModelProvider(ProviderNameEnum.DEEP_SEEK.getProviderName(), "https://api.deepseek.com/chat/completions", "国内头部厂商"));
 
         provider2Url = modelProviders.stream().collect(Collectors.toMap(ModelProvider::getName, ModelProvider::getUrl));
         // 免费模型
@@ -56,9 +57,14 @@ public class ModelUtils {
         modelOptions.add(new SelectModelOption("qwen-turbo", "turbo稳定版。速度最快、成本很低的模型，适合简单任务", ProviderNameEnum.ALI.getProviderName(), "Qwen Turbo"));
         modelOptions.add(new SelectModelOption("qwen-turbo-latest", "turbo最新版。速度最快、成本很低的模型，适合简单任务", ProviderNameEnum.ALI.getProviderName(), "Qwen Turbo Latest"));
         modelOptions.add(new SelectModelOption("qwen-long", "Long-context handling version of Qwen", ProviderNameEnum.ALI.getProviderName(), "Qwen Long"));
+        modelOptions.add(new SelectModelOption("deepseek-r1", "671B 满血版模型。由阿里云部署。", ProviderNameEnum.ALI.getProviderName(), "deepseek-r1 deploy by aliyun"));
+        modelOptions.add(new SelectModelOption("deepseek-v3", "参数量为 671B。由阿里云部署。", ProviderNameEnum.ALI.getProviderName(), "deepseek-v3 deploy by aliyun"));
+
         //X 的GROK 系列
         modelOptions.add(new SelectModelOption("grok-beta", "X打造的大模型，提供简洁、有效的代码解决方案。", ProviderNameEnum.GROK.getProviderName(), " grok"));
-
+        //DeepSeek
+        modelOptions.add(new SelectModelOption("deepseek-chat", "deepseek-chat 模型已全面升级为 DeepSeek-V3。是DeepSeek团队推出的大语言模型，支持多模态对话，具有强大的文本理解能力。", ProviderNameEnum.DEEP_SEEK.getProviderName(), "DeepSeek(DeepSeek-V3)"));
+        modelOptions.add(new SelectModelOption("deepseek-reasoner", "deepseek-reasoner是DeepSeek 最新推出的推理模型 DeepSeek-R1。", ProviderNameEnum.DEEP_SEEK.getProviderName(), "DeepSeek-R1"));
         //允许用户使用自己公司或个人的接口
         modelOptions.add(new SelectModelOption("","用户自己提供的api",ProviderNameEnum.PERSONAL.getProviderName(),"自定义/Personal"));
 

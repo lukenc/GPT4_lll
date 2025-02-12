@@ -29,6 +29,8 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
         //Grok配置
         public String grokApiKey;
 
+        public String deepSeekApiKey;
+
     }
 
     private State state = new State();
@@ -111,5 +113,12 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
     }
     public String getGrokApiKey() {
         return state.grokApiKey;
+    }
+
+    public void setDeepSeekApiKey(String deepSeekApiKey) {
+        state.deepSeekApiKey = deepSeekApiKey;
+    }
+    public String getDeepSeekApiKey() {
+        return state.deepSeekApiKey;
     }
 }

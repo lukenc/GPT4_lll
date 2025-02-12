@@ -146,6 +146,9 @@ public class ChatUtils {
         if (ProviderNameEnum.GROK.getProviderName().equals(provider)){
             return settings.getGrokApiKey();
         }
+        if (ProviderNameEnum.DEEP_SEEK.getProviderName().equals(provider)){
+            return settings.getDeepSeekApiKey();
+        }
         return "";
     }
 

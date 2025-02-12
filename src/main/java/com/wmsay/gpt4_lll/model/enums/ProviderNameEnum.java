@@ -6,7 +6,8 @@ public enum ProviderNameEnum {
     BAIDU("Baidu"),
     ALI("Alibaba"),
     OPEN_AI("OpenAI"),
-    GROK("X-GROK")
+    GROK("X-GROK"),
+    DEEP_SEEK("DeepSeek"),
     ;
     final String providerName;
 
