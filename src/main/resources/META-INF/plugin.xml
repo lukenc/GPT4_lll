@@ -12,6 +12,46 @@
     <change-notes>
         <![CDATA[
 
+<h2>3.8.14 (2025-02-12)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>插件新增功能：适配推理模型的返回，将推理过程中的思考内容展示在对话框中。</li>
+            <li>Added a new feature: Adapted the inference model’s response, displaying the reasoning process in the dialog box.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/修复:</h3>
+        <ul>
+            <li>修复了任务状态管理错误，任务结束后未正确更改状态的问题。</li>
+            <li>Fixed an issue with task status management, where the status was not updated after the task was completed.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.12 (2025-02-10)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>插件新增功能：支持 DeepSeek 平台，添加 V3 和 R1 模型。</li>
+            <li>Added a new feature: Support for the DeepSeek platform, adding V3 and R1 models.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.12 (2025-02-10)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>插件新增功能：支持 DeepSeek 平台，添加 V3 和 R1 模型。</li>
+            <li>Added a new feature: Support for the DeepSeek platform, adding V3 and R1 models.</li>
+        </ul>
+    </li>
+</ul>
+
 <h2>3.8.11 (2024-12-19)</h2>
 <ul>
     <li>
@@ -571,6 +611,7 @@
         <li>grok</li>
         <li>tongyi/通义</li>
         <li>ERNIE/文心一言</li>
+        <li>DeepSeek/深度求索</li>
         <li>openai standard personal api/openai标准的自定义接口</li>
     </ul>
 </p>
