@@ -73,3 +73,78 @@ Introduced a new Code Assessment feature, allowing team leaders to evaluate team
 
 ## Usage/使用
 After installation, you can access the plugin from the toolbar. Highlight the code or TODO comments you want to work with, and select the appropriate action from the plugin menu.
+
+
+# AI Platform Integration Guide
+
+## 添加新平台
+
+当需要添加一个全新的AI平台时，需要按照以下步骤进行：
+
+1. **添加平台枚举**
+    - 在`ProviderNameEnum`中添加新平台的枚举值
+    - 示例：`DEEP_SEEK("DeepSeek")`
+
+2. **配置API密钥管理**
+    - 在`ChatUtils`的`getApiKey`方法中添加对应平台的信息
+    - 在`MyPluginSettings.State`类中添加平台API密钥字段
+    - 示例：`public String deepSeekApiKey;`
+
+3. **添加模型厂商信息**
+    - 在`ModelUtils`的静态块中添加模型厂商数据
+    - 格式：`modelProviders.add(new ModelProvider(厂商枚举名.getProviderName(), "API地址", "厂商描述"));`
+
+4. **配置UI界面**
+   在`MyPluginConfigurable`类中进行以下修改：
+
+   a. 添加API密钥输入框字段
+   ```java
+   private JTextField deepseekApiKeyField;
+   ```
+
+   b. 在构造方法中添加UI布局代码
+   ```java
+   addSeparator(panel, c, gridy++);
+   addTitleLabel(panel, c, gridy++, "平台名称配置");
+   addLabelAndField(panel, c, gridy++, "平台 Api Key:", apiKeyField);
+   ```
+
+   c. 修改`isModified()`方法，添加配置修改检测
+
+   d. 修改`apply()`方法，处理配置保存逻辑
+
+   e. 修改`reset()`方法，处理配置重置逻辑
+
+## 为现有平台添加新模型
+
+当需要在已有平台中添加新的模型时，只需执行以下步骤：
+
+1. **在ModelUtils中添加模型信息**
+   ```java
+   modelOptions.add(new SelectModelOption(
+       "模型标识符",
+       "模型描述信息",
+       ProviderNameEnum.平台名称.getProviderName(),
+       "模型显示名称"
+   ));
+   ```
+
+2. **验证模型配置**
+    - 确保新模型的API请求格式与平台现有格式一致
+    - 测试模型是否能正常工作
+
+## 注意事项
+
+1. 添加新平台时，确保所有配置项都已正确设置
+2. API密钥的存储要考虑安全性
+3. UI界面的设计要保持一致性
+4. 新增模型时要确保与平台的API规范相符
+5. 所有新增的配置项都要考虑持久化存储
+
+## 测试检查清单
+
+- [ ] API密钥配置是否正常保存和读取
+- [ ] UI界面是否正常显示
+- [ ] 新模型是否能正常调用API
+- [ ] 配置的修改和重置功能是否正常
+- [ ] 与已有功能是否有冲突
