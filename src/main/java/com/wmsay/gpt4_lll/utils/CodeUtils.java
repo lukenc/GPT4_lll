@@ -157,6 +157,123 @@ public class CodeUtils {
                 10.6 结构设计：代码结构是否遵循 “高内聚、低耦合” 的原则。
                         """;
 
+    public static String BACK_END_DEV_STD_PROMPT_ENG = """
+          Scoring Standard (Total 100 Points)
+          Please evaluate the code strictly according to the following 10 dimensions, with each dimension worth a maximum of 10 points:
+           1.  **Naming Conventions (10 points)**
+               * 1.1 Does it follow the naming conventions of the current programming language (e.g., camelCase, PascalCase for classes)?
+               * 1.2 Are names clear, descriptive, and intuitively reflect their function or purpose?
+               * 1.3 Does it avoid overly short or generic names?
+               * 1.4 Check for ambiguous or misleading names.
+           2.  **Null Pointer Risk (10 points)**
+               * 2.1 Are necessary checks performed for potentially null objects?
+               * 2.2 Are language features for handling nulls used correctly and effectively (e.g., Java's Optional, Kotlin's null-safety)?
+               * 2.3 Ensure code neither omits necessary null checks nor overuses them, impacting conciseness.
+           3.  **Array and Collection Boundary Risks (10 points)**
+               * 3.1 Are appropriate boundary checks (e.g., index range) performed in array or collection operations?
+               * 3.2 Are there logical flaws that could lead to array/collection out-of-bounds errors?
+               * 3.3 Are edge cases like empty collections or arrays handled correctly?
+           4.  **Concurrency Control (10 points)**
+               * 4.1 Does the code operate in a multi-threaded environment? If so, are shared resources properly protected?
+               * 4.2 Based on the use case, are synchronization and locking mechanisms (e.g., synchronized, Lock) used correctly to prevent race conditions?
+               * 4.3 Is thread safety considered for concurrent operations?
+               * 4.4 Is the risk of deadlocks checked?
+           5.  **Comment Completeness (10 points)**
+               * 5.1 Are clear and accurate comments added to critical, complex, or non-obvious code sections?
+               * 5.2 Does the comment content align with the actual code logic and is it kept up-to-date, avoiding misdirection?
+               * 5.3 Is the amount of commenting appropriate, avoiding too much (clutter) or too little (obscurity)? Are public APIs documented (e.g., JavaDoc)?
+           6.  **Exception Handling (10 points)**
+               * 6.1 Are necessary and predictable exceptions caught to prevent unexpected program termination?
+               * 6.2 Is the exception handling logic reasonable? Does it avoid overly broad catches (e.g., `catch (Exception e)`) and handle exceptions appropriately (recover, retry, log, wrap, or rethrow)?
+               * 6.3 Is adequate logging or meaningful error feedback provided to users/callers for exceptional situations?
+           7.  **Logging Completeness and Compliance (10 points)**
+               * 7.1 Do logs record sufficient context (e.g., key parameters, user ID, trace ID) to facilitate troubleshooting?
+               * 7.2 Are log levels (e.g., DEBUG, INFO, WARN, ERROR) used appropriately and consistently?
+               * 7.3 Is it ensured that sensitive information (e.g., passwords, PII, bank details, secrets) is NOT logged, complying with security and privacy regulations?
+           8.  **Security (10 points)**
+               * 8.1 Are there potential common security vulnerabilities (e.g., SQL Injection, Cross-Site Scripting (XSS), Command Injection, Insecure Deserialization, Hardcoded Credentials, sensitive data exposure)?
+               * 8.2 Is input validation sufficient to defend against malicious input?
+               * 8.3 Is authentication and authorization logic sound? Are there risks of privilege escalation or bypass?
+               * 8.4 Do dependencies have known security vulnerabilities?
+           9.  **Performance Optimization (10 points)**
+               * 9.1 Are appropriate algorithms and data structures chosen?
+               * 9.2 Are unnecessary computations, redundant database queries, or frequent I/O operations avoided?
+               * 9.3 Is resource management handled properly (e.g., closing streams, releasing connection pool resources)? Is there a risk of memory leaks?
+               * 9.4 Are performance optimization techniques (e.g., caching, asynchronous processing, batching, index optimization) applied where appropriate?
+           10. **Other Aspects of Code Quality (10 points)**
+               * 10.1 **Maintainability/Readability:** Is the code structure clear and the logic easy to understand? Does it follow principles like SOLID? Are there overly long methods or classes? Is modularization reasonable (high cohesion, low coupling)?
+               * 10.2 **Design Patterns:** Are design patterns applied appropriately to enhance reusability, flexibility, and extensibility?
+               * 10.3 **Code Duplication:** Is unnecessary code duplication avoided (following the DRY - Don't Repeat Yourself principle)?
+               * 10.4 **Library/Framework Usage:** Are language features, standard libraries, or third-party frameworks used appropriately, avoiding reinventing the wheel?
+               * 10.5 **Simplicity:** Is the code concise and clear, avoiding unnecessary complexity?                            
+                        """;
+
+
+    public static final String BACK_END_DEV_STD_PROMPT_ENG_TEMPLATE = """
+            ## Scoring Standard (Total 100 Points)
+            Please evaluate the code strictly according to the following 10 dimensions, with each dimension worth a maximum of 10 points:
+            
+            1.  **Naming Conventions (10 points)**
+                * 1.1 Does it follow the naming conventions of the current programming language (e.g., camelCase, PascalCase for classes)?
+                * 1.2 Are names clear, descriptive, and intuitively reflect their function or purpose?
+                * 1.3 Does it avoid overly short or generic names?
+                * 1.4 Check for ambiguous or misleading names.
+            2.  **Null Pointer Risk (10 points)**
+                * 2.1 Are necessary checks performed for potentially null objects?
+                * 2.2 Are language features for handling nulls used correctly and effectively (e.g., Java's Optional, Kotlin's null-safety)?
+                * 2.3 Ensure code neither omits necessary null checks nor overuses them, impacting conciseness.
+            3.  **Array and Collection Boundary Risks (10 points)**
+                * 3.1 Are appropriate boundary checks (e.g., index range) performed in array or collection operations?
+                * 3.2 Are there logical flaws that could lead to array/collection out-of-bounds errors?
+                * 3.3 Are edge cases like empty collections or arrays handled correctly?
+            4.  **Concurrency Control (10 points)**
+                * 4.1 Does the code operate in a multi-threaded environment? If so, are shared resources properly protected?
+                * 4.2 Based on the use case, are synchronization and locking mechanisms (e.g., synchronized, Lock) used correctly to prevent race conditions?
+                * 4.3 Is thread safety considered for concurrent operations?
+                * 4.4 Is the risk of deadlocks checked?
+            5.  **Comment Completeness (10 points)**
+                * 5.1 Are clear and accurate comments added to critical, complex, or non-obvious code sections?
+                * 5.2 Does the comment content align with the actual code logic and is it kept up-to-date, avoiding misdirection?
+                * 5.3 Is the amount of commenting appropriate, avoiding too much (clutter) or too little (obscurity)? Are public APIs documented (e.g., JavaDoc)?
+            6.  **Exception Handling (10 points)**
+                * 6.1 Are necessary and predictable exceptions caught to prevent unexpected program termination?
+                * 6.2 Is the exception handling logic reasonable? Does it avoid overly broad catches (e.g., `catch (Exception e)`) and handle exceptions appropriately (recover, retry, log, wrap, or rethrow)?
+                * 6.3 Is adequate logging or meaningful error feedback provided to users/callers for exceptional situations?
+            7.  **Logging Completeness and Compliance (10 points)**
+                * 7.1 Do logs record sufficient context (e.g., key parameters, user ID, trace ID) to facilitate troubleshooting?
+                * 7.2 Are log levels (e.g., DEBUG, INFO, WARN, ERROR) used appropriately and consistently?
+                * 7.3 Is it ensured that sensitive information (e.g., passwords, PII, bank details, secrets) is NOT logged, complying with security and privacy regulations?
+            8.  **Security (10 points)**
+                * 8.1 Are there potential common security vulnerabilities (e.g., SQL Injection, Cross-Site Scripting (XSS), Command Injection, Insecure Deserialization, Hardcoded Credentials, sensitive data exposure)?
+                * 8.2 Is input validation sufficient to defend against malicious input?
+                * 8.3 Is authentication and authorization logic sound? Are there risks of privilege escalation or bypass?
+                * 8.4 Do dependencies have known security vulnerabilities?
+            9.  **Performance Optimization (10 points)**
+                * 9.1 Are appropriate algorithms and data structures chosen?
+                * 9.2 Are unnecessary computations, redundant database queries, or frequent I/O operations avoided?
+                * 9.3 Is resource management handled properly (e.g., closing streams, releasing connection pool resources)? Is there a risk of memory leaks?
+                * 9.4 Are performance optimization techniques (e.g., caching, asynchronous processing, batching, index optimization) applied where appropriate?
+            10. **Other Aspects of Code Quality (10 points)**
+                * 10.1 **Maintainability/Readability:** Is the code structure clear and the logic easy to understand? Does it follow principles like SOLID? Are there overly long methods or classes? Is modularization reasonable (high cohesion, low coupling)?
+                * 10.2 **Design Patterns:** Are design patterns applied appropriately to enhance reusability, flexibility, and extensibility?
+                * 10.3 **Code Duplication:** Is unnecessary code duplication avoided (following the DRY - Don't Repeat Yourself principle)?
+                * 10.4 **Library/Framework Usage:** Are language features, standard libraries, or third-party frameworks used appropriately, avoiding reinventing the wheel?
+                * 10.5 **Simplicity:** Is the code concise and clear, avoiding unnecessary complexity?
+            
+            ## Input
+            
+            I will now provide a code snippet of type `{fileType}` for your evaluation.
+            
+            ## Output Requirements
+            
+            1.  **Language:** Please respond in `{replyLanguage}`.
+            2.  **Detailed Scoring:** For each of the 10 scoring dimensions above, provide a score (0-10 points) along with specific, constructive evaluation reasons. Clearly identify strengths and areas for improvement in the code, citing specific lines or sections as evidence where possible.
+            3.  **Total Score:** After the detailed assessment, provide a final total score (0-100 points).
+            4.  **Accuracy:** Ensure the evaluation is objective, accurate, and strictly adheres to the checkpoints listed in the scoring standard.
+            
+            **Please prepare to receive and evaluate the code.**
+            """;
+
 
     public static final String SCORE_AI_PROMPT = """
             你是一位经验丰富的计算机科学家和数据专家，同时也是具备深厚软件工程功底的资深架构师。在代码重构与系统优化领域，你有着超过 15 年的实战经验。你以严谨和务实的作风著称，擅长从架构设计、性能优化、安全性、可扩展性、可维护性等多个维度对代码进行全面审查和精准评估。
