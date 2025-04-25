@@ -5,7 +5,6 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -34,6 +33,7 @@ import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+
 import javax.swing.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -48,7 +48,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.*;
+import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.GPT_4_LLL_CONVERSATION_HISTORY;
+import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.GPT_4_LLL_NOW_TOPIC;
 import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 
 public class GenerateAction extends AnAction {
@@ -571,8 +572,24 @@ public class GenerateAction extends AnAction {
                                                                 // If there's a selection, find the end line of the selection
                                                                 int selectionEnd = selectionModel.getSelectionEnd();
                                                                 int endLine = document.getLineNumber(selectionEnd);
-                                                                // Insert at the end of the line where the selection ends
-                                                                insertPosition = document.getLineEndOffset(endLine);
+//                                                                // Insert at the end of the line where the selection ends
+//                                                                insertPosition = document.getLineEndOffset(endLine);
+                                                                // Check if the selection ends at the last line of the document
+                                                                int lastLine = document.getLineCount() - 1;
+                                                                if (endLine == lastLine) {
+                                                                    // If selection ends at the last line, append a new line to the document first
+                                                                    int tmpInsertPosition = document.getTextLength();
+
+                                                                    WriteCommandAction.runWriteCommandAction(editor.getProject(), () -> {
+                                                                        document.insertString(tmpInsertPosition, "\n");
+                                                                    });
+
+                                                                    insertPosition=tmpInsertPosition+1; // Move insertion point after the new line
+                                                                } else {
+                                                                    // If not the last line, insert at the end of the line as before
+                                                                    insertPosition = document.getLineEndOffset(endLine);
+                                                                }
+
                                                             } else {
                                                                 // If there's no selection, insert at the end of the document
                                                                 insertPosition = document.getTextLength();
@@ -650,9 +667,8 @@ public class GenerateAction extends AnAction {
         project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(message);
         JsonStorage.saveConservation(project.getUserData(GPT_4_LLL_NOW_TOPIC), project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY));
         if (notExpected.get()) {
-            ApplicationManager.getApplication().invokeLater(
-                    () -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon()),
-                    ModalityState.current()
+            SwingUtilities.invokeLater(
+                    () -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon())
             );
         }
         if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
