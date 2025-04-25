@@ -11,6 +11,37 @@
 
     <change-notes>
         <![CDATA[
+        <h2>3.8.16 (2025-04-24)</h2>
+<ul>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>提升了生成回答的正确度，优化了语言模型的上下文理解能力，使其在处理复杂编程问题和逻辑推理任务时表现更加准确。</li>
+            <li>Enhanced the accuracy of generated responses by improving contextual understanding in the language model, leading to better performance on complex coding and logical reasoning tasks.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>COMPATIBILITY/兼容性:</h3>
+        <ul>
+            <li>新增对 IntelliJ IDEA 2025.1 版本的支持，确保插件在最新版本的 IDE 中能够稳定运行并提供完整功能。</li>
+            <li>Added compatibility with IntelliJ IDEA 2025.1, ensuring stable performance and full feature support in the latest IDE version.</li>
+        </ul>
+    </li>
+</ul>
+
+
+<h2>3.8.15 (2025-03-05)</h2>
+<ul>
+    <li>
+        <h3>BUG FIX/修复:</h3>
+        <ul>
+            <li>解决了当用户选中的内容包含编辑器最后一行时，生成的代码无法正确写入编辑器的问题。此问题已得到修正，确保所有生成的代码都能被准确无误地插入到指定位置。</li>
+            <li>Resolved an issue where, if the selected content included the last line of the editor, the generated code could not be correctly inserted into the editor. This problem has been addressed to ensure that all generated codes can be accurately placed at the designated location.</li>
+            <li>修正了在特定情况下平台返回错误信息（如token无效或过期）未能弹出提示框的问题。现在，系统能够识别这些情况并适时向用户显示相应的错误提示，以提升用户体验。</li>
+            <li>Fixed an issue where under certain conditions error messages from the platform (such as invalid or expired tokens) did not trigger a popup alert. The system now properly detects these situations and displays relevant error notifications to the user, enhancing the overall user experience.</li>
+        </ul>
+    </li>
+</ul>
 
 <h2>3.8.14 (2025-02-12)</h2>
 <ul>
