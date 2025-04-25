@@ -23,7 +23,7 @@ public class ModelUtils {
 
     static {
         modelProviders = new ArrayList<>(15);
-        modelOptions = new ArrayList<>(50);
+        modelOptions = new ArrayList<>(100);
 
         //模型厂商
         modelProviders.add(new ModelProvider(ProviderNameEnum.BAIDU.getProviderName(), "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/", "一个特立独行的哨兵供应商，瞎立什么规范"));
@@ -61,7 +61,10 @@ public class ModelUtils {
         modelOptions.add(new SelectModelOption("deepseek-v3", "参数量为 671B。由阿里云部署。", ProviderNameEnum.ALI.getProviderName(), "deepseek-v3 deploy by aliyun"));
 
         //X 的GROK 系列
-        modelOptions.add(new SelectModelOption("grok-beta", "X打造的大模型，提供简洁、有效的代码解决方案。", ProviderNameEnum.GROK.getProviderName(), " grok"));
+        modelOptions.add(new SelectModelOption("grok-beta", "X打造的大模型，提供简洁、有效的代码解决方案。", ProviderNameEnum.GROK.getProviderName(), "grok-beta"));
+        modelOptions.add(new SelectModelOption("grok-2-latest", "X打造的大模型，提供简洁、有效的代码解决方案。", ProviderNameEnum.GROK.getProviderName(), "grok-2-latest"));
+        modelOptions.add(new SelectModelOption("grok-2", "X打造的大模型，提供简洁、有效的代码解决方案。", ProviderNameEnum.GROK.getProviderName(), "grok-2"));
+
         //DeepSeek
         modelOptions.add(new SelectModelOption("deepseek-chat", "deepseek-chat 模型已全面升级为 DeepSeek-V3。是DeepSeek团队推出的大语言模型，支持多模态对话，具有强大的文本理解能力。", ProviderNameEnum.DEEP_SEEK.getProviderName(), "DeepSeek(DeepSeek-V3)"));
         modelOptions.add(new SelectModelOption("deepseek-reasoner", "deepseek-reasoner是DeepSeek 最新推出的推理模型 DeepSeek-R1。", ProviderNameEnum.DEEP_SEEK.getProviderName(), "DeepSeek-R1"));
