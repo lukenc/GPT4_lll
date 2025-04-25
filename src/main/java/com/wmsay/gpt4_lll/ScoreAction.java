@@ -22,6 +22,9 @@ import com.wmsay.gpt4_lll.utils.ModelUtils;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.wmsay.gpt4_lll.utils.CodeUtils.BACK_END_DEV_STD_PROMPT_ENG;
+import static com.wmsay.gpt4_lll.utils.CodeUtils.BACK_END_DEV_STD_PROMPT_ENG_TEMPLATE;
+
 
 public class ScoreAction extends AnAction {
 
@@ -86,7 +89,9 @@ public class ScoreAction extends AnAction {
                 if ("Vue".equalsIgnoreCase(fileType) || "TypeScript".equalsIgnoreCase(fileType) || "JavaScript".equalsIgnoreCase(fileType) || (fileType != null && fileType.toLowerCase().contains("javascript")) || (fileType != null && fileType.toLowerCase().contains("typescript"))) {
                     message.setContent("评估不限于以下方面：" + CodeUtils.WEB_DEV_STD + "。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，一定要确保评估的准确性，接下来我将给你需要评估的代码。");
                 } else {
-                    message.setContent("评估不限于以下方面：" + CodeUtils.BACK_END_DEV_STD + "。如果该评估总分是100，帮忙使用" + replyLanguage + "语言，评估下面的" + fileType + "代码的得分，一定要确保评估的准确性，接下来我将给你需要评估的代码。");
+                    String scoreTemplate=BACK_END_DEV_STD_PROMPT_ENG_TEMPLATE.replace("{fileType}",fileType).replace("{replyLanguage}",replyLanguage);
+                    System.out.println(scoreTemplate);
+                    message.setContent(scoreTemplate);
                 }
                 Message codeMessage = new Message();
                 codeMessage.setRole("user");
