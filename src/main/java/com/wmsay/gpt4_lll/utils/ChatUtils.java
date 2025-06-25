@@ -12,6 +12,8 @@ import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
 import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.net.InetSocketAddress;
@@ -25,6 +27,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ChatUtils {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatUtils.class);
+
+    private static final String ACCESS_TOKEN_QUERY_KEY= "?access_token=";
 
     public static Message getOddMessage4Baidu(){
         Message message = new Message();
@@ -45,10 +51,7 @@ public class ChatUtils {
     public static String getModelName(Project project) {
         SelectModelOption selectedModel=  ModelUtils.getSelectedModel(project);
         if (selectedModel!=null){
-            System.out.printf("选中的模型是====="+selectedModel.getModelName());
-            if ("".equals( selectedModel.getProvider())){
-
-            }
+            log.debug("选中的模型是====={}",selectedModel.getModelName());
             return selectedModel.getModelName();
         }
         return "gpt-3.5-turbo";
@@ -57,11 +60,9 @@ public class ChatUtils {
 
 
     private static JRadioButton findRadioButton(JComponent component, String radioButtonContent) {
-        if (component instanceof JRadioButton ) {
-            if (radioButtonContent.equals(((JRadioButton) component).getText())) {
-                return (JRadioButton) component;
+        if (component instanceof JRadioButton jRadioButton && radioButtonContent.equals(jRadioButton.getText())) {
+                return jRadioButton;
             }
-        }
 
         for (int i = 0; i < component.getComponentCount(); i++) {
             JComponent child = (JComponent) component.getComponent(i);
@@ -83,42 +84,36 @@ public class ChatUtils {
     public static String getUrlByProvider(MyPluginSettings settings,String  provider,String modelName) {
         if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
             String accessToken = AuthUtils.getBaiduAccessToken();
-            String url = ModelUtils.getUrlByProvider(provider)+ modelName + "?access_token=" + accessToken;
-            return url;
+            return ModelUtils.getUrlByProvider(provider)+ modelName + ACCESS_TOKEN_QUERY_KEY + accessToken;
         }
         //todo 当前只有百度是免费的 所以先将免费的都写成百度的
         if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
             String accessToken = AuthUtils.getFreeBaiduAccessToken();
-            String url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + "?access_token=" + accessToken;
-            return url;
+            return "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + ACCESS_TOKEN_QUERY_KEY + accessToken;
         }
         if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
             return settings.getPersonalApiUrl();
         }
         // 处理标准接口的公有平台url
-        String url = ModelUtils.getUrlByProvider(provider);
-        return url;
+        return ModelUtils.getUrlByProvider(provider);
     }
 
     public static String getUrl(MyPluginSettings settings,Project project) {
         String provider = ModelUtils.getSelectedProvider(project);
         if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
             String accessToken = AuthUtils.getBaiduAccessToken();
-            String url = ModelUtils.getUrlByProvider(provider)+ ModelUtils.getModelNameByDisplay(ModelUtils.getSelectedModel(project).getDisplayName()) + "?access_token=" + accessToken;
-            return url;
+            return ModelUtils.getUrlByProvider(provider)+ ModelUtils.getModelNameByDisplay(ModelUtils.getSelectedModel(project).getDisplayName()) + ACCESS_TOKEN_QUERY_KEY + accessToken;
         }
         //todo 当前只有百度是免费的 所以先将免费的都写成百度的
         if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
             String accessToken = AuthUtils.getFreeBaiduAccessToken();
-            String url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + "?access_token=" + accessToken;
-            return url;
+            return "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + ACCESS_TOKEN_QUERY_KEY + accessToken;
         }
         if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
             return settings.getPersonalApiUrl();
         }
         // 处理标准接口的公有平台url
-        String url = ModelUtils.getUrlByProvider(provider);
-        return url;
+        return ModelUtils.getUrlByProvider(provider);
     }
 
 
@@ -126,13 +121,11 @@ public class ChatUtils {
     public static String getApiKey(MyPluginSettings settings,Project project) {
         String provider = ModelUtils.getSelectedProvider(project);
         if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
-            String accessToken = AuthUtils.getBaiduAccessToken();
-            return accessToken;
+            return AuthUtils.getBaiduAccessToken();
         }
         //todo 当前只有百度是免费的 所以先将免费的都写成百度的
         if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
-            String accessToken = AuthUtils.getFreeBaiduAccessToken();
-            return accessToken;
+            return AuthUtils.getFreeBaiduAccessToken();
         }
         if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
             return settings.getPersonalApiKey();
@@ -154,7 +147,7 @@ public class ChatUtils {
 
     public static Boolean needsContinuation(String replyContent) {
         String cleanedReplyContent = replyContent.trim().replaceAll("\\n|\\r", "");
-        if (!cleanedReplyContent.endsWith(".")
+        return !cleanedReplyContent.endsWith(".")
                 && !cleanedReplyContent.endsWith("。")
                 && !cleanedReplyContent.endsWith("?")
                 && !cleanedReplyContent.endsWith("？")
@@ -163,10 +156,7 @@ public class ChatUtils {
                 && !cleanedReplyContent.endsWith("}")
                 && !cleanedReplyContent.endsWith(";")
                 && !cleanedReplyContent.endsWith("；")
-                && !cleanedReplyContent.endsWith("```")){
-            return true;
-        }
-        return false;
+                && !cleanedReplyContent.endsWith("```");
     }
 
 
@@ -267,7 +257,6 @@ public class ChatUtils {
 
 
     public static String pureChat(String provider,String apiKey,ChatContent content) throws IllegalArgumentException{
-        System.out.println();
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String url = ChatUtils.getUrlByProvider( settings,provider,content.getModel());
         if (url == null || url.isBlank()) {
@@ -295,6 +284,7 @@ public class ChatUtils {
 
         client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
                 .thenAccept(response -> {
+                    log.debug("response.body:{}", response.body());
                     response.body().forEach(line -> {
                         if (line.startsWith("data")) {
 //                            notExpected.set(false);

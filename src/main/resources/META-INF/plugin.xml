@@ -705,6 +705,7 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
     <depends>com.intellij.modules.lang</depends>
+    <depends>Git4Idea</depends>
 <!--    <depends>com.intellij.modules.python-core-capable</depends>-->
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
@@ -739,6 +740,13 @@
                 description="Score files and create score files">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
+
+            <action id="com.wmsay.gpt4_lll.WorkReportAction"
+                    class="com.wmsay.gpt4_lll.WorkReportAction"
+                    text="Retrieve Git Commits by Author"
+                    description="Fetch Git commits filtered by author(s)">
+                <add-to-group group-id="ToolsMenu" anchor="last"/>
+            </action>
     </actions>
 
 

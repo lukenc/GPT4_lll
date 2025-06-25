@@ -1,8 +1,7 @@
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.8.21"
-    id("org.jetbrains.intellij.platform") version "2.5.0"
-//   id("org.jetbrains.intellij.platform.migration") version "2.5.0"
+    id("org.jetbrains.intellij") version "1.15.0"
 }
 
 group = "com.wmsay"
@@ -11,31 +10,23 @@ version = "3.8.16"
 repositories {
     mavenCentral()
     maven("https://maven.aliyun.com/nexus/content/repositories/central/")
-    intellijPlatform {
-        defaultRepositories()
-    }
 }
-
 dependencies {
     implementation("com.alibaba:fastjson:1.2.83")
     implementation("com.vladsch.flexmark:flexmark:0.64.8")
     implementation("com.vladsch.flexmark:flexmark-util-html:0.64.8")
     implementation("org.mozilla:rhino:1.7.15")
     implementation("org.jsoup:jsoup:1.17.2")
-    intellijPlatform {
-        create("IC", "2025.1")
-        intellijIdeaCommunity("2025.1")
-        bundledPlugins("com.intellij.java","Git4Idea")
-    }
+
 }
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
-//intellijPlatform {
-////    version.set("2024.3")
-////    type.set("IC") // Target IDE Platform
-////    plugins.set(listOf("com.intellij.java","Git4Idea"))
-////    plugins.set(listOf(/* Plugin Dependencies */))
-//}
+intellij {
+    version.set("2024.3")
+//    type.set("IC") // Target IDE Platform
+    plugins.set(listOf("com.intellij.java","Git4Idea"))
+//    plugins.set(listOf(/* Plugin Dependencies */))
+}
 
 tasks {
     // Set the JVM compatibility versions
@@ -43,9 +34,9 @@ tasks {
         sourceCompatibility = "17"
         targetCompatibility = "17"
     }
-//    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-//        kotlinOptions.jvmTarget = "17"
-//    }
+    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        kotlinOptions.jvmTarget = "17"
+    }
 
     patchPluginXml {
         sinceBuild.set("222")

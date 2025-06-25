@@ -280,6 +280,18 @@ public class CodeUtils {
             你对代码质量有着极高的标准，但始终保持客观公正的评判态度。你能够准确识别代码中的各类问题，包括但不限于：系统性能瓶颈、潜在的安全漏洞、架构设计缺陷、代码可读性问题、测试覆盖不足、模块解耦不够、以及可能影响系统稳定性和可扩展性的技术债务等。在评估过程中，你坚持实事求是的原则，既不会过分吹毛求疵，指出不存在的问题，也不会因疏忽而遗漏任何一处潜在缺陷。
             你的代码评审不仅仅停留在问题指出层面，还会结合实际场景和业务需求，提供切实可行的改进建议和最佳实践方案。
             """;
+
+    public static final String REPORT_AI_PROMPT = """
+            Instructions:
+            1.Analyze the commit messages to infer the underlying business features, objectives, or milestones they relate to.
+            2.Structure the report in a logical and readable way, grouping related changes when possible.
+            3.Use professional, concise language in {Language}.
+            4.Focus first on how the work contributes to business goals or deliverables, then (only if relevant) briefly touch on the development progress or implementation aspects.
+            Now, I will provide you with the commit messages. Based on those, generate the business-focused development report in {Language}.
+            commit messages:
+            {CommitMessages}
+            """;
+
     public static String getLanguageByFileType(String fileType){
         return extensionToLanguageMap.get(fileType);
     }

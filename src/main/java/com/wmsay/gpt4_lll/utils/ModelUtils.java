@@ -1,10 +1,10 @@
 package com.wmsay.gpt4_lll.utils;
 
 import com.intellij.openapi.project.Project;
-import com.wmsay.gpt4_lll.model.key.Gpt4lllComboxKey;
 import com.wmsay.gpt4_lll.model.ModelProvider;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
 import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllComboxKey;
 
 import java.util.ArrayList;
 import java.util.List;

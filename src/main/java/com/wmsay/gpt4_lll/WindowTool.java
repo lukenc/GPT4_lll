@@ -49,13 +49,10 @@ public class WindowTool implements ToolWindowFactory {
 
     private Gpt4lllTextArea readOnlyTextArea;
 
-    public static volatile Boolean isGenerating = false;
-
     private final Map<String, List<SelectModelOption>> providerModels;
     private ComboBox<String> providerComboBox;
     private ComboBox<SelectModelOption> modelComboBox;
     private JButton historyButton;
-    private Project currentProject;
 
     public WindowTool() {
         providerModels = new HashMap<>(ModelUtils.provider2ModelList);
@@ -63,7 +60,6 @@ public class WindowTool implements ToolWindowFactory {
 
     @Override
     public void createToolWindowContent(Project project, ToolWindow toolWindow) {
-        this.currentProject = project;
         projectInstances.put(project.getName(), this);
         // 创建 ComboBox 实例
         providerComboBox = new ComboBox<>();
@@ -291,21 +287,6 @@ public class WindowTool implements ToolWindowFactory {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = JBUI.insets(5);
 
-        // 添加提供商下拉框的监听器
-//        providerComboBox.addItemListener(e -> {
-//            if (e.getStateChange() == ItemEvent.SELECTED) {
-//                ApplicationManager.getApplication().invokeLater(() -> {
-//                    String projectName = currentProject.getName();
-//                    System.out.println("Updating models for project: " + projectName);
-//                    WindowTool instance = projectInstances.get(projectName);
-//                    if (instance != null) {
-//                        instance.updateModelComboBox();
-//                    } else {
-//                        System.out.println("No instance found for project: " + projectName);
-//                    }
-//                });
-//            }
-//        });
         // 添加提供商下拉框的监听器
         providerComboBox.addItemListener(e -> {
             if (e.getStateChange() == ItemEvent.SELECTED) {
