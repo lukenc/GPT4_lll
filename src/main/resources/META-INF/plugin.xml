@@ -713,6 +713,7 @@
         <toolWindow id="GPT4_lll" anchor="right" factoryClass="com.wmsay.gpt4_lll.WindowTool" secondary="false"/>
         <applicationConfigurable instance="com.wmsay.gpt4_lll.MyPluginConfigurable"/>
         <applicationService serviceImplementation="com.wmsay.gpt4_lll.MyPluginSettings"/>
+        <projectService serviceImplementation="com.wmsay.gpt4_lll.ProjectSettings"/>
     </extensions>
     <actions>
         <action id="plugin-info-id" class="com.wmsay.gpt4_lll.PluginInfo" text="PluginInfo" description="Plugin info">

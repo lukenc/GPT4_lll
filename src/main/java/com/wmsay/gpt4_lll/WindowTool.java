@@ -93,6 +93,7 @@ public class WindowTool implements ToolWindowFactory {
         readOnlyTextArea.clearShowWindow();
 
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
+        readOnlyTextArea.setScrollPane(scrollPane);
         Insets insets = JBUI.insets(0, 5, 15, 5); // 设置上下左右各10像素的边距
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
@@ -292,7 +293,13 @@ public class WindowTool implements ToolWindowFactory {
             if (e.getStateChange() == ItemEvent.SELECTED) {
                 ApplicationManager.getApplication().invokeLater(() -> {
                     updateModelComboBox(project);
+                    saveSettings(project);
                 });
+            }
+        });
+        modelComboBox.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                saveSettings(project);
             }
         });
 
@@ -400,5 +407,33 @@ public class WindowTool implements ToolWindowFactory {
             // 初始化模型下拉框
             updateModelComboBox(project);
         }
+
+        ProjectSettings settings = ProjectSettings.getInstance(project);
+        String lastProvider = settings.getLastProvider();
+        String lastModel = settings.getLastModelDisplayName();
+        System.out.println("Loading settings: provider=" + lastProvider + ", model=" + lastModel);
+        if (!lastProvider.isEmpty()) {
+            providerComboBox.setSelectedItem(lastProvider);
+            updateModelComboBox(project);
+            if (!lastModel.isEmpty()) {
+                for (int i = 0; i < modelComboBox.getItemCount(); i++) {
+                    SelectModelOption option = modelComboBox.getItemAt(i);
+                    if (option.getDisplayName().equals(lastModel)) {
+                        modelComboBox.setSelectedIndex(i);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void saveSettings(Project project) {
+        ProjectSettings settings = ProjectSettings.getInstance(project);
+        String provider = (String) providerComboBox.getSelectedItem();
+        SelectModelOption selectedModel = (SelectModelOption) modelComboBox.getSelectedItem();
+        String modelDisplay = selectedModel != null ? selectedModel.getDisplayName() : "";
+        System.out.println("Saving settings: provider=" + provider + ", model=" + modelDisplay);
+        settings.setLastProvider(provider);
+        settings.setLastModelDisplayName(modelDisplay);
     }
 }
