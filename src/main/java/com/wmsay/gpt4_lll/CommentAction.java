@@ -12,6 +12,7 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.languages.FileAnalysisManager;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
@@ -35,8 +36,9 @@ public class CommentAction extends AnAction {
                         代码语言：${fileType}
                         注释语言：${replyLanguage}
                         代码内容：
+                        ```
                         ${selectedText}
-                                        
+                        ```  
                         2. 注释要求：
                         - 使用${fileType}的标准注释语法
                         - 注释内容使用${replyLanguage}编写
@@ -155,9 +157,14 @@ public class CommentAction extends AnAction {
                         .replace("${selectedText}", selectedText);
                 message.setContent(prompt);
                 if ("java".equalsIgnoreCase(fileType)) {
-                    List<Message> messageList = GenerateAction.getClassInfoToMessageType(project, editor);
+                    FileAnalysisManager analysisManager= ApplicationManager.getApplication().getService(FileAnalysisManager.class);
+                    List<Message> messageList = analysisManager.analyzeFile(project, editor);
                     if (!messageList.isEmpty()) {
                         moreMessageList.addAll(messageList);
+                    }
+                    List<Message> moreMessageList2=analysisManager.analyzeCurrentFile(project, editor);
+                    if (!moreMessageList2.isEmpty()) {
+                        moreMessageList.addAll(moreMessageList2);
                     }
                 }
                 ChatContent chatContent = new ChatContent();
