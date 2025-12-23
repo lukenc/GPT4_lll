@@ -190,6 +190,8 @@ public class ChatUtils {
                 clientBuilder.proxy(ProxySelector.of(new InetSocketAddress(addressAndPort[0], port)));
             } else {
                 showMessageDialog(project, "格式错误，格式为ip:port", "科学冲浪失败");
+                CommonUtil.stopRunningStatus(project);
+                return null;
             }
         }
         return clientBuilder.build();
