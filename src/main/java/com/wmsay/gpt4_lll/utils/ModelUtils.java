@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.utils;
 
 import com.intellij.openapi.project.Project;
+import com.wmsay.gpt4_lll.ProjectSettings;
 import com.wmsay.gpt4_lll.model.ModelProvider;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
 import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
@@ -46,9 +47,11 @@ public class ModelUtils {
         modelOptions.add(new SelectModelOption("llama_3_70b", "Meta AI于2024年4月18日发布的Meta Llama 3系列70B参数大语言模型", ProviderNameEnum.BAIDU.getProviderName(), "Meta-Llama-3-70B-Instruct"));
 
         // Alibaba 模型
-        modelOptions.add(new SelectModelOption("qwen-coder-plus", "推荐：稳定版的专门搞代码的模型。好于turbo。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Plus(better then turbo)"));
+        modelOptions.add(new SelectModelOption("qwen3-coder-plus", "推荐： Qwen3-Coder-Plus 系列模型是基于 Qwen3 的代码生成模型", ProviderNameEnum.ALI.getProviderName(), "Qwen3 Coder Plus"));
+        modelOptions.add(new SelectModelOption("qwen3-coder-flash", "基于 Qwen3 的代码生成模型", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Flash"));
+        modelOptions.add(new SelectModelOption("qwen-coder-plus", "稳定版的专门搞代码的模型。好于turbo。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Plus(better then turbo)"));
         modelOptions.add(new SelectModelOption("qwen-coder-turbo", "稳定版的专门搞代码的模型，便宜。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Turbo"));
-        modelOptions.add(new SelectModelOption("qwen-coder-turbo-latest", "推荐：最新版本的专门搞代码的模型，便宜。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Turbo Latest"));
+        modelOptions.add(new SelectModelOption("qwen-coder-turbo-latest", "最新版本的专门搞代码的模型，便宜。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Turbo Latest"));
         modelOptions.add(new SelectModelOption("qwen-max", "Max系列是阿里系最高规格的模型，这个是稳定版", ProviderNameEnum.ALI.getProviderName(), "Qwen Max"));
         modelOptions.add(new SelectModelOption("qwen-max-latest", "Max系列是阿里系最高规格的模型，这个是最新版", ProviderNameEnum.ALI.getProviderName(), "Qwen Max Latest"));
         modelOptions.add(new SelectModelOption("qwen-max-longcontext", "Max系列是阿里系最高规格的模型，这个是长上下文版本", ProviderNameEnum.ALI.getProviderName(), "Qwen Max Long Context"));
@@ -102,6 +105,61 @@ public class ModelUtils {
 
     public static String getSelectedProvider(Project project) {
         return (String) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_PROVIDER_COMBO_BOX).getSelectedItem();
+    }
+
+    /**
+     * 获取可用的供应商（优先级：当前选中 > 上次保存 > 系统默认）
+     * Get available provider (priority: current selected > last saved > system default)
+     */
+    public static String getAvailableProvider(Project project) {
+        try {
+            // 首先尝试获取当前选中的供应商
+            String currentProvider = (String) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_PROVIDER_COMBO_BOX).getSelectedItem();
+            if (currentProvider != null && !currentProvider.trim().isEmpty()) {
+                return currentProvider;
+            }
+        } catch (Exception e) {
+            // 如果获取失败，继续使用保存的设置
+        }
+        
+        // 使用项目设置中保存的上次选择的供应商
+        ProjectSettings settings = ProjectSettings.getInstance(project);
+        String lastProvider = settings.getLastProvider();
+        if (lastProvider != null && !lastProvider.trim().isEmpty()) {
+            return lastProvider;
+        }
+        
+        // 最终fallback到系统默认供应商
+        return ProviderNameEnum.ALI.getProviderName(); // 使用阿里云作为默认
+    }
+
+    /**
+     * 获取可用的模型名称（优先级：当前选中 > 上次保存 > 系统默认）
+     * Get available model name (priority: current selected > last saved > system default)
+     */
+    public static String getAvailableModelName(Project project) {
+        try {
+            // 首先尝试获取当前选中的模型
+            SelectModelOption currentModel = (SelectModelOption) project.getUserData(Gpt4lllComboxKey.GPT_4_LLL_MODEL_COMBO_BOX).getSelectedItem();
+            if (currentModel != null && currentModel.getModelName() != null) {
+                return currentModel.getModelName();
+            }
+        } catch (Exception e) {
+            // 如果获取失败，继续使用保存的设置
+        }
+        
+        // 使用项目设置中保存的上次选择的模型
+        ProjectSettings settings = ProjectSettings.getInstance(project);
+        String lastModelDisplayName = settings.getLastModelDisplayName();
+        if (lastModelDisplayName != null && !lastModelDisplayName.trim().isEmpty()) {
+            String modelName = getModelNameByDisplay(lastModelDisplayName);
+            if (modelName != null) {
+                return modelName;
+            }
+        }
+        
+        // 最终fallback到系统默认模型
+        return "qwen-turbo"; // 使用便宜且快速的模型作为默认
     }
 
 }
