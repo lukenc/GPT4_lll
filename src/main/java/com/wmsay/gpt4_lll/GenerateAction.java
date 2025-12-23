@@ -11,17 +11,16 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectFileIndex;
-import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
-import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.languages.FileAnalysisManager;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SseResponse;
@@ -31,7 +30,6 @@ import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
@@ -40,7 +38,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -242,7 +243,7 @@ public class GenerateAction extends AnAction {
 
     public static String TODO_PROMPT= """
             根据以下代码中的todo注释，请实现注释中描述的每个功能。请遵循以下要求：
-                        
+
             - 编程语言：{FILE_TYPE}
             - 回复语言：{REPLY_LANGUAGE}
             - 返回的代码应放在Markdown格式的代码块中，且仅有一个代码块。
@@ -251,9 +252,11 @@ public class GenerateAction extends AnAction {
             - 遵守{FILE_TYPE}编程的最佳实践和编码规范。
             - 提供必要的清晰的说明或提示。
             - 保持代码上下文不变，只修改或添加todo相关的代码。
-                        
+
             请按以上要求严格补全代码。需要补全实现的代码如下：
+            ```
             {SELECTED_TEXT}
+            ```
             """;
 
     //单机应用就是好，没有并发就是爽
@@ -265,7 +268,7 @@ public class GenerateAction extends AnAction {
             Messages.showMessageDialog(e.getProject(), "不是一个项目/no project here", "Error", Messages.getErrorIcon());
             return;
         }
-       if(CommonUtil.isRunningStatus(e.getProject())){
+       if(Boolean.TRUE.equals(CommonUtil.isRunningStatus(e.getProject()))){
            Messages.showMessageDialog(e.getProject(), "Please wait, another task is running", "Error", Messages.getErrorIcon());
            return;
        }else {
@@ -336,7 +339,7 @@ public class GenerateAction extends AnAction {
                 selectedText = selectedText.trim();
                 LocalDateTime now = LocalDateTime.now();
                 nowTopic = formatter.format(now);
-                if (Boolean.TRUE.equals(isSelectedTextAllComments(project))) {
+                if (isSelectedTextAllComments(project)) {
                     nowTopic = nowTopic + "--Generate:" + selectedText;
                     project.putUserData(GPT_4_LLL_NOW_TOPIC,nowTopic);
                     coding = true;
@@ -355,29 +358,14 @@ public class GenerateAction extends AnAction {
 //                    message.setContent("todo后的文字是需要完成的功能，请帮我实现这些描述的功能，同时使用" + fileType + "。代码要严格按照描述，实现所有todo后的功能，所有的返回代码应该在一个Markdown的代码块中，非todo后的描述的需求不要出现在代码块中，请使用" + replyLanguage + "回复我，需要实现的代码如下：" + selectedText);
                     message.setContent(prompt);
                     if ("java".equalsIgnoreCase(fileType)) {
-                        List<Message> messageList = getClassInfoToMessageType(project, editor);
+                        FileAnalysisManager analysisManager= ApplicationManager.getApplication().getService(FileAnalysisManager.class);
+                        List<Message> messageList = analysisManager.analyzeFile(project, editor);
                         if (!messageList.isEmpty()) {
                             moreMessageList.addAll(messageList);
                         }
                         // 通过PsiDocumentManager获取当前编辑器的PsiFile对象信息 提供给gpt
-                        PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
-                        if (psiFile != null) {
-                            int startOffset = editor.getSelectionModel().getSelectionStart();
-                            int endOffset = editor.getSelectionModel().getSelectionEnd();
-                            while (startOffset < endOffset && Character.isWhitespace(psiFile.getText().charAt(startOffset))) {
-                                startOffset++;
-                            }
-                            // 获取当前选中元素的PsiElement对象
-                            PsiElement selectedElement = psiFile.findElementAt(startOffset);
-                            // 通过PsiTreeUtil获取当前选中元素所在的PsiClass对象
-                            PsiClass containingClass = PsiTreeUtil.getParentOfType(selectedElement, PsiClass.class, true);
-                            if (containingClass != null) {
-                                // 将当前选中的PsiClass对象转换为Message对象
-                                Message currentClassMessage = processCurentClass2Message(containingClass);
-                                // 将转换后的Message对象添加到moreMessageList中
-                                moreMessageList.add(currentClassMessage);
-                            }
-                        }
+                        List<Message> currentFileMessages = analysisManager.analyzeCurrentFile(project, editor);
+                        moreMessageList.addAll(currentFileMessages);
                     }
                 } else {
                     nowTopic = nowTopic + "--Optimize" + selectedText;
@@ -387,24 +375,15 @@ public class GenerateAction extends AnAction {
                     message.setName("owner");
                     message.setContent("请帮我重构下面的代码，不局限于代码性能优化、命名优化、增加注释、简化代码、优化逻辑，请使用" + replyLanguage + "回复我，代码如下：" + selectedText);
                     if ("java".equalsIgnoreCase(fileType)) {
-                        List<Message> messageList = getClassInfoToMessageType(project, editor);
+                        FileAnalysisManager analysisManager= ApplicationManager.getApplication().getService(FileAnalysisManager.class);
+                        List<Message> messageList = analysisManager.analyzeFile(project, editor);
+
                         if (!messageList.isEmpty()) {
                             moreMessageList.addAll(messageList);
                         }
                         // 通过PsiDocumentManager获取当前编辑器的PsiFile对象信息 提供给gpt
-                        PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
-                        if (psiFile != null) {
-                            // 获取当前选中元素的PsiElement对象
-                            PsiElement selectedElement = psiFile.findElementAt(editor.getSelectionModel().getSelectionStart());
-                            // 通过PsiTreeUtil获取当前选中元素所在的PsiClass对象
-                            PsiClass containingClass = PsiTreeUtil.getParentOfType(selectedElement, PsiClass.class);
-                            if (containingClass != null) {
-                                // 将当前选中的PsiClass对象转换为Message对象
-                                Message currentClassMessage = processCurentClass2Message(containingClass);
-                                // 将转换后的Message对象添加到moreMessageList中
-                                moreMessageList.add(currentClassMessage);
-                            }
-                        }
+                        List<Message> currentFileMessages = analysisManager.analyzeCurrentFile(project, editor);
+                        moreMessageList.addAll(currentFileMessages);
                     }
                 }
                 ChatContent chatContent = new ChatContent();
@@ -438,20 +417,25 @@ public class GenerateAction extends AnAction {
     }
 
     public static String chat(ChatContent content, Project project, Boolean coding, Boolean replyShowInWindow, String loadingNotice) {
-        return chat(content, project, coding, replyShowInWindow, loadingNotice, 0);
+        return chat(content, project, coding, replyShowInWindow, loadingNotice, 0, null);
     }
 
     public static String chat(ChatContent content, Project project, Boolean coding, Boolean replyShowInWindow, String loadingNotice, Integer retryTime) {
+        return chat(content, project, coding, replyShowInWindow, loadingNotice, retryTime, null);
+    }
+
+    public static String chat(ChatContent content, Project project, Boolean coding, Boolean replyShowInWindow, String loadingNotice, Integer retryTime, Document commitDoc) {
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String url = ChatUtils.getUrl(settings,project);
         if (url == null || url.isBlank()) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api url/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
-
+            CommonUtil.stopRunningStatus(project);
             return "";
         }
         String apiKey = ChatUtils.getApiKey(settings,project);
         if (apiKey==null ||apiKey.isBlank()){
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct apikey/请输入正确apikey。", "GPT4_LLL", Messages.getInformationIcon()));
+            CommonUtil.stopRunningStatus(project);
             return "";
         }
         String proxy = settings.getProxyAddress();
@@ -459,6 +443,10 @@ public class GenerateAction extends AnAction {
         String requestBody = JSON.toJSONString(content);
 
         HttpClient client = ChatUtils.buildHttpClient(proxy, project);
+        if (client == null) {
+            CommonUtil.stopRunningStatus(project);
+            return "";
+        }
         HttpRequest request;
         try {
              request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
@@ -491,6 +479,7 @@ public class GenerateAction extends AnAction {
 
         final AtomicBoolean isWriting = new AtomicBoolean(false);
         final AtomicInteger countDot = new AtomicInteger(0);
+        final AtomicInteger commitUpdateCounter = new AtomicInteger(0);
         try {
             AtomicReference<String> preEndString = new AtomicReference<>("");
             client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
@@ -558,6 +547,23 @@ public class GenerateAction extends AnAction {
                                             }
                                         }
                                         stringBuffer.append(resContent);
+                                        
+                                        // 实时更新commit消息框（如果提供了commitDoc）
+                                        if (commitDoc != null) {
+                                            // 每5次更新一次，避免过于频繁的更新
+                                            if (commitUpdateCounter.incrementAndGet() % 5 == 0) {
+                                                ApplicationManager.getApplication().invokeLater(() -> {
+                                                    ApplicationManager.getApplication().runWriteAction(() -> {
+                                                        // 提取当前的commit消息内容
+                                                        String currentCommitMessage = extractCommitMessageFromResponse(stringBuffer.toString());
+                                                        if (!currentCommitMessage.isEmpty()) {
+                                                            commitDoc.setText(currentCommitMessage);
+                                                        }
+                                                    });
+                                                });
+                                            }
+                                        }
+                                        
                                         if (Boolean.TRUE.equals(coding)) {
                                             ApplicationManager.getApplication().invokeAndWait(() -> {
                                                 ApplicationManager.getApplication().runWriteAction(() -> {
@@ -651,16 +657,29 @@ public class GenerateAction extends AnAction {
                             }
                         });
                     }).join();
+        } catch (ProcessCanceledException exception){
+            throw exception;
         } catch (Exception e) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, e.getMessage(), "ChatGpt", Messages.getInformationIcon()));
             e.printStackTrace();
-        }finally {
+        } finally {
             CommonUtil.stopRunningStatus(project);
         }
 //        if (textArea != null) {
 //            textArea.highlight();
 //        }
         String replyContent = stringBuffer.toString();
+        
+        // 最终更新commit消息框（如果提供了commitDoc）
+        if (commitDoc != null) {
+            String finalCommitMessage = extractCommitMessageFromResponse(replyContent);
+            if (!finalCommitMessage.isEmpty()) {
+                WriteCommandAction.runWriteCommandAction(project, () -> {
+                    commitDoc.setText(finalCommitMessage);
+                });
+            }
+        }
+        
         Message message = new Message();
         message.setRole("assistant");
         message.setContent(replyContent);
@@ -670,13 +689,16 @@ public class GenerateAction extends AnAction {
             SwingUtilities.invokeLater(
                     () -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon())
             );
+           CommonUtil.stopRunningStatus(project);
         }
+
+        
         if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
             //判断是否需要继续未完成的内容
-            if (Boolean.TRUE.equals(ChatUtils.needsContinuation(replyContent)) && retryTime < 2) {
+            if (ChatUtils.needsContinuation(replyContent) && retryTime < 2) {
                 project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(ChatUtils.getContinueMessage4Baidu());
                 content.setMessages(project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY),ModelUtils.getSelectedProvider(project));
-                chat(content, project, coding, replyShowInWindow, loadingNotice, retryTime + 1);
+                chat(content, project, coding, replyShowInWindow, loadingNotice, retryTime + 1, commitDoc);
             }
         }
         return replyContent;
@@ -700,24 +722,7 @@ public class GenerateAction extends AnAction {
         return "java";
     }
 
-    public int countSelectedLines(Project project) {
-        // 获取当前活动的编辑器
-        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
 
-        if (editor != null) {
-            SelectionModel selectionModel = editor.getSelectionModel();
-            if (selectionModel.hasSelection()) {
-                // 获取选中文本的起始和结束位置
-                int startLine = editor.getDocument().getLineNumber(selectionModel.getSelectionStart());
-                int endLine = editor.getDocument().getLineNumber(selectionModel.getSelectionEnd());
-
-                // 计算选中的行数
-                int lineCount = endLine - startLine + 1;
-                return lineCount;
-            }
-        }
-        return 0;
-    }
 
 
 
@@ -821,249 +826,21 @@ public class GenerateAction extends AnAction {
         return null;
     }
 
-
-    public static List<Message> getClassInfoToMessageType(Project project, Editor editor) {
-        List<Message> res = new ArrayList<>();
-
-        PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
-        int selectionStart = editor.getSelectionModel().getSelectionStart();
-        int selectionEnd = editor.getSelectionModel().getSelectionEnd();
-
-        // 获取圈选范围内的所有PsiElement
-        PsiElement[] selectedElements = PsiTreeUtil.collectElements(psiFile,
-                element -> element.getTextRange().getStartOffset() >= selectionStart &&
-                        element.getTextRange().getEndOffset() <= selectionEnd);
-
-        Set<PsiClass> involvedClasses = new HashSet<>();
-        for (PsiElement element : selectedElements) {
-            if (element instanceof PsiReference psireference) {
-                PsiElement resolvedElement = psireference.resolve();
-                if (resolvedElement instanceof PsiClass psiClass) {
-                    involvedClasses.add(psiClass);
-                }
-            }
-        }
-
-        for (PsiClass psiClass : involvedClasses) {
-            VirtualFile classFile = psiClass.getContainingFile().getVirtualFile();
-            // 检查类是否属于当前项目
-            if (ProjectRootManager.getInstance(project).getFileIndex().isInSourceContent(classFile)) {
-                Message message = processClass2Message(psiClass, project);
-                if (message != null) {
-                    res.add(message);
-                }
-            }
-        }
-        return res;
-    }
-
     /**
-     * 将PsiClass对象转换为Message对象
-     *
-     * @param psiClass 要转换的PsiClass对象
-     * @param project  当前的项目对象
-     * @return 转换后的Message对象，如果PsiClass对象不在源代码中则返回null
+     * 从AI响应中提取commit消息
      */
-    private static Message processClass2Message(PsiClass psiClass, Project project) {
-        // 获取PsiClass对象所在的虚拟文件
-        VirtualFile virtualFile = psiClass.getContainingFile().getVirtualFile();
-        // 获取项目文件索引
-        ProjectFileIndex fileIndex = ProjectRootManager.getInstance(project).getFileIndex();
-        // 判断虚拟文件是否在源代码中
-        if (fileIndex.isInSourceContent(virtualFile)) {
-            // 获取PsiClass对象的所有字段
-            PsiField[] fields = psiClass.getFields();
-            PsiMethod[] methods = psiClass.getMethods();
-            // 创建一个新的Message对象
-            Message classMessage = new Message();
-            classMessage.setRole("user");
-            classMessage.setName("owner");
-            // 创建一个StringBuffer对象，用于存储类的信息
-            StringBuffer classInfoSb = new StringBuffer();
-            // 添加类名和属性信息到StringBuffer对象中
-            classInfoSb.append("已知").append(psiClass.getName()).append("类包含以下属性：");
-            for (PsiField field : fields) {
-                // 添加字段类型和字段名到StringBuffer对象中
-                classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
-                // 如果字段有备注，则把备注也append进去
-                PsiDocComment docComment = field.getDocComment();
-                if (docComment != null) {
-                    String commentText = extractContentFromDocComment(docComment);
-                    classInfoSb.append("，描述为:").append(commentText);
-                } else {
-                    PsiAnnotation[] annotations = field.getAnnotations();
-                    // 遍历注解数组
-                    for (PsiAnnotation annotation : annotations) {
-                        PsiAnnotationMemberValue value = annotation.findAttributeValue("description");
-                        if (value != null) {
-                            classInfoSb.append("，描述为:").append(value.getText());
-                            break;
-                        }
-                    }
-                }
-                //每个字段需要分隔开
-                classInfoSb.append(" \n");
-            }
-            if (methods.length > 0) {
-                Set<String> getterAndSetterNames = new HashSet<>();
-                for (PsiField field : psiClass.getFields()) {
-                    String fieldName = field.getName();
-                    String capitalizedFieldName = Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
-                    getterAndSetterNames.add("get" + capitalizedFieldName);
-                    getterAndSetterNames.add("set" + capitalizedFieldName);
-                }
-
-                List<PsiMethod> usefulMethod = Arrays.stream(psiClass.getMethods()).filter(psiMethod -> !getterAndSetterNames.contains(psiMethod.getName())).toList();
-                if (CollectionUtils.isNotEmpty(usefulMethod)) {
-                    classInfoSb.append(",包含如下方法：");
-                    for (PsiMethod method : psiClass.getMethods()) {
-                        String methodName = method.getName();
-                        classInfoSb.append("\n方法名: ").append(methodName);
-                        // 输出方法的注释
-                        PsiDocComment docComment = method.getDocComment();
-                        if (docComment != null) {
-                            String extractedContent = extractContentFromDocComment(docComment);
-                            classInfoSb.append(" 用途描述: ").append(extractedContent);
-                        }
-                        // 输出方法的入参
-                        PsiParameter[] parameters = method.getParameterList().getParameters();
-                        if (parameters.length > 0) {
-                            classInfoSb.append(" 调用参数:");
-                            for (PsiParameter parameter : parameters) {
-                                classInfoSb.append("  ").append(parameter.getType().getPresentableText()).append(" ").append(parameter.getName());
-                            }
-                        }
-                        // 输出方法的出参
-                        PsiType returnType = method.getReturnType();
-                        if (returnType != null) {
-                            classInfoSb.append("返回类型: ").append(returnType.getPresentableText());
-                        }
-                    }
-                }
-            }
-            classInfoSb.append("上面这个类提供给你，有助于你更了解情况，但是如果上面这个类用不上，可忽略。");
-            // 将StringBuffer对象的内容设置为Message对象的内容
-            classMessage.setContent(classInfoSb.toString());
-            // 返回转换后的Message对象
-            return classMessage;
-        }
-        // 如果PsiClass对象不在源代码中，则返回null
-        return null;
-    }
-
-
-    private static Message processCurentClass2Message(PsiClass psiClass) {
-        // 获取PsiClass对象的所有字段
-        PsiField[] fields = psiClass.getFields();
-        PsiMethod[] methods = psiClass.getMethods();
-        // 创建一个新的Message对象
-        Message classMessage = new Message();
-        classMessage.setRole("user");
-        classMessage.setName("owner");
-        // 创建一个StringBuffer对象，用于存储类的信息
-        StringBuffer classInfoSb = new StringBuffer();
-        // 添加类名和属性信息到StringBuffer对象中
-        if (fields!=null&&fields.length>0) {
-            classInfoSb.append("已知").append(psiClass.getName()).append("类包含以下属性：");
-            for (PsiField field : fields) {
-                // 添加字段类型和字段名到StringBuffer对象中
-                classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
-                // 如果字段有备注，则把备注也append进去
-                PsiDocComment docComment = field.getDocComment();
-                if (docComment != null) {
-                    String commentText = extractContentFromDocComment(docComment);
-                    classInfoSb.append("，描述为:").append(commentText);
-                } else {
-                    PsiAnnotation[] annotations = field.getAnnotations();
-                    // 遍历注解数组
-                    for (PsiAnnotation annotation : annotations) {
-                        PsiAnnotationMemberValue value = annotation.findAttributeValue("description");
-                        if (value != null) {
-                            classInfoSb.append("，描述为:").append(value.getText());
-                            break;
-                        }
-                    }
-                }
-                //每个字段需要分隔开
-                classInfoSb.append(" \n");
+    private static String extractCommitMessageFromResponse(String response) {
+        // 查找markdown代码块
+        int startIndex = response.indexOf("```");
+        if (startIndex != -1) {
+            int endIndex = response.indexOf("```", startIndex + 3);
+            if (endIndex != -1) {
+                return response.substring(startIndex + 3, endIndex).trim();
             }
         }
-        if (methods!=null&&methods.length > 0) {
-            Set<String> getterAndSetterNames = new HashSet<>();
-            for (PsiField field : psiClass.getFields()) {
-                String fieldName = field.getName();
-                String capitalizedFieldName = Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
-                getterAndSetterNames.add("get" + capitalizedFieldName);
-                getterAndSetterNames.add("set" + capitalizedFieldName);
-            }
-
-            List<PsiMethod> usefulMethod = Arrays.stream(psiClass.getMethods()).filter(psiMethod -> !getterAndSetterNames.contains(psiMethod.getName())).toList();
-            if (CollectionUtils.isNotEmpty(usefulMethod)) {
-                classInfoSb.append(",包含如下方法：");
-                for (PsiMethod method : psiClass.getMethods()) {
-                    String methodName = method.getName();
-                    classInfoSb.append("\n方法名: ").append(methodName);
-                    // 输出方法的注释
-                    PsiDocComment docComment = method.getDocComment();
-                    if (docComment != null) {
-                        String extractedContent = extractContentFromDocComment(docComment);
-                        classInfoSb.append(" 用途描述: ").append(extractedContent);
-                    }
-                    // 输出方法的入参
-                    PsiParameter[] parameters = method.getParameterList().getParameters();
-                    if (parameters.length > 0) {
-                        classInfoSb.append(" 调用参数:");
-                        for (PsiParameter parameter : parameters) {
-                            classInfoSb.append("  ").append(parameter.getType().getPresentableText()).append(" ").append(parameter.getName());
-                        }
-                    }
-                    // 输出方法的出参
-                    PsiType returnType = method.getReturnType();
-                    if (returnType != null) {
-                        classInfoSb.append("返回类型: ").append(returnType.getPresentableText());
-                    }
-                }
-            }
-        }
-        classInfoSb.append("。\n圈选的代码所在的类信息提供给你，有助于你更了解情况，但是如果上面这个类的信息用不上，可忽略。");
-        // 将StringBuffer对象的内容设置为Message对象的内容
-        classMessage.setContent(classInfoSb.toString());
-        // 返回转换后的Message对象
-        return classMessage;
-    }
-
-
-    private PsiElement getNextElement(PsiElement element, PsiElement stopElement) {
-        if (element.getFirstChild() != null) {
-            return element.getFirstChild();
-        }
-        if (element.getNextSibling() != null) {
-            return element.getNextSibling();
-        }
-        while (element.getParent() != null) {
-            element = element.getParent();
-            if (element.isEquivalentTo(stopElement) || element.getNextSibling() == null) {
-                return null;
-            }
-            if (element.getNextSibling() != null) {
-                return element.getNextSibling();
-            }
-        }
-        return null;
-    }
-
-    private static String extractContentFromDocComment(PsiDocComment docComment) {
-        String fullText = docComment.getText();
-        String content = fullText.replace("/**", "").replace("*/", "").trim();
-        String[] lines = content.split("\n");
-        StringBuilder sb = new StringBuilder();
-        for (String line : lines) {
-            String trimmedLine = line.trim().replaceFirst("^\\*", "").trim();
-            if (!trimmedLine.startsWith("@")) {  // 过滤掉所有以 @ 开头的 Javadoc 标签
-                sb.append(trimmedLine).append(" ");
-            }
-        }
-        return sb.toString().trim();
+        
+        // 如果没有找到代码块，返回整个响应
+        return response.trim();
     }
 }
 

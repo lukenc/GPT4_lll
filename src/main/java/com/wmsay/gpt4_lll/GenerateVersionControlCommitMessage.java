@@ -2,32 +2,40 @@ package com.wmsay.gpt4_lll;
 
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectUtil;
-import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.vcs.ProjectLevelVcsManager;
-import com.intellij.openapi.vcs.VcsDataKeys;
-import com.intellij.openapi.vcs.changes.Change;
-import com.intellij.openapi.vcs.changes.ChangeListManager;
-import com.intellij.openapi.vcs.changes.CurrentContentRevision;
-import com.intellij.openapi.vcs.changes.LocalChangeList;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.wm.ToolWindow;
-import com.intellij.openapi.wm.ToolWindowManager;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
-import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
-import com.wmsay.gpt4_lll.utils.ChatUtils;
-import com.wmsay.gpt4_lll.utils.CommonUtil;
-import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.jetbrains.annotations.NotNull;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vcs.VcsDataKeys;
+import com.intellij.openapi.ui.Messages;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Collection;
+
+import com.wmsay.gpt4_lll.utils.ChatUtils;
+import com.wmsay.gpt4_lll.model.ChatContent;
+import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.utils.ModelUtils;
+import com.wmsay.gpt4_lll.utils.CommonUtil;
+import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vcs.ProjectLevelVcsManager;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.vcs.changes.Change;
+import com.intellij.openapi.vcs.changes.ChangeListManager;
+import com.intellij.openapi.vcs.changes.LocalChangeList;
+import com.intellij.openapi.vcs.changes.CurrentContentRevision;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowManager;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.GPT_4_LLL_CONVERSATION_HISTORY;
@@ -51,111 +59,161 @@ public class GenerateVersionControlCommitMessage extends AnAction {
             CommonUtil.startRunningStatus(project);
         }
 
-        // 1. 初始化新的对话 - 保存当前对话历史并清空
-        List<Message> chatHistory = project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY);
-        String nowTopic = project.getUserData(GPT_4_LLL_NOW_TOPIC);
-        if (chatHistory != null && !chatHistory.isEmpty() && nowTopic != null && !nowTopic.isEmpty()) {
-            JsonStorage.saveConservation(nowTopic, chatHistory);
-            chatHistory.clear();
-        }
-        
-        // 设置新的主题
-        LocalDateTime now = LocalDateTime.now();
-        nowTopic = formatter.format(now) + "--CommitMessageGeneration";
-        project.putUserData(GPT_4_LLL_NOW_TOPIC, nowTopic);
-        
-        // 初始化对话历史
-        if (chatHistory == null) {
-            project.putUserData(GPT_4_LLL_CONVERSATION_HISTORY, new ArrayList<>());
-        }
+        Thread chatThread = null;
+        try {
+            // 1. 初始化新的对话 - 保存当前对话历史并清空
+            List<Message> chatHistory = project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY);
+            String nowTopic = project.getUserData(GPT_4_LLL_NOW_TOPIC);
+            if (chatHistory != null && !chatHistory.isEmpty() && nowTopic != null && !nowTopic.isEmpty()) {
+                JsonStorage.saveConservation(nowTopic, chatHistory);
+                chatHistory.clear();
+            }
+            
+            // 设置新的主题
+            LocalDateTime now = LocalDateTime.now();
+            nowTopic = formatter.format(now) + "--CommitMessageGeneration";
+            project.putUserData(GPT_4_LLL_NOW_TOPIC, nowTopic);
+            
+            // 初始化对话历史
+            if (chatHistory == null) {
+                project.putUserData(GPT_4_LLL_CONVERSATION_HISTORY, new ArrayList<>());
+            }
 
-        // 打开工具窗口
-        ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
-        ToolWindow toolWindow = toolWindowManager.getToolWindow("GPT4_lll");
-        if (toolWindow != null && !toolWindow.isVisible()) {
-            toolWindow.show();
-            int tryTimes = 0;
-            while (!toolWindow.isVisible() && tryTimes < 3) {
-                tryTimes++;
-                try {
-                    TimeUnit.MILLISECONDS.sleep(1000);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
+            // 打开工具窗口
+            ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
+            ToolWindow toolWindow = toolWindowManager.getToolWindow("GPT4_lll");
+            if (toolWindow != null && !toolWindow.isVisible()) {
+                toolWindow.show();
+                int tryTimes = 0;
+                while (!toolWindow.isVisible() && tryTimes < 3) {
+                    tryTimes++;
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(1000);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        CommonUtil.stopRunningStatus(project);
+                        return;
+                    }
                 }
             }
+
+            // Get staged diff
+            String diff = getStagedDiff(project, e);
+            if (diff.isEmpty()) {
+                Messages.showMessageDialog(project, "No changes to commit.", "Info", Messages.getInformationIcon());
+                return;
+            }
+
+            // Build prompt
+            String replyLanguage = CommonUtil.getSystemLanguage();
+            String prompt = """
+                    Based on the following Git diff, generate a Git commit message that strictly follows the Conventional Commits specification.
+                    
+                    Your goals:
+                    1. Understand the code change: Analyze what was changed, why it was changed, and what the expected impact is. Focus on the intent behind the code change.
+                    2. Generate a commit message that follows the Conventional Commits format:
+                    
+                       <type>(<scope>): <subject line>
+                    
+                       <body: explain what and why, wrapped at 72 characters per line>
+                    
+                       <footer: optional, e.g., BREAKING CHANGE or Closes #123>
+                    
+                    Requirements:
+                    - Use one of the allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore.
+                    - Use imperative mood (e.g., "add", "fix", not "added" or "adds").
+                    - Subject line must be concise (≤ 50 characters) and have no period at the end.
+                    - Body should explain the reason and impact clearly. Use multiple paragraphs if needed.
+                    - Footer can include "Closes #123" or "BREAKING CHANGE" if applicable.
+                    - Do not include section headers like "Header", "Body", or "Footer".
+                    - Return only the complete commit message wrapped in a Markdown code block.
+                    - The entire output must be in: %s.
+                    
+                    Git diff:
+                    %s
+                    """.formatted(replyLanguage, diff);
+
+            // System message
+            Message systemMessage = new Message();
+            if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
+                systemMessage.setRole("user");
+            } else {
+                systemMessage.setRole("system");
+            }
+            systemMessage.setContent("You are an expert Git commit message writer. You follow conventional commit practices and generate clear, concise messages that adhere to best practices.");
+
+            // User message
+            Message userMessage = new Message();
+            userMessage.setRole("user");
+            userMessage.setContent(prompt);
+
+            // Chat content
+            ChatContent chatContent = new ChatContent();
+            chatContent.setMessages(new ArrayList<>(List.of(systemMessage, userMessage)), ModelUtils.getSelectedProvider(project));
+            chatContent.setModel(ChatUtils.getModelName(project));
+            chatContent.setTemperature(0.2);
+
+            // 添加到对话历史
+            project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).addAll(List.of(systemMessage, userMessage));
+
+            // 清理界面
+            Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+            if (textArea != null) {
+                textArea.clearShowWindow();
+            }
+
+            // 获取commit文档
+            Document commitDoc = e.getData(VcsDataKeys.COMMIT_MESSAGE_DOCUMENT);
+
+            // 使用扩展后的GenerateAction.chat()方法，传入commitDoc参数
+            // 使用 try-catch 包装线程启动，确保异常时能正确处理运行状态
+            chatThread = new Thread(() -> {
+                try {
+                    GenerateAction.chat(chatContent, project, false, true, "", 0, commitDoc);
+                } catch (Exception ex) {
+                    // 记录异常日志
+                    ex.printStackTrace();
+                    // 在UI线程中显示错误信息
+                    com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
+                        Messages.showMessageDialog(project, 
+                            "An error occurred during commit message generation: " + ex.getMessage(), 
+                            "Error", 
+                            Messages.getErrorIcon());
+                    });
+                } finally {
+                    // 确保运行状态被重置
+                    CommonUtil.stopRunningStatus(project);
+                }
+            });
+            
+            // 设置线程异常处理器
+            chatThread.setUncaughtExceptionHandler((t, ex) -> {
+                ex.printStackTrace();
+                com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
+                    Messages.showMessageDialog(project, 
+                        "An unexpected error occurred: " + ex.getMessage(), 
+                        "Error", 
+                        Messages.getErrorIcon());
+                });
+                CommonUtil.stopRunningStatus(project);
+            });
+            
+            chatThread.start();
+            
+        } catch (Exception ex) {
+            // 捕获主线程中的异常
+            ex.printStackTrace();
+            Messages.showMessageDialog(project, 
+                "Failed to initialize commit message generation: " + ex.getMessage(), 
+                "Error", 
+                Messages.getErrorIcon());
+        } finally {
+            // 确保在主线程异常时也重置运行状态
+            // 只有在没有成功启动聊天线程的情况下才重置状态
+            if (chatThread == null || !chatThread.isAlive()) {
+                CommonUtil.stopRunningStatus(project);
+            }
         }
-
-        // Get staged diff
-        String diff = getStagedDiff(project, e);
-        if (diff.isEmpty()) {
-            Messages.showMessageDialog(project, "No changes to commit.", "Info", Messages.getInformationIcon());
-            CommonUtil.stopRunningStatus(project);
-            return;
-        }
-
-        // Build prompt
-        String replyLanguage = CommonUtil.getSystemLanguage();
-        String prompt = """
-                Based on the following Git diff, generate a Git commit message that strictly follows the Conventional Commits specification.
-                
-                Your goals:
-                1. Understand the code change: Analyze what was changed, why it was changed, and what the expected impact is. Focus on the intent behind the code change.
-                2. Generate a commit message that follows the Conventional Commits format:
-                
-                   <type>(<scope>): <subject line>
-                
-                   <body: explain what and why, wrapped at 72 characters per line>
-                
-                   <footer: optional, e.g., BREAKING CHANGE or Closes #123>
-                
-                Requirements:
-                - Use one of the allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore.
-                - Use imperative mood (e.g., "add", "fix", not "added" or "adds").
-                - Subject line must be concise (≤ 50 characters) and have no period at the end.
-                - Body should explain the reason and impact clearly. Use multiple paragraphs if needed.
-                - Footer can include "Closes #123" or "BREAKING CHANGE" if applicable.
-                - Do not include section headers like "Header", "Body", or "Footer".
-                - Return only the complete commit message wrapped in a Markdown code block.
-                - The entire output must be in: %s.
-                
-                Git diff:
-                %s
-                """.formatted(replyLanguage, diff);
-
-        // System message
-        Message systemMessage = new Message();
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
-            systemMessage.setRole("user");
-        } else {
-            systemMessage.setRole("system");
-        }
-        systemMessage.setContent("You are an expert Git commit message writer. You follow conventional commit practices and generate clear, concise messages that adhere to best practices.");
-
-        // User message
-        Message userMessage = new Message();
-        userMessage.setRole("user");
-        userMessage.setContent(prompt);
-
-        // Chat content
-        ChatContent chatContent = new ChatContent();
-        chatContent.setMessages(new ArrayList<>(List.of(systemMessage, userMessage)), ModelUtils.getSelectedProvider(project));
-        chatContent.setModel(ChatUtils.getModelName(project));
-        chatContent.setTemperature(0.2);
-
-        // 添加到对话历史
-        project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).addAll(List.of(systemMessage, userMessage));
-
-        // 清理界面
-        Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
-        if (textArea != null) {
-            textArea.clearShowWindow();
-        }
-
-        // 获取commit文档
-        Document commitDoc = e.getData(VcsDataKeys.COMMIT_MESSAGE_DOCUMENT);
-
-        // 使用扩展后的GenerateAction.chat()方法，传入commitDoc参数
-         new Thread(()->GenerateAction.chat(chatContent, project, false, true, "", 0, commitDoc)).start();
     }
 
     /**
