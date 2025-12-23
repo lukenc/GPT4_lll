@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.wmsay"
-version = "3.8.16"
+version = "3.9.1"
 
 repositories {
     mavenCentral()
@@ -28,15 +28,6 @@ dependencies {
         bundledPlugins("com.intellij.java","Git4Idea")
     }
 }
-// Configure Gradle IntelliJ Plugin
-// Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
-//intellijPlatform {
-////    version.set("2024.3")
-////    type.set("IC") // Target IDE Platform
-////    plugins.set(listOf("com.intellij.java","Git4Idea"))
-////    plugins.set(listOf(/* Plugin Dependencies */))
-//}
-
 tasks {
     // Set the JVM compatibility versions
     withType<JavaCompile> {
@@ -49,7 +40,7 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("222")
-        untilBuild.set("251.*")
+        untilBuild.set("253.*")
     }
 
     signPlugin {

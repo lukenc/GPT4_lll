@@ -11,7 +11,66 @@
 
     <change-notes>
         <![CDATA[
-        <h2>3.8.16 (2025-04-24)</h2>
+        <h2>3.9.1 (2025-12-23)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>新增智能注释翻译系统，支持对外部库文件中的注释进行实时翻译，提供流式翻译体验，显著提升代码阅读效率和学习效率。</li>
+            <li>Added intelligent comment translation system that provides real-time translation for comments in external library files with streaming translation experience, significantly improving code reading efficiency and study efficiency.</li>
+            <li>新增可扩展文件分析框架，支持多语言文件分析服务的动态加载，当前已集成Java文件专用分析器和通用文件分析器。</li>
+            <li>Added extensible file analysis framework with dynamic loading support for multi-language file analysis services, currently integrated with Java-specific analyzer and generic file analyzer.</li>
+            <li>新增注释翻译模式切换功能，用户可以在原文和翻译之间无缝切换，并支持翻译内容的重新生成。</li>
+            <li>Added translation mode switching feature that allows seamless toggling between original and translated content, with support for regenerating translations.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>更新Qwen模型系列，新增Qwen3-Coder-Plus和Qwen3-Coder-Flash模型选项，提升代码生成质量和响应速度。</li>
+            <li>Updated Qwen model series with new Qwen3-Coder-Plus and Qwen3-Coder-Flash options, improving code generation quality and response speed.</li>
+            <li>优化供应商选择逻辑，增强项目设置的持久化能力，支持智能恢复上次使用的模型配置。</li>
+            <li>Enhanced provider selection logic with improved project settings persistence, supporting intelligent recovery of previously used model configurations.</li>
+            <li>重构文件分析架构，采用优先级管理和服务注册机制，提升系统扩展性和维护性。</li>
+            <li>Refactored file analysis architecture with priority management and service registration mechanism, improving system extensibility and maintainability.</li>
+            <li>增强错误处理机制，添加ProcessCanceledException支持，提升任务取消的响应性和稳定性。</li>
+            <li>Enhanced error handling mechanism with ProcessCanceledException support, improving task cancellation responsiveness and stability.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/修复:</h3>
+        <ul>
+            <li>修复了代码插入稳定性问题，优化了编辑器操作的线程安全性，确保所有生成内容正确插入。</li>
+            <li>Fixed code insertion stability issues by optimizing thread safety of editor operations, ensuring all generated content is correctly inserted.</li>
+            <li>解决了文件类型检测的准确性问题，现在能更精确地识别外部库文件和项目文件。</li>
+            <li>Resolved file type detection accuracy issues, now providing more precise identification of external library files and project files.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.18 (2025-08-08)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>新增AI智能提交信息生成功能，基于Git变更内容自动生成符合规范的提交信息，提升版本控制效率。</li>
+            <li>Added AI-powered commit message generation feature that automatically creates standardized commit messages based on Git changes, improving version control efficiency.</li>
+            <li>新增Git工作报告功能，支持按作者和时间范围筛选Git提交记录，并生成详细的工作报告，便于团队协作和项目管理。</li>
+            <li>Added Git work report feature that supports filtering Git commits by author and time range, generating detailed work reports for better team collaboration and project management.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/修复:</h3>
+        <ul>
+            <li>修复了任务状态管理问题，确保任务完成后正确更新状态，避免任务卡死的情况。</li>
+            <li>Fixed task status management issues, ensuring proper status updates after task completion to prevent task hanging.</li>
+            <li>解决了编辑器最后一行选中时代码插入失败的问题，现在所有生成的代码都能准确插入到指定位置。</li>
+            <li>Resolved the issue where code insertion failed when selecting the last line of the editor, now all generated code can be accurately inserted at the designated location.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.8.16 (2025-04-24)</h2>
 <ul>
     <li>
         <h3>IMPROVEMENT/优化:</h3>
@@ -625,88 +684,187 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description>
         <![CDATA[
+<h2>Features</h2>
+<h4>Free AIGC Access</h4>
+<p>The AIGC capability is now freely available to all users. Enjoy intelligent generation services at no extra cost. However, due to high demand, you may need to queue each time you use this feature.</p>
 
-<h2>Feature/特性</h2>
-<h4>Free AIGC Access/免费使用AIGC</h4>
-<p>The AIGC capability is now freely available to all users. Enjoy intelligent generation services at no extra cost. However, due to high demand, you may need to queue each time you use this feature. AIGC能力现已向所有用户免费开放。无需额外费用，即可享受智能化的生成服务。但由于使用人数过多，每次使用此功能时可能需要排队等待。</p>
-
-<h4>Multi-Platform Support/多平台支持</h4>
+<h4>Multi-Platform Support</h4>
 <p>
     The plugin now supports multiple platforms, including not only OpenAI's ChatGPT but also Baidu's ERNIE Bot (Wenxin Yiyan) and Alibaba's Tongyi Qianwen.
     This ensures that users can leverage the strengths of various AI models. In the future, we plan to extend compatibility to even more platforms, providing
-    greater flexibility and choice for our users. 插件现已支持多个平台，不仅支持OpenAI的ChatGPT，还支持百度的文心一言和阿里的通义千问。
-    这确保了用户可以利用各种AI模型的优势。未来，我们计划进一步扩展兼容性，支持更多平台，为用户提供更大的灵活性和选择。
-    <<h5>支持列表</h5></h5>
+    greater flexibility and choice for our users.
+    <h5>Supported List</h5>
     <ul>
         <li>openai</li>
         <li>grok</li>
-        <li>tongyi/通义</li>
-        <li>ERNIE/文心一言</li>
-        <li>DeepSeek/深度求索</li>
-        <li>openai standard personal api/openai标准的自定义接口</li>
+        <li>tongyi</li>
+        <li>ERNIE</li>
+        <li>DeepSeek</li>
+        <li>openai standard personal api</li>
     </ul>
 </p>
 
+<h4>Code Generation Based on TODO</h4>
+<p>Introduced the ability to generate code based on TODO comments within a project. This feature enables rapid development by transforming actionable TODOs into functional code segments.</p>
 
-<h4>Code Generation Based on TODO/根据todo生成代码</h4>
-<p>Introduced the ability to generate code based on TODO comments within a project. This feature enables rapid development by transforming actionable TODOs into functional code segments. 在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
-<h4>Natural Language Recognition/自然语言识别</h4>
-<p>Improved the logic for natural language recognition, enhancing accuracy and performance. 改进了自然语言识别逻辑，提高了准确度和性能。</p>
-<h4>Automatic Code Type Recognition/自动识别代码类型</h4>
-<p>Enhanced the code type recognition feature to automatically identify code types. 提升了代码类型识别功能，自动识别代码类型。</p>
-<h4>Generate Code On Demand/按需生成代码</h4>
-<h4>Automatic Code Comments Generation/自动生成代码注释</h4>
-<p>Added a feature that allows you to auto-generate code comments using ChatGPT. By simply highlighting the code, the plugin will call on the ChatGPT AI model to generate comprehensive and contextually appropriate code comments. 添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。</p>
-<p>Implemented the capability to generate code on demand, providing code snippets when needed. 增加按需生成代码的功能，根据需要提供代码片段。</p>
-<h4>History Recording Feature/历史记录功能</h4>
-<p>Added a history recording feature to prevent data loss. Every conversation will now be recorded, allowing easy access to previous interactions. 增加了历史记录功能，防止数据丢失。每次对话都会被记录，方便查看之前的交互记录。</p>
-<p>The project now ensures that no content is lost and has been optimized accordingly. 该项目现在确保不丢失任何内容，并进行了相应的优化。</p>
-    <h4>Code Assessment/代码评估</h4>
-<p>Introduced a new Code Assessment feature, allowing team leaders to evaluate team members' code. This feature aims to facilitate code reviews, improve code quality, and foster continuous learning within the team. 新引入了代码评估功能，允许团队领导评估团队成员的代码。这个功能旨在促进代码审查，提高代码质量，并在团队中促进持续学习。</p>
-    <br>
-    <p>GPT4_lll is a plugin designed for IntelliJ IDEA users, aiming to provide real-time code querying and analysis services using OpenAI's GPT-4 model. This plugin serves as a powerful assistant while you write or read code, helping you better understand and improve your code.</p>
-    <p>GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。</p>
-    <br>
-    <p>The core functionalities of this plugin are generated by ChatGpt itself, and I have made only a few modifications to the text. I am grateful for the outstanding work and technical support of artificial intelligence.</p>
-    <p>这个插件的核心功能是由ChatGpt自动生成的，我只对文本进行了少量修改。对人工智能的出色工作和技术支持表示感激。</p>
-        <br>
-    <p>GPT4_lll plugin is a clean plugin with no potential risks or security issues. We warmly welcome aspiring individuals to join our development team and collaborate on enhancing this plugin.</p>
-    <p>GPT4_lll插件是一个干净的插件，没有潜在的风险或安全问题。我们热烈欢迎有抱负的人加入我们的开发团队，共同改进这个插件。</p>
-        <br>
-    <p>The development of this plugin was a necessary move. The previous plugin I used required entering personal OPENAI_API_KEY, but unfortunately, my account information was misused, and the data was abused, resulting in the suspension of my account.</p>
-    <p>开发这个插件是一种无奈之举。我之前使用的插件要求输入个人的OPENAI_API_KEY，但不幸的是，我的账户信息被滥用，数据被滥用，导致我的账户被封禁。</p>
-        <br>
+<h4>Natural Language Recognition</h4>
+<p>Improved the logic for natural language recognition, enhancing accuracy and performance. The plugin supports over 100 languages and automatically detects the user's system language to provide responses in their preferred language.</p>
 
-    <p> it now fully supports Baidu's ERNIE Bot, also known as Wenxin Yiyan. This integration allows users to leverage the powerful capabilities of Wenxin Yiyan for even deeper and more accurate code analysis.</p>
-    <p>现在它完全支持百度的文心一言（ERNIE Bot)。这一集成使用户能够利用文心一言的强大功能进行更深入、更准确的代码分析</p>
-    <br>
-    <p>Given OpenAI's extremely unfriendly attitude towards China, resulting in a large number of account suspensions for Chinese users, I, as a programmer with integrity and spirit, have decided to embrace the excellent domestic large model product - Wenxin Yiyan. If in the future Wenxin Yiyan also fails to meet my needs or exhibits unfriendly behavior, I will resolutely turn to other trustworthy domestic vendors and continue to persevere on my programming journey.</p>
-    <p>鉴于OpenAI对中国持极为不友好的态度，频繁地对中国用户账号进行封禁，作为一名有骨气、有脾气的程序员，我毅然决定转而拥抱国内优秀的大模型产品——文心一言和通义千问。未来，倘若文心一言也无法满足我的需求或展现出不友好的态度，我将毫不犹豫地转向其他值得信赖的国内厂商，继续坚守我的编程之路。</p>
-    <h2>Help/帮助</h2>
-    <h3>Usage Guide/使用指南</h3>
-    <ol>
-      <li>Open IntelliJ IDEA's settings by navigating to "File" > "Settings".</li>
-      <li>Open the "Other Settings" category.</li>
-      <li>Find and select "GPT4_lll Settings".</li>
-      <li>Enter your API key and proxy settings (if required).</li>
-    </ol>
-    <p>If you need any assistance or have any questions, please feel free to contact me:</p>
-    <p>如果您需要任何帮助或有任何问题，请随时与我联系：</p>
+<h4>Automatic Code Type Recognition</h4>
+<p>Enhanced the code type recognition feature to automatically identify code types.</p>
+
+<h4>Generate Code On Demand</h4>
+<p>Implemented the capability to generate code on demand, providing code snippets when needed.</p>
+
+<h4>Automatic Code Comments Generation</h4>
+<p>Added a feature that allows you to auto-generate code comments using ChatGPT. By simply highlighting the code, the plugin will call on the ChatGPT AI model to generate comprehensive and contextually appropriate code comments.</p>
+
+<h4>History Recording Feature</h4>
+<p>Added a history recording feature to prevent data loss. Every conversation will now be recorded, allowing easy access to previous interactions.</p>
+<p>The project now ensures that no content is lost and has been optimized accordingly.</p>
+
+<h4>Code Assessment</h4>
+<p>Introduced a new Code Assessment feature, allowing team leaders to evaluate team members' code. This feature aims to facilitate code reviews, improve code quality, and foster continuous learning within the team.</p>
+
+<h4>Unit Test Generation</h4>
+<p>One-click unit test generation feature that automatically creates executable unit test files from selected code blocks. This eliminates the need for manual copying and pasting, streamlining the testing process and boosting efficiency in code testing.</p>
+
+<h4>SQL Statement Evaluation and Optimization</h4>
+<p>Comprehensive SQL statement evaluation and optimization feature that provides syntax correctness checks, performance optimization suggestions, security assessments, index usage recommendations, query efficiency analysis, and best practice suggestions.</p>
+
+<h4>AI-Powered Commit Message Generation</h4>
+<p>Automatically generates standardized commit messages based on Git changes using AI technology. This feature improves version control efficiency by creating meaningful and descriptive commit messages that accurately reflect the changes made.</p>
+
+<h4>Git Work Report Generation</h4>
+<p>Generate detailed work reports by filtering Git commits by author and time range. This feature supports team collaboration and project management by providing comprehensive insights into development activities and progress tracking.</p>
+
+<h4>Batch File Assessment</h4>
+<p>Evaluate multiple code files or folders simultaneously by selecting them in the project file list. This feature generates comprehensive evaluation content for all selected files, making it efficient for large-scale code quality assessment.</p>
+
+<h4>Real-Time Chat Interface</h4>
+<p>Integrated chat interface within the IDE that supports real-time conversations with AI models. Features include session management, conversation history, and seamless integration with code context. The interface supports multi-line input, HTML content rendering, and automatic conversation topic management.</p>
+<br>
+<p>GPT4_lll is a plugin designed for IntelliJ IDEA users, aiming to provide real-time code querying and analysis services using OpenAI's GPT-4 model. This plugin serves as a powerful assistant while you write or read code, helping you better understand and improve your code.</p>
+<br>
+<p>The core functionalities of this plugin are generated by ChatGpt itself, and I have made only a few modifications to the text. I am grateful for the outstanding work and technical support of artificial intelligence.</p>
+<br>
+<p>GPT4_lll plugin is a clean plugin with no potential risks or security issues. We warmly welcome aspiring individuals to join our development team and collaborate on enhancing this plugin.</p>
+<br>
+<p>The development of this plugin was a necessary move. The previous plugin I used required entering personal OPENAI_API_KEY, but unfortunately, my account information was misused, and the data was abused, resulting in the suspension of my account.</p>
+<br>
+<p>It now fully supports Baidu's ERNIE Bot, also known as Wenxin Yiyan. This integration allows users to leverage the powerful capabilities of Wenxin Yiyan for even deeper and more accurate code analysis.</p>
+<br>
+<p>Given OpenAI's extremely unfriendly attitude towards China, resulting in a large number of account suspensions for Chinese users, I, as a programmer with integrity and spirit, have decided to embrace the excellent domestic large model product - Wenxin Yiyan. If in the future Wenxin Yiyan also fails to meet my needs or exhibits unfriendly behavior, I will resolutely turn to other trustworthy domestic vendors and continue to persevere on my programming journey.</p>
+<h2>Help</h2>
+<h3>Installation Guide</h3>
+<ol>
+  <li>Open IntelliJ IDEA's settings by navigating to "File" > "Settings".</li>
+  <li>Open the "Other Settings" category.</li>
+  <li>Find and select "GPT4_lll Settings".</li>
+  <li>Enter your API key and proxy settings (if required).</li>
+</ol>
+<p>If you need any assistance or have any questions, please feel free to contact me:</p>
+<ul>
+    <li>Email: 892821031@qq.com</li>
+    <li>GitHub: <a href="https://github.com/lukenc/GPT4_lll">https://github.com/lukenc/GPT4_lll</a></li>
+    <li>Issues: <a href="https://github.com/lukenc/GPT4_lll/issues">https://github.com/lukenc/GPT4_lll/issues</a></li>
+</ul>
+
+<h2>特性</h2>
+<h4>免费使用AIGC</h4>
+<p>AIGC能力现已向所有用户免费开放。无需额外费用，即可享受智能化的生成服务。但由于使用人数过多，每次使用此功能时可能需要排队等待。</p>
+
+<h4>多平台支持</h4>
+<p>
+    插件现已支持多个平台，不仅支持OpenAI的ChatGPT，还支持百度的文心一言和阿里的通义千问。
+    这确保了用户可以利用各种AI模型的优势。未来，我们计划进一步扩展兼容性，支持更多平台，为用户提供更大的灵活性和选择。
+    <h5>支持列表</h5>
     <ul>
-        <li>Email/电子邮件: 892821031@qq.com</li>
-        <li>GitHub: <a href="https://github.com/lukenc/GPT4_lll">https://github.com/lukenc/GPT4_lll</a></li>
+        <li>openai</li>
+        <li>grok</li>
+        <li>通义</li>
+        <li>文心一言</li>
+        <li>深度求索</li>
+        <li>openai标准的自定义接口</li>
     </ul>
+</p>
 
+<h4>根据todo生成代码</h4>
+<p>在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
 
+<h4>自然语言识别</h4>
+<p>改进了自然语言识别逻辑，提高了准确度和性能。插件支持100多种语言，并自动检测用户的系统语言，以用户偏好的语言提供回复。</p>
+
+<h4>自动识别代码类型</h4>
+<p>提升了代码类型识别功能，自动识别代码类型。</p>
+
+<h4>按需生成代码</h4>
+<p>增加按需生成代码的功能，根据需要提供代码片段。</p>
+
+<h4>自动生成代码注释</h4>
+<p>添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。</p>
+
+<h4>历史记录功能</h4>
+<p>增加了历史记录功能，防止数据丢失。每次对话都会被记录，方便查看之前的交互记录。</p>
+<p>该项目现在确保不丢失任何内容，并进行了相应的优化。</p>
+
+<h4>代码评估</h4>
+<p>新引入了代码评估功能，允许团队领导评估团队成员的代码。这个功能旨在促进代码审查，提高代码质量，并在团队中促进持续学习。</p>
+
+<h4>单元测试生成</h4>
+<p>一键生成单元测试功能，能够从选定的代码块自动生成可执行的单元测试文件。这省去了手动复制和粘贴的步骤，简化了测试过程，提高了代码测试的效率和简便性。</p>
+
+<h4>SQL语句评估和优化</h4>
+<p>全面的SQL语句评估和优化功能，提供语法正确性检查、性能优化建议、安全性评估、索引使用建议、查询效率分析和最佳实践建议。</p>
+
+<h4>AI智能提交信息生成</h4>
+<p>基于Git变更内容使用AI技术自动生成符合规范的提交信息。此功能通过创建有意义和描述性的提交信息来提高版本控制效率，准确反映所做的更改。</p>
+
+<h4>Git工作报告生成</h4>
+<p>通过按作者和时间范围筛选Git提交记录来生成详细的工作报告。此功能通过提供对开发活动和进度跟踪的全面洞察来支持团队协作和项目管理。</p>
+
+<h4>批量文件评估</h4>
+<p>通过在项目文件列表中选择多个代码文件或文件夹来同时评估它们。此功能为所有选定的文件生成全面的评估内容，使大规模代码质量评估变得高效。</p>
+
+<h4>实时聊天界面</h4>
+<p>IDE内集成的聊天界面，支持与AI模型的实时对话。功能包括会话管理、对话历史记录以及与代码上下文的无缝集成。界面支持多行输入、HTML内容渲染和自动对话主题管理。</p>
+<br>
+<p>GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。</p>
+<br>
+<p>这个插件的核心功能是由ChatGpt自动生成的，我只对文本进行了少量修改。对人工智能的出色工作和技术支持表示感激。</p>
+<br>
+<p>GPT4_lll插件是一个干净的插件，没有潜在的风险或安全问题。我们热烈欢迎有抱负的人加入我们的开发团队，共同改进这个插件。</p>
+<br>
+<p>开发这个插件是一种无奈之举。我之前使用的插件要求输入个人的OPENAI_API_KEY，但不幸的是，我的账户信息被滥用，数据被滥用，导致我的账户被封禁。</p>
+<br>
+<p>现在它完全支持百度的文心一言（ERNIE Bot)。这一集成使用户能够利用文心一言的强大功能进行更深入、更准确的代码分析</p>
+<br>
+<p>鉴于OpenAI对中国持极为不友好的态度，频繁地对中国用户账号进行封禁，作为一名有骨气、有脾气的程序员，我毅然决定转而拥抱国内优秀的大模型产品——文心一言和通义千问。未来，倘若文心一言也无法满足我的需求或展现出不友好的态度，我将毫不犹豫地转向其他值得信赖的国内厂商，继续坚守我的编程之路。</p>
+<h2>帮助</h2>
+<h3>安装指南</h3>
+<ol>
+  <li>Open IntelliJ IDEA's settings by navigating to "File" > "Settings".</li>
+  <li>Open the "Other Settings" category.</li>
+  <li>Find and select "GPT4_lll Settings".</li>
+  <li>Enter your API key and proxy settings (if required).</li>
+</ol>
+<p>如果您需要任何帮助或有任何问题，请随时与我联系：</p>
+<ul>
+    <li>电子邮件: 892821031@qq.com</li>
+    <li>GitHub: <a href="https://github.com/lukenc/GPT4_lll">https://github.com/lukenc/GPT4_lll</a></li>
+    <li>Issues: <a href="https://github.com/lukenc/GPT4_lll/issues">https://github.com/lukenc/GPT4_lll/issues</a></li>
+</ul>
 ]]></description>
 
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.java</depends>
+    <depends optional="true" config-file="java-support.xml">com.intellij.java</depends>
     <depends>com.intellij.modules.lang</depends>
     <depends>Git4Idea</depends>
-<!--    <depends>com.intellij.modules.python-core-capable</depends>-->
+    <depends>com.intellij.modules.vcs</depends>
+
+    <!--    <depends>com.intellij.modules.python-core-capable</depends>-->
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
@@ -714,6 +872,10 @@
         <applicationConfigurable instance="com.wmsay.gpt4_lll.MyPluginConfigurable"/>
         <applicationService serviceImplementation="com.wmsay.gpt4_lll.MyPluginSettings"/>
         <projectService serviceImplementation="com.wmsay.gpt4_lll.ProjectSettings"/>
+        <!-- 基本服务 -->
+        <applicationService
+                serviceInterface="com.wmsay.gpt4_lll.languages.FileAnalysisManager"
+                serviceImplementation="com.wmsay.gpt4_lll.languages.FileAnalysisManager"/>
     </extensions>
     <actions>
         <action id="plugin-info-id" class="com.wmsay.gpt4_lll.PluginInfo" text="PluginInfo" description="Plugin info">
@@ -731,10 +893,6 @@
                 description="评估代码">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
-        <action id="UnitTestId" class="com.wmsay.gpt4_lll.UnitTestAction" text="Gpt4UnitTest(Java)"
-                description="单元测试生成">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-        </action>
         <action id="ScoreFiles"
                 class="com.wmsay.gpt4_lll.ScoreFilesAction2"
                 text="GPT4lll:Score Files"
@@ -748,6 +906,26 @@
                     description="Fetch Git commits filtered by author(s)">
                 <add-to-group group-id="ToolsMenu" anchor="last"/>
             </action>
+        <action id="GenerateCommitMessageId"
+                class="com.wmsay.gpt4_lll.GenerateVersionControlCommitMessage"
+                text="Generate AI Commit Message"
+                description="Use AI to generate commit message based on changes">
+            <add-to-group group-id="ChangesViewPopupMenu" anchor="last"/>
+        </action>
+        
+        <action id="TranslateCommentsId"
+                class="com.wmsay.gpt4_lll.TranslateCommentsAction"
+                text="Translate Comments"
+                description="Translate comments in external library files">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        
+        <action id="RegenerateTranslationId"
+                class="com.wmsay.gpt4_lll.RegenerateTranslationAction"
+                text="Regenerate Translation"
+                description="Regenerate comment translations and update cache">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
     </actions>
 
 

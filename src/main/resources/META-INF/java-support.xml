@@ -1,0 +1,18 @@
+<idea-plugin>
+    <!-- 只有在 Java 支持可用时才加载这些扩展 -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Java 文件分析服务 - 仅在 Java 插件可用时注册 -->
+        <applicationService
+                serviceInterface="com.wmsay.gpt4_lll.languages.extensionPoints.JavaFileAnalysisService"
+                serviceImplementation="com.wmsay.gpt4_lll.languages.extensionPoints.JavaFileAnalysisService"/>
+    </extensions>
+
+    <actions>
+        <!-- 仅 Java 相关的 action -->
+        <action id="UnitTestId" class="com.wmsay.gpt4_lll.UnitTestAction" text="Gpt4UnitTest(Java)"
+                description="单元测试生成">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+
+</idea-plugin>
