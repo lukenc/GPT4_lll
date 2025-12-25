@@ -140,3 +140,4 @@ replay_pid*
 /.gradle/
 /build/
 /out/
+/.intellijPlatform/
