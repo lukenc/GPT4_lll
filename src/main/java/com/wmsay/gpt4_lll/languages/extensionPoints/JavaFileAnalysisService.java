@@ -1,6 +1,5 @@
 package com.wmsay.gpt4_lll.languages.extensionPoints;
 
-import com.intellij.lang.jvm.JvmClassKind;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
@@ -141,36 +140,205 @@ public final class JavaFileAnalysisService implements FileAnalysisService {
             // 获取PsiClass对象的所有字段
             PsiField[] fields = psiClass.getFields();
             PsiMethod[] methods = psiClass.getMethods();
+            // 获取Document对象，用于计算行号
+            PsiFile psiFile = psiClass.getContainingFile();
+            com.intellij.openapi.editor.Document document = PsiDocumentManager.getInstance(project).getDocument(psiFile);
             // 创建一个新的Message对象
             Message classMessage = new Message();
             classMessage.setRole("user");
             classMessage.setName("owner");
             // 创建一个StringBuilder对象，用于存储类的信息
             StringBuilder classInfoSb = new StringBuilder();
-            // 添加类名和属性信息到StringBuilder对象中
-            classInfoSb.append("已知").append(psiClass.getName()).append("类包含以下属性：");
-            for (PsiField field : fields) {
-                // 添加字段类型和字段名到StringBuilder对象中
-                classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
-                // 如果字段有备注，则把备注也append进去
-                PsiDocComment docComment = field.getDocComment();
-                if (docComment != null) {
-                    String commentText = extractContentFromDocComment(docComment);
-                    classInfoSb.append("，描述为:").append(commentText);
-                } else {
-                    PsiAnnotation[] annotations = field.getAnnotations();
-                    // 遍历注解数组
-                    for (PsiAnnotation annotation : annotations) {
-                        PsiAnnotationMemberValue value = annotation.findAttributeValue("description");
-                        if (value != null) {
-                            classInfoSb.append("，描述为:").append(value.getText());
-                            break;
+
+            // ========== 类基本信息 ==========
+            classInfoSb.append("已知类: ").append(psiClass.getName());
+
+            // 添加类的起止行号
+            if (document != null) {
+                int classStartLine = document.getLineNumber(psiClass.getTextRange().getStartOffset()) + 1;
+                int classEndLine = document.getLineNumber(psiClass.getTextRange().getEndOffset()) + 1;
+                classInfoSb.append(" (行号: ").append(classStartLine).append("-").append(classEndLine).append(")");
+            }
+            classInfoSb.append("\n");
+
+            // 添加类的完整限定名
+            String qualifiedName = psiClass.getQualifiedName();
+            if (qualifiedName != null) {
+                classInfoSb.append("完整类名: ").append(qualifiedName).append("\n");
+            }
+
+            // 添加类的类型（CLASS/INTERFACE/ENUM/ANNOTATION/RECORD）
+            classInfoSb.append("类型: ").append(getClassKindName(psiClass)).append("\n");
+
+            // 添加类的修饰符
+            PsiModifierList modifierList = psiClass.getModifierList();
+            if (modifierList != null && !modifierList.getText().isEmpty()) {
+                classInfoSb.append("修饰符: ").append(modifierList.getText()).append("\n");
+            }
+
+            // 添加泛型类型参数
+            PsiTypeParameter[] typeParameters = psiClass.getTypeParameters();
+            if (typeParameters.length > 0) {
+                classInfoSb.append("泛型参数: <");
+                for (int i = 0; i < typeParameters.length; i++) {
+                    if (i > 0) classInfoSb.append(", ");
+                    classInfoSb.append(typeParameters[i].getName());
+                    // 添加泛型边界
+                    PsiClassType[] extendsList = typeParameters[i].getExtendsList().getReferencedTypes();
+                    if (extendsList.length > 0) {
+                        classInfoSb.append(" extends ");
+                        for (int j = 0; j < extendsList.length; j++) {
+                            if (j > 0) classInfoSb.append(" & ");
+                            classInfoSb.append(extendsList[j].getPresentableText());
                         }
                     }
                 }
-                //每个字段需要分隔开
-                classInfoSb.append(" \n");
+                classInfoSb.append(">\n");
             }
+
+            // 添加类的文档注释
+            PsiDocComment classDocComment = psiClass.getDocComment();
+            if (classDocComment != null) {
+                String classDocContent = extractContentFromDocComment(classDocComment);
+                if (!classDocContent.isEmpty()) {
+                    classInfoSb.append("类描述: ").append(classDocContent).append("\n");
+                }
+            }
+
+            // 添加类注解信息
+            PsiAnnotation[] classAnnotations = psiClass.getAnnotations();
+            if (classAnnotations.length > 0) {
+                classInfoSb.append("类注解: ");
+                for (int i = 0; i < classAnnotations.length; i++) {
+                    if (i > 0) classInfoSb.append(", ");
+                    classInfoSb.append(classAnnotations[i].getQualifiedName());
+                }
+                classInfoSb.append("\n");
+            }
+
+            // ========== 继承关系 ==========
+            // 添加父类信息
+            PsiClass superClass = psiClass.getSuperClass();
+            if (superClass != null && !"Object".equals(superClass.getName())) {
+                classInfoSb.append("父类: ").append(superClass.getName());
+                String superQualifiedName = superClass.getQualifiedName();
+                if (superQualifiedName != null && !isJdkClass(superQualifiedName)) {
+                    // 项目内自定义类，追加更多信息
+                    classInfoSb.append(" (").append(superQualifiedName).append(")");
+                    if (superClass.getDocComment() != null) {
+                        String superDocContent = extractContentFromDocComment(superClass.getDocComment());
+                        if (!superDocContent.isEmpty()) {
+                            classInfoSb.append("\n  父类说明: ").append(superDocContent);
+                        }
+                    }
+                }
+                classInfoSb.append("\n");
+            }
+
+            // 添加实现的接口信息
+            PsiClassType[] implementsTypes = psiClass.getImplementsListTypes();
+            if (implementsTypes.length > 0) {
+                classInfoSb.append("实现的接口:\n");
+                for (PsiClassType interfaceType : implementsTypes) {
+                    classInfoSb.append("  - ").append(interfaceType.getPresentableText());
+                    PsiClass interfaceClass = interfaceType.resolve();
+                    if (interfaceClass != null) {
+                        String interfaceQualifiedName = interfaceClass.getQualifiedName();
+                        if (interfaceQualifiedName != null && !isJdkClass(interfaceQualifiedName)) {
+                            // 项目内接口，添加接口说明
+                            if (interfaceClass.getDocComment() != null) {
+                                String interfaceDocContent = extractContentFromDocComment(interfaceClass.getDocComment());
+                                if (!interfaceDocContent.isEmpty()) {
+                                    classInfoSb.append(" (说明: ").append(interfaceDocContent).append(")");
+                                }
+                            }
+                        }
+                    }
+                    classInfoSb.append("\n");
+                }
+            }
+
+            // 添加继承的接口（通过父类继承的）
+            PsiClass[] allInterfaces = psiClass.getInterfaces();
+            if (allInterfaces.length > implementsTypes.length) {
+                classInfoSb.append("继承的接口(通过父类): ");
+                boolean first = true;
+                Set<String> directInterfaceNames = new HashSet<>();
+                for (PsiClassType type : implementsTypes) {
+                    directInterfaceNames.add(type.getCanonicalText());
+                }
+                for (PsiClass iface : allInterfaces) {
+                    if (iface.getQualifiedName() != null && !directInterfaceNames.contains(iface.getQualifiedName())) {
+                        if (!first) classInfoSb.append(", ");
+                        classInfoSb.append(iface.getName());
+                        first = false;
+                    }
+                }
+                classInfoSb.append("\n");
+            }
+
+            // ========== 内部类信息 ==========
+            PsiClass[] innerClasses = psiClass.getInnerClasses();
+            if (innerClasses.length > 0) {
+                classInfoSb.append("内部类:\n");
+                for (PsiClass innerClass : innerClasses) {
+                    classInfoSb.append("  - ").append(getClassKindName(innerClass)).append(" ")
+                            .append(innerClass.getName());
+                    if (document != null) {
+                        int innerStartLine = document.getLineNumber(innerClass.getTextRange().getStartOffset()) + 1;
+                        int innerEndLine = document.getLineNumber(innerClass.getTextRange().getEndOffset()) + 1;
+                        classInfoSb.append(" (行号: ").append(innerStartLine).append("-").append(innerEndLine).append(")");
+                    }
+                    classInfoSb.append("\n");
+                }
+            }
+
+            // ========== 字段信息 ==========
+            if (fields.length > 0) {
+                classInfoSb.append("\n包含以下属性：\n");
+                for (PsiField field : fields) {
+                    // 添加字段修饰符
+                    PsiModifierList fieldModifiers = field.getModifierList();
+                    if (fieldModifiers != null && !fieldModifiers.getText().isEmpty()) {
+                        classInfoSb.append(fieldModifiers.getText()).append(" ");
+                    }
+                    // 添加字段类型和字段名
+                    classInfoSb.append(field.getType().getPresentableText()).append(" ").append(field.getName());
+                    // 添加字段的起止行号信息
+                    if (document != null) {
+                        int startLine = document.getLineNumber(field.getTextRange().getStartOffset()) + 1;
+                        int endLine = document.getLineNumber(field.getTextRange().getEndOffset()) + 1;
+                        classInfoSb.append(" (行号: ").append(startLine).append("-").append(endLine).append(")");
+                    }
+                    // 添加字段初始值（如果是常量）
+                    PsiExpression initializer = field.getInitializer();
+                    if (initializer != null && field.hasModifierProperty(PsiModifier.FINAL)) {
+                        String initText = initializer.getText();
+                        if (initText.length() <= 50) { // 限制长度，避免过长
+                            classInfoSb.append(" = ").append(initText);
+                        }
+                    }
+                    // 如果字段有备注，则把备注也append进去
+                    PsiDocComment docComment = field.getDocComment();
+                    if (docComment != null) {
+                        String commentText = extractContentFromDocComment(docComment);
+                        classInfoSb.append("，描述为: ").append(commentText);
+                    } else {
+                        PsiAnnotation[] annotations = field.getAnnotations();
+                        // 遍历注解数组
+                        for (PsiAnnotation annotation : annotations) {
+                            PsiAnnotationMemberValue value = annotation.findAttributeValue("description");
+                            if (value != null) {
+                                classInfoSb.append("，描述为: ").append(value.getText());
+                                break;
+                            }
+                        }
+                    }
+                    classInfoSb.append("\n");
+                }
+            }
+
+            // ========== 方法信息 ==========
             if (methods.length > 0) {
                 Set<String> getterAndSetterNames = new HashSet<>();
                 for (PsiField field : psiClass.getFields()) {
@@ -178,44 +346,89 @@ public final class JavaFileAnalysisService implements FileAnalysisService {
                     String capitalizedFieldName = Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
                     getterAndSetterNames.add("get" + capitalizedFieldName);
                     getterAndSetterNames.add("set" + capitalizedFieldName);
+                    getterAndSetterNames.add("is" + capitalizedFieldName); // boolean getter
                 }
 
-                List<PsiMethod> usefulMethod = Arrays.stream(psiClass.getMethods()).filter(psiMethod -> !getterAndSetterNames.contains(psiMethod.getName())).toList();
+                List<PsiMethod> usefulMethod = Arrays.stream(psiClass.getMethods())
+                        .filter(psiMethod -> !getterAndSetterNames.contains(psiMethod.getName()))
+                        .toList();
                 if (CollectionUtils.isNotEmpty(usefulMethod)) {
-                    classInfoSb.append(",包含如下方法：");
-                    for (PsiMethod method : psiClass.getMethods()) {
-                        String methodName = method.getName();
-                        classInfoSb.append("\n方法名: ").append(methodName);
+                    classInfoSb.append("\n包含如下方法：\n");
+                    for (PsiMethod method : usefulMethod) {
+                        // 方法修饰符
+                        PsiModifierList methodModifiers = method.getModifierList();
+                        if (!methodModifiers.getText().isEmpty()) {
+                            classInfoSb.append(methodModifiers.getText()).append(" ");
+                        }
+                        // 方法返回类型
+                        PsiType returnType = method.getReturnType();
+                        if (returnType != null) {
+                            classInfoSb.append(returnType.getPresentableText()).append(" ");
+                        }
+                        // 方法名
+                        classInfoSb.append(method.getName());
+                        // 方法参数
+                        classInfoSb.append("(");
+                        PsiParameter[] parameters = method.getParameterList().getParameters();
+                        for (int i = 0; i < parameters.length; i++) {
+                            if (i > 0) classInfoSb.append(", ");
+                            classInfoSb.append(parameters[i].getType().getPresentableText())
+                                    .append(" ").append(parameters[i].getName());
+                        }
+                        classInfoSb.append(")");
+                        // 添加方法的起止行号信息
+                        if (document != null) {
+                            int startLine = document.getLineNumber(method.getTextRange().getStartOffset()) + 1;
+                            int endLine = document.getLineNumber(method.getTextRange().getEndOffset()) + 1;
+                            classInfoSb.append(" (行号: ").append(startLine).append("-").append(endLine).append(")");
+                        }
+                        // 抛出的异常
+                        PsiClassType[] throwsList = method.getThrowsList().getReferencedTypes();
+                        if (throwsList.length > 0) {
+                            classInfoSb.append(" throws ");
+                            for (int i = 0; i < throwsList.length; i++) {
+                                if (i > 0) classInfoSb.append(", ");
+                                classInfoSb.append(throwsList[i].getPresentableText());
+                            }
+                        }
                         // 输出方法的注释
                         PsiDocComment docComment = method.getDocComment();
                         if (docComment != null) {
                             String extractedContent = extractContentFromDocComment(docComment);
-                            classInfoSb.append(",用途描述: ").append(extractedContent);
-                        }
-                        // 输出方法的入参
-                        PsiParameter[] parameters = method.getParameterList().getParameters();
-                        if (parameters.length > 0) {
-                            classInfoSb.append(" ,调用参数:");
-                            for (PsiParameter parameter : parameters) {
-                                classInfoSb.append("  ").append(parameter.getType().getPresentableText()).append(" ").append(parameter.getName());
+                            if (!extractedContent.isEmpty()) {
+                                classInfoSb.append("\n    用途描述: ").append(extractedContent);
                             }
                         }
-                        // 输出方法的出参
-                        PsiType returnType = method.getReturnType();
-                        if (returnType != null) {
-                            classInfoSb.append(",返回类型: ").append(returnType.getPresentableText());
-                        }
+                        classInfoSb.append("\n");
                     }
                 }
             }
-            classInfoSb.append("上面这个类提供给你，有助于你更了解情况。");
-            // 将StringBuffer对象的内容设置为Message对象的内容
+
+            classInfoSb.append("\n上面这个类提供给你，有助于你更了解情况。");
+            // 将StringBuilder对象的内容设置为Message对象的内容
             classMessage.setContent(classInfoSb.toString());
             // 返回转换后的Message对象
             return classMessage;
         }
         // 如果PsiClass对象不在源代码中，则返回null
         return null;
+    }
+
+    /**
+     * 判断类是否为JDK标准库类
+     *
+     * @param qualifiedName 类的完整限定名
+     * @return 如果是JDK类返回true，否则返回false
+     */
+    private static boolean isJdkClass(String qualifiedName) {
+        if (qualifiedName == null) return false;
+        return qualifiedName.startsWith("java.") ||
+                qualifiedName.startsWith("javax.") ||
+                qualifiedName.startsWith("com.sun.") ||
+                qualifiedName.startsWith("sun.") ||
+                qualifiedName.startsWith("jdk.") ||
+                qualifiedName.startsWith("org.w3c.") ||
+                qualifiedName.startsWith("org.xml.");
     }
 
 
@@ -387,13 +600,22 @@ public final class JavaFileAnalysisService implements FileAnalysisService {
      * @return 类型名称字符串，可能的值包括 "CLASS"、"INTERFACE"、"ENUM" 等，或者 "UNKNOWN"
      */
     private static String getClassKindName(PsiClass psiClass) {
-        if (psiClass != null) { // 确保传入的 PsiClass 不为 null
-            JvmClassKind classKind = psiClass.getClassKind();
-            if (classKind != null) {
-                return classKind.toString(); // 返回枚举值的字符串表示
-            }
+        if (psiClass == null) {
+            return "UNKNOWN";
         }
-        return "UNKNOWN"; // 如果无法确定类的类型，则返回 "UNKNOWN"
+        if (psiClass.isAnnotationType()) {
+            return "ANNOTATION";
+        }
+        if (psiClass.isEnum()) {
+            return "ENUM";
+        }
+        if (psiClass.isInterface()) {
+            return "INTERFACE";
+        }
+        if (psiClass.isRecord()) {
+            return "RECORD";
+        }
+        return "CLASS";
     }
 
 
