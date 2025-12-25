@@ -54,7 +54,10 @@ public class GitCommitFetcher {
                         .collect(Collectors.toList()));
 
             } catch (Exception ex) {
-                Messages.showErrorDialog(project, ex.getMessage(), "Error Fetching Commits");
+                // UI 操作必须在 EDT 中执行
+                ApplicationManager.getApplication().invokeLater(() ->
+                        Messages.showErrorDialog(project, ex.getMessage(), "Error Fetching Commits")
+                );
             }
         }, "Fetching Git Commits", true, project);
 
