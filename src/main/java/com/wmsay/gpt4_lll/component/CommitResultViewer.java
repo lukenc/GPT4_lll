@@ -1,8 +1,8 @@
 package com.wmsay.gpt4_lll.component;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import com.wmsay.gpt4_lll.GenerateAction;
 import groovy.util.logging.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +25,8 @@ public class CommitResultViewer {
     }
 
     public static void showError(Project project, String errorMessage) {
-        Messages.showErrorDialog(project, "Error: " + errorMessage, "Git Commit Retrieval Error");
+        ApplicationManager.getApplication().invokeLater(() ->
+                Messages.showErrorDialog(project, "Error: " + errorMessage, "Git Commit Retrieval Error")
+        );
     }
 }
