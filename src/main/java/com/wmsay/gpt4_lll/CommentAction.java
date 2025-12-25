@@ -188,13 +188,16 @@ public class CommentAction extends AnAction {
                     textArea.clearShowWindow();
                 }
                 Thread dochatThread = new Thread(() -> {
-                    GenerateAction.chat(chatContent, project, true, true, "");
-                    SwingUtilities.invokeLater(() -> deleteSelection(editor, selectStartPosition, selectEndPosition));
+                    try {
+                        GenerateAction.chat(chatContent, project, true, true, "");
+                        SwingUtilities.invokeLater(() -> deleteSelection(editor, selectStartPosition, selectEndPosition));
+                    } finally {
+                        CommonUtil.stopRunningStatus(project);
+                    }
                 });
                 dochatThread.start();
             }
         }
-        CommonUtil.stopRunningStatus(project);
         // TODO: insert action logic here
     }
 
