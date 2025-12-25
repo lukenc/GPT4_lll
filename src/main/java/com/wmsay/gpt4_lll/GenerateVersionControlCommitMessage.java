@@ -2,6 +2,7 @@ package com.wmsay.gpt4_lll;
 
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.ProjectUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -203,10 +204,12 @@ public class GenerateVersionControlCommitMessage extends AnAction {
         } catch (Exception ex) {
             // 捕获主线程中的异常
             ex.printStackTrace();
-            Messages.showMessageDialog(project, 
-                "Failed to initialize commit message generation: " + ex.getMessage(), 
-                "Error", 
-                Messages.getErrorIcon());
+            ApplicationManager.getApplication().invokeLater(() ->
+                Messages.showMessageDialog(project, 
+                    "Failed to initialize commit message generation: " + ex.getMessage(), 
+                    "Error", 
+                    Messages.getErrorIcon())
+            );
         } finally {
             // 确保在主线程异常时也重置运行状态
             // 只有在没有成功启动聊天线程的情况下才重置状态
