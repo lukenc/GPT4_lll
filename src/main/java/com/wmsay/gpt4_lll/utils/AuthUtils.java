@@ -2,7 +2,6 @@ package com.wmsay.gpt4_lll.utils;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
-import com.intellij.openapi.application.PathManager;
 import com.wmsay.gpt4_lll.MyPluginSettings;
 import com.wmsay.gpt4_lll.model.baidu.TokenInfo;
 import com.wmsay.gpt4_lll.model.server.ApiResponse;
@@ -15,7 +14,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.Date;
@@ -25,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class AuthUtils {
     private static final String FILE_NAME = "GPT4_lll_Auth.json";
-    private static final Path FILE_PATH = Paths.get(PathManager.getPluginTempPath(), FILE_NAME);
+    private static final Path FILE_PATH = PluginPathUtils.pluginTempFile(FILE_NAME);
 
     private static final String ACCESS_TOKEN_KEY="accessToken";
     private static final String ACCESS_TOKEN_EXPIRE_KEY="expireTime";
