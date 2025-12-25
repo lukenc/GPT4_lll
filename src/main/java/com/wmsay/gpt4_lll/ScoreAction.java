@@ -108,9 +108,14 @@ public class ScoreAction extends AnAction {
             if (textArea != null) {
                 textArea.clearShowWindow();
             }
-            new Thread(() -> GenerateAction.chat(chatContent, project, false,true,"")).start();
+            try {
+                new Thread(() -> GenerateAction.chat(chatContent, project, false,true,"")).start();
+            }finally {
+                CommonUtil.stopRunningStatus(project);
+            }
+        } else {
+            CommonUtil.stopRunningStatus(project);
         }
-        CommonUtil.stopRunningStatus(project);
         // TODO: insert action logic here
     }
 }
