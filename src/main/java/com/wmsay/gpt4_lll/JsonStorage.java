@@ -2,7 +2,7 @@ package com.wmsay.gpt4_lll;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
-import com.intellij.openapi.application.PathManager;
+import com.wmsay.gpt4_lll.utils.PluginPathUtils;
 import com.wmsay.gpt4_lll.model.Message;
 import groovy.util.logging.Slf4j;
 import org.slf4j.Logger;
@@ -12,7 +12,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -24,9 +23,15 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JsonStorage {
     private static final String FILE_NAME = "GPT4_lll_chat.json";
-    private static final Path FILE_PATH = Paths.get(PathManager.getPluginTempPath(), FILE_NAME);
+    private static final Path FILE_PATH = PluginPathUtils.pluginTempFile(FILE_NAME);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Logger log = LoggerFactory.getLogger(JsonStorage.class);
+
+    private static class SaveConversationException extends RuntimeException {
+        public SaveConversationException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
 
     public static void saveConservation(String topic, List<Message> messageList) {
         try {
@@ -34,7 +39,7 @@ public class JsonStorage {
             data.put(topic, messageList);
             saveData(data);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new SaveConversationException("Failed to save conversation: " + e.getMessage(), e);
         }
     }
 
@@ -69,7 +74,8 @@ public class JsonStorage {
             return new LinkedHashMap<>();
         }
         // Convert the JSON string to a map
-        LinkedHashMap<String, List<Message>> data = JSON.parseObject(new String(bytes), new TypeReference<LinkedHashMap<String, List<Message>>>() {});
+        LinkedHashMap<String, List<Message>> data = JSON.parseObject(new String(bytes), new TypeReference<LinkedHashMap<String, List<Message>>>() {
+        });
         return data.entrySet().stream()
                 .sorted(Map.Entry.<String, List<Message>>comparingByKey().reversed())
                 .collect(Collectors.toMap(
@@ -84,6 +90,7 @@ public class JsonStorage {
 
     /**
      * Renames a chat history topic
+     *
      * @param oldTopic The original topic name
      * @param newTopic The new topic name
      * @return true if successful, false if the old topic wasn't found
@@ -106,7 +113,8 @@ public class JsonStorage {
 
     /**
      * Export a specific chat history to a file
-     * @param topic The chat topic to export
+     *
+     * @param topic      The chat topic to export
      * @param outputFile The file to export to
      * @throws IOException If an error occurs during export
      */
@@ -138,6 +146,7 @@ public class JsonStorage {
 
     /**
      * Search for chat histories matching the given search term
+     *
      * @param searchTerm The term to search for
      * @return A map of topics and their messages that match the search term
      */
@@ -174,8 +183,9 @@ public class JsonStorage {
 
     /**
      * Filter chat histories by date range
+     *
      * @param fromDate Start date (inclusive)
-     * @param toDate End date (inclusive)
+     * @param toDate   End date (inclusive)
      * @return A map of topics and their messages within the date range
      */
     public static LinkedHashMap<String, List<Message>> filterByDateRange(LocalDateTime fromDate, LocalDateTime toDate) {
@@ -199,7 +209,7 @@ public class JsonStorage {
                     }
                 } catch (Exception e) {
                     // If date parsing fails, skip this topic
-                    JsonStorage.log.info("Failed to parse date from topic: {}" , topic);
+                    JsonStorage.log.info("Failed to parse date from topic: {}", topic);
                 }
             }
 
@@ -211,6 +221,7 @@ public class JsonStorage {
 
     /**
      * Filter chat histories by a predefined date range
+     *
      * @param range One of: "today", "yesterday", "last7days", "last30days", "thismonth", "lastmonth"
      * @return A map of topics and their messages within the date range
      */
