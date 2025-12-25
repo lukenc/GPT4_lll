@@ -11,7 +11,18 @@
 
     <change-notes>
         <![CDATA[
-        <h2>3.9.1 (2025-12-23)</h2>
+        <h2>3.9.2 (2025-12-24)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>新增 AI 智能 Linter 修复功能，根据 JetBrains IDE 的代码检查器（Linter）发现的问题，自动生成修复建议。选中有问题的代码后，右键选择"GPT4lll: Fix Linter Errors"或使用快捷键 Ctrl+Alt+L，即可获得 AI 生成的修复建议。按回车键或点击"应用修复"按钮，即可一键替换原代码。</li>
+            <li>Added AI-powered Linter Fix feature that automatically generates fix suggestions based on code inspection (Linter) issues detected by JetBrains IDE. Select problematic code, right-click and choose "GPT4lll: Fix Linter Errors" or use shortcut Ctrl+Alt+L to get AI-generated fix suggestions. Press Enter or click "Apply Fix" to replace the original code with one click.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.9.1 (2025-12-23)</h2>
 <ul>
     <li>
         <h3>FEATURE/新功能:</h3>
@@ -743,6 +754,9 @@
 
 <h4>Real-Time Chat Interface</h4>
 <p>Integrated chat interface within the IDE that supports real-time conversations with AI models. Features include session management, conversation history, and seamless integration with code context. The interface supports multi-line input, HTML content rendering, and automatic conversation topic management.</p>
+
+<h4>AI-Powered Linter Fix</h4>
+<p>Intelligent code fix suggestions based on JetBrains IDE Linter errors. Select problematic code, right-click and choose "GPT4lll: Fix Linter Errors" or use shortcut Ctrl+Alt+L to get AI-generated fix suggestions. A side-by-side comparison dialog shows original and fixed code. Press Enter to apply the fix instantly.</p>
 <br>
 <p>GPT4_lll is a plugin designed for IntelliJ IDEA users, aiming to provide real-time code querying and analysis services using OpenAI's GPT-4 model. This plugin serves as a powerful assistant while you write or read code, helping you better understand and improve your code.</p>
 <br>
@@ -828,6 +842,9 @@
 
 <h4>实时聊天界面</h4>
 <p>IDE内集成的聊天界面，支持与AI模型的实时对话。功能包括会话管理、对话历史记录以及与代码上下文的无缝集成。界面支持多行输入、HTML内容渲染和自动对话主题管理。</p>
+
+<h4>AI 智能 Linter 修复</h4>
+<p>基于 JetBrains IDE Linter 错误的智能代码修复建议。选中有问题的代码，右键选择"GPT4lll: Fix Linter Errors"或使用快捷键 Ctrl+Alt+L 获取 AI 生成的修复建议。并排对比对话框显示原始代码和修复后的代码，按回车键即可立即应用修复。</p>
 <br>
 <p>GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。</p>
 <br>
@@ -925,6 +942,14 @@
                 text="Regenerate Translation"
                 description="Regenerate comment translations and update cache">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        
+        <action id="LinterFixActionId"
+                class="com.wmsay.gpt4_lll.LinterFixAction"
+                text="GPT4lll: Fix Linter Errors"
+                description="Use AI to fix linter errors in selected code">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt L"/>
         </action>
     </actions>
 
