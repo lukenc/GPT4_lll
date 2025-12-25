@@ -62,6 +62,12 @@ Introduced a new Code Assessment feature, allowing team leaders to evaluate team
 
 [观看代码评估功能演示](https://dev-vroom-1311485584.cos.ap-beijing.myqcloud.com/71961e75-8bf8-488c-a430-aa243534ea2a)
 
+### Git Commit Message Generation/Git提交信息生成
+Added a feature to automatically generate Git commit messages in IDEA's commit dialog. The plugin analyzes changes in the commit dialog and uses AI to generate professional commit messages following conventional commit standards.  
+新增了在IDEA提交对话框中自动生成Git提交信息的功能。插件会分析提交对话框中的变更并使用AI生成符合约定式提交规范的专业提交信息。
+
+**使用方法**: 在Git提交对话框中点击 "Generate with AI" 按钮
+
 
 ## Installation/安装
 1. Open IntelliJ IDEA.
