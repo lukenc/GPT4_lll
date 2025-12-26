@@ -141,3 +141,5 @@ replay_pid*
 /build/
 /out/
 /.intellijPlatform/
+/bin/
+/.vscode/
