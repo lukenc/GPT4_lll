@@ -332,15 +332,7 @@ public class LinterFixDialog extends DialogWrapper {
 
     @Override
     protected void doOKAction() {
-        applyChanges();
-        super.doOKAction();
-    }
-
-    /**
-     * 应用所有变更到编辑器
-     */
-    private void applyChanges() {
-        // 按行号降序排序，从后往前应用变更，避免行号偏移问题
+        // 先收集选中的变更，再关闭对话框，最后在 write-safe context 中应用
         List<CodeChange> sortedChanges = new ArrayList<>();
         for (int i = 0; i < changes.size(); i++) {
             if (Boolean.TRUE.equals(changeSelections.get(i))) {
@@ -349,26 +341,23 @@ public class LinterFixDialog extends DialogWrapper {
         }
         sortedChanges.sort((a, b) -> Integer.compare(b.getLineNumber(), a.getLineNumber()));
 
-        if (editor.getProject() == null || editor.getProject().isDisposed()) {
+        // 先关闭对话框，退出对话框模态状态
+        super.doOKAction();
+
+        // 对话框关闭后，在 NON_MODAL 下执行写操作，确保 write-safe
+        Project proj = editor.getProject();
+        if (proj == null || proj.isDisposed()) {
             return;
         }
 
-        Runnable writeTask = () -> WriteCommandAction.runWriteCommandAction(editor.getProject(), () -> {
-            Document document = editor.getDocument();
-            for (CodeChange change : sortedChanges) {
-                applyChange(document, change);
-            }
-        });
-
-        // 在与对话框相同的模态状态下执行写操作，避免 NON_MODAL 写安全错误
-        if (ApplicationManager.getApplication().isDispatchThread()) {
-            writeTask.run();
-        } else {
-            ApplicationManager.getApplication().invokeLater(
-                    writeTask,
-                    ModalityState.stateForComponent(getRootPane())
-            );
-        }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            WriteCommandAction.runWriteCommandAction(proj, () -> {
+                Document document = editor.getDocument();
+                for (CodeChange change : sortedChanges) {
+                    applyChange(document, change);
+                }
+            });
+        }, ModalityState.nonModal());
     }
 
     /**
@@ -425,8 +414,10 @@ public class LinterFixDialog extends DialogWrapper {
             }
         }
         Document doc = previewEditor.getDocument();
-        ApplicationManager.getApplication().runWriteAction(() -> doc.setText(sb.toString()));
-        previewEditor.getCaretModel().moveToOffset(0);
+        ApplicationManager.getApplication().runWriteAction(() -> {
+            doc.setText(sb.toString());
+            previewEditor.getCaretModel().moveToOffset(0);
+        });
     }
 
     /**
