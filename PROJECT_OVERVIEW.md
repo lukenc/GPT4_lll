@@ -132,9 +132,10 @@ src/main/resources/META-INF/
 ### 构建与运行
 
 ```bash
-./gradlew buildPlugin    # 构建插件
-./gradlew runIde         # 在沙箱 IDE 中运行
-./gradlew publishPlugin  # 发布（需要环境变量 PUBLISH_TOKEN / CERTIFICATE_CHAIN / PRIVATE_KEY）
+# 命令行构建需要指定 JDK 17（系统默认若为 JDK 25 等高版本，Gradle 8.13 不支持）
+JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew buildPlugin    # 构建插件
+JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew runIde         # 在沙箱 IDE 中运行
+JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew publishPlugin  # 发布（需要环境变量 PUBLISH_TOKEN / CERTIFICATE_CHAIN / PRIVATE_KEY）
 ```
 
 ---
