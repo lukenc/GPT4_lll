@@ -1,0 +1,98 @@
+package com.wmsay.gpt4_lll.mcp.tools;
+
+import com.wmsay.gpt4_lll.mcp.McpContext;
+import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class FileReadToolTest {
+
+    private static final Logger log = LoggerFactory.getLogger(FileReadToolTest.class);
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void shouldReadRangeAndMarkTruncatedWhenMaxLinesReached() throws Exception {
+        Path root = Files.createDirectory(tempDir.resolve("workspace"));
+        Path file = root.resolve("sample.txt");
+        Files.write(file, List.of("alpha", "beta", "gamma", "delta"));
+
+        FileReadTool tool = new FileReadTool();
+        Map<String, Object> params = new HashMap<>();
+        params.put("path", "sample.txt");
+        params.put("startLine", 2);
+        params.put("endLine", 10);
+        params.put("maxLines", 2);
+
+        McpToolResult result = tool.execute(new McpContext(null, null, root), params);
+
+        assertEquals(McpToolResult.ResultType.STRUCTURED, result.getType());
+        Map<String, Object> data = result.getStructuredData();
+        assertEquals(4, data.get("totalLines"));
+        assertEquals(2, data.get("startLine"));
+        assertEquals(3, data.get("endLine"));
+        assertEquals("2|beta\n3|gamma", data.get("content"));
+        assertEquals(true, data.get("truncated"));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> lines = (List<Map<String, Object>>) data.get("lines");
+        assertEquals(2, lines.size());
+        assertEquals(2, lines.get(0).get("line"));
+        assertEquals("beta", lines.get(0).get("text"));
+        log.info("{}",data);
+    }
+
+    @Test
+    void shouldClampInputsAndHandleEmptyFile() throws Exception {
+        Path root = Files.createDirectory(tempDir.resolve("workspace"));
+        Path file = root.resolve("empty.txt");
+        Files.createFile(file);
+
+        FileReadTool tool = new FileReadTool();
+        Map<String, Object> params = Map.of(
+                "path", "empty.txt",
+                "startLine", -100,
+                "maxLines", 0
+        );
+
+        McpToolResult result = tool.execute(new McpContext(null, null, root), params);
+        assertEquals(McpToolResult.ResultType.TEXT, result.getType());
+        assertEquals("", result.getTextContent());
+    }
+
+    @Test
+    void shouldReturnErrorForDirectoryMissingFileAndOutOfWorkspacePath() throws Exception {
+        Path root = Files.createDirectory(tempDir.resolve("workspace"));
+        Path dir = Files.createDirectory(root.resolve("folder"));
+        Files.createFile(root.resolve("inside.txt"));
+        Path outsideFile = Files.createFile(tempDir.resolve("outside.txt"));
+
+        FileReadTool tool = new FileReadTool();
+        McpContext context = new McpContext(null, null, root);
+
+        McpToolResult missing = tool.execute(context, Map.of("path", "missing.txt"));
+        assertEquals(McpToolResult.ResultType.ERROR, missing.getType());
+        assertTrue(missing.getErrorMessage().contains("File not found"));
+
+        McpToolResult directory = tool.execute(context, Map.of("path", root.relativize(dir).toString()));
+        assertEquals(McpToolResult.ResultType.ERROR, directory.getType());
+        assertTrue(directory.getErrorMessage().contains("Path is not a file"));
+
+        McpToolResult outOfWorkspace = tool.execute(context, Map.of("path", outsideFile.toString()));
+        assertEquals(McpToolResult.ResultType.ERROR, outOfWorkspace.getType());
+        assertTrue(outOfWorkspace.getErrorMessage().contains("Path out of workspace"));
+        assertFalse(outOfWorkspace.getErrorMessage().isBlank());
+    }
+}
