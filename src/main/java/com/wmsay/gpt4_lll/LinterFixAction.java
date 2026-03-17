@@ -17,27 +17,25 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.component.LinterFixDialog;
+import com.wmsay.gpt4_lll.llm.LlmClient;
+import com.wmsay.gpt4_lll.llm.LlmRequest;
+import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.CodeChange;
 import com.wmsay.gpt4_lll.model.SelectionContent;
 import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.SseResponse;
-import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.languages.FileAnalysisManager;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ReadAction;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
 import com.wmsay.gpt4_lll.utils.SelectionUtils;
 
 import javax.swing.*;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -98,6 +96,8 @@ public class LinterFixAction extends AnAction {
             3. 保持原有逻辑与风格，修复 Linter 问题，必要时调整相关上下文行。
             4. reason 字段用 ${replyLanguage} 简要说明修改原因。
             5. 确保 JSON 格式正确，仅返回 JSON 数组，不要添加其他说明文字。
+            6. 每个操作只能针对单独一行，newContent 和 content 字段中绝对不允许包含换行符（\\n）。如果需要在某行前后新增代码行，请拆分为多个 INSERT 操作；如果需要将一行替换为多行，请用一个 MODIFY（修改当前行）加若干个 INSERT（在该行之后逐行插入）来组合实现。
+            7. 操作按行号升序排列。同一行号有多个操作时，先 DELETE/MODIFY 再 INSERT。
 
             请提供修复建议（只返回 JSON 数组）：
             """;
@@ -110,7 +110,7 @@ public class LinterFixAction extends AnAction {
             return;
         }
         
-        if (Boolean.TRUE.equals(CommonUtil.isRunningStatus(project))) {
+        if (CommonUtil.isRunningStatus(project)) {
             Messages.showMessageDialog(project, "请等待，另一个任务正在运行/Please wait, another task is running", "Error", Messages.getErrorIcon());
             return;
         } else {
@@ -174,28 +174,31 @@ public class LinterFixAction extends AnAction {
                 .replace("${numberedCode}", numberedCode);
 
         // 构建上下文消息（项目内类信息与选区信息），特别是 Java 时
+        // PSI 操作必须在 ReadAction 中执行，否则可能因索引锁导致死锁
         List<Message> contextMessages = new ArrayList<>();
         if ("java".equalsIgnoreCase(fileType)) {
             FileAnalysisManager analysisManager = ApplicationManager.getApplication().getService(FileAnalysisManager.class);
             if (analysisManager != null) {
-                List<Message> ctx1 = analysisManager.analyzeFile(project, editor); // 选区相关引用类信息
-                if (ctx1 != null && !ctx1.isEmpty()) {
-                    contextMessages.addAll(ctx1);
-                }
-                List<Message> ctx2 = analysisManager.analyzeCurrentFile(project, editor); // 当前文件概要
-                if (ctx2 != null && !ctx2.isEmpty()) {
-                    contextMessages.addAll(ctx2);
+                try {
+                    List<Message> ctx1 = ReadAction.compute(() -> analysisManager.analyzeFile(project, editor)); // 选区相关引用类信息
+                    if (ctx1 != null && !ctx1.isEmpty()) {
+                        contextMessages.addAll(ctx1);
+                    }
+                    List<Message> ctx2 = ReadAction.compute(() -> analysisManager.analyzeCurrentFile(project, editor)); // 当前文件概要
+                    if (ctx2 != null && !ctx2.isEmpty()) {
+                        contextMessages.addAll(ctx2);
+                    }
+                } catch (Exception ex) {
+                    // PSI 分析失败不应阻塞主流程，记录日志后继续（无上下文也能修复）
+                    com.intellij.openapi.diagnostic.Logger.getInstance(LinterFixAction.class)
+                            .warn("Failed to analyze file context for LinterFix", ex);
                 }
             }
         }
 
         // 构建消息
         Message systemMessage = new Message();
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
-            systemMessage.setRole("user");
-        } else {
-            systemMessage.setRole("system");
-        }
+        systemMessage.setRole(ChatUtils.getSystemRole(ModelUtils.getSelectedProvider(project)));
         systemMessage.setContent("你是一个专业的代码审查专家，擅长分析和修复代码中的问题。你只返回 JSON 格式的修复建议，不添加任何其他说明。");
 
         Message userMessage = new Message();
@@ -218,7 +221,7 @@ public class LinterFixAction extends AnAction {
         ChatUtils.getProjectChatHistory(project).addAll(messages);
 
         // 清理显示窗口
-        Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+        AgentChatView textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
         if (textArea != null) {
             textArea.clearShowWindow();
         }
@@ -228,6 +231,11 @@ public class LinterFixAction extends AnAction {
         new Thread(() -> {
             try {
                 String response = chatWithLinterFix(chatContent, project, textArea);
+                
+                // 空响应表示 chatWithLinterFix 已显示了错误对话框，跳过解析
+                if (response == null || response.isEmpty()) {
+                    return;
+                }
                 
                 // 解析 JSON 响应获取变更操作列表
                 List<CodeChange> changes = parseChangesFromResponse(response);
@@ -427,9 +435,10 @@ public class LinterFixAction extends AnAction {
     }
 
     /**
-     * 发送请求并获取 AI 响应
+     * 发送请求并获取 AI 响应。
+     * 使用 LlmClient 统一处理 SSE 流式通信，通过回调实时展示到 ToolWindow。
      */
-    private String chatWithLinterFix(ChatContent content, Project project, Gpt4lllTextArea textArea) {
+    private String chatWithLinterFix(ChatContent content, Project project, AgentChatView textArea) {
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String url = ChatUtils.getUrl(settings, project);
         if (url == null || url.isBlank()) {
@@ -446,72 +455,47 @@ public class LinterFixAction extends AnAction {
         }
         
         String proxy = settings.getProxyAddress();
-        String requestBody = JSON.toJSONString(content);
+        String provider = ModelUtils.getSelectedProvider(project);
 
-        HttpClient client = ChatUtils.buildHttpClient(proxy, project);
-        if (client == null) {
-            return "";
-        }
-
-        HttpRequest request;
+        LlmRequest llmRequest;
         try {
-            request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
+            llmRequest = LlmRequest.builder()
+                    .url(url)
+                    .chatContent(content)
+                    .apiKey(apiKey)
+                    .proxy(proxy)
+                    .provider(provider)
+                    .build();
         } catch (IllegalArgumentException exception) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, 
                     "请求建立失败，请检查相关设置/Request failed", "GPT4_LLL", Messages.getInformationIcon()));
             return "";
         }
 
-        StringBuilder responseBuffer = new StringBuilder();
-
+        String responseText;
         try {
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
-                    .thenAccept(response -> {
-                        response.body().forEach(line -> {
-                            if (line.startsWith("data")) {
-                                line = line.substring(5);
-                                String resContent = null;
-
-                                if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project)) 
-                                        || ProviderNameEnum.FREE.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
-                                    try {
-                                        BaiduSseResponse baiduResponse = JSON.parseObject(line, BaiduSseResponse.class);
-                                        if (baiduResponse != null) {
-                                            resContent = baiduResponse.getResult();
-                                        }
-                                    } catch (Exception ignored) {}
-                                } else {
-                                    try {
-                                        SseResponse sseResponse = JSON.parseObject(line, SseResponse.class);
-                                        if (sseResponse != null && sseResponse.getChoices() != null 
-                                                && !sseResponse.getChoices().isEmpty()) {
-                                            resContent = sseResponse.getChoices().get(0).getDelta().getContent();
-                                        }
-                                    } catch (Exception ignored) {}
-                                }
-
-                                if (resContent != null && !resContent.isEmpty()) {
-                                    responseBuffer.append(resContent);
-                                    if (textArea != null) {
-                                        textArea.appendContent(resContent);
-                                    }
-                                }
-                            }
-                        });
-                    }).join();
+            responseText = LlmClient.streamChat(llmRequest, new LlmStreamCallback() {
+                @Override
+                public void onContent(String contentDelta) {
+                    if (textArea != null) {
+                        textArea.appendContent(contentDelta);
+                    }
+                }
+            });
         } catch (Exception e) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, 
                     e.getMessage(), "Error", Messages.getErrorIcon()));
+            responseText = "";
         }
 
         // 保存响应到会话历史
         Message assistantMessage = new Message();
         assistantMessage.setRole("assistant");
-        assistantMessage.setContent(responseBuffer.toString());
+        assistantMessage.setContent(responseText);
         ChatUtils.getProjectChatHistory(project).add(assistantMessage);
         JsonStorage.saveConservation(ChatUtils.getProjectTopic(project), ChatUtils.getProjectChatHistory(project));
 
-        return responseBuffer.toString();
+        return responseText;
     }
 
     /**

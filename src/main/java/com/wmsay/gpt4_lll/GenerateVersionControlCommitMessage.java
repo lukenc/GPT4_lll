@@ -19,7 +19,6 @@ import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vcs.ProjectLevelVcsManager;
 import com.intellij.openapi.editor.Document;
@@ -31,7 +30,7 @@ import com.intellij.openapi.vcs.changes.CurrentContentRevision;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
@@ -136,11 +135,7 @@ public class GenerateVersionControlCommitMessage extends AnAction {
 
             // System message
             Message systemMessage = new Message();
-            if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
-                systemMessage.setRole("user");
-            } else {
-                systemMessage.setRole("system");
-            }
+            systemMessage.setRole(ChatUtils.getSystemRole(ModelUtils.getSelectedProvider(project)));
             systemMessage.setContent("You are an expert Git commit message writer. You follow conventional commit practices and generate clear, concise messages that adhere to best practices.");
 
             // User message
@@ -158,7 +153,7 @@ public class GenerateVersionControlCommitMessage extends AnAction {
             project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).addAll(List.of(systemMessage, userMessage));
 
             // 清理界面
-            Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+            AgentChatView textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
             if (textArea != null) {
                 textArea.clearShowWindow();
             }
@@ -166,8 +161,6 @@ public class GenerateVersionControlCommitMessage extends AnAction {
             // 获取commit文档
             Document commitDoc = e.getData(VcsDataKeys.COMMIT_MESSAGE_DOCUMENT);
 
-            // 使用扩展后的GenerateAction.chat()方法，传入commitDoc参数
-            // 使用 try-catch 包装线程启动，确保异常时能正确处理运行状态
             chatThread = new Thread(() -> {
                 try {
                     GenerateAction.chat(chatContent, project, false, true, "", 0, commitDoc);

@@ -1,10 +1,10 @@
 package com.wmsay.gpt4_lll;
 
-import com.alibaba.fastjson.JSON;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -19,13 +19,19 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.AgentChatView;
+import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.model.*;
 import com.wmsay.gpt4_lll.languages.FileAnalysisManager;
+import com.wmsay.gpt4_lll.llm.LlmClient;
+import com.wmsay.gpt4_lll.llm.LlmRequest;
+import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapter;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
+import com.wmsay.gpt4_lll.mcp.McpContext;
+import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.SseResponse;
-import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -33,9 +39,6 @@ import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -325,11 +328,8 @@ public class GenerateAction extends AnAction {
                 return;
             }
             Message systemMessage = new Message();
-            if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))  ) {
-                systemMessage.setRole("user");
-            } else {
-                systemMessage.setRole("system");
-            }
+            ProviderAdapter adapter = ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project));
+            systemMessage.setRole(adapter.getSystemMessageRole());
             systemMessage.setContent("你是一个有用的助手，同时也是一个计算机科学家，数据专家，有着多年的代码开发和重构经验和多年的代码优化的架构师");
 
             Message message = new Message();
@@ -400,7 +400,7 @@ public class GenerateAction extends AnAction {
                 project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).addAll(List.of(systemMessage, message));
                 Boolean finalCoding = coding;
                 //清理界面
-                Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+                AgentChatView textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
                 if (textArea != null) {
                     textArea.clearShowWindow();
                 }
@@ -439,31 +439,17 @@ public class GenerateAction extends AnAction {
             return "";
         }
         String proxy = settings.getProxyAddress();
+        String currentProvider = ModelUtils.getSelectedProvider(project);
 
-        String requestBody = JSON.toJSONString(content);
+        LlmRequest llmRequest = LlmRequest.builder()
+                .url(url)
+                .chatContent(content)
+                .apiKey(apiKey)
+                .proxy(proxy)
+                .provider(currentProvider)
+                .build();
 
-        HttpClient client = ChatUtils.buildHttpClient(proxy, project);
-        if (client == null) {
-            CommonUtil.stopRunningStatus(project);
-            return "";
-        }
-        HttpRequest request;
-        try {
-             request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
-        }catch (IllegalArgumentException exception){
-            if (exception.getMessage().equals("URI with undefined scheme")) {
-                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Input the correct api url/请输入正确api地址。", "GPT4_LLL", Messages.getInformationIcon()));
-                return "";
-            } else {
-                SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, "Request establishment failed, please check the relevant settings and input./建立请求失败，请检查相关设置与输入", "GPT4_LLL", Messages.getInformationIcon()));
-                return "";
-            }
-        }finally {
-            CommonUtil.stopRunningStatus(project);
-        }
-
-
-        Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+        AgentChatView textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
         if (Boolean.FALSE.equals(replyShowInWindow) && StringUtils.isEmpty(loadingNotice)) {
             loadingNotice = "正在进行多层问题分析...\nConducting multi-step problem analysis...";
         }
@@ -471,192 +457,11 @@ public class GenerateAction extends AnAction {
             textArea.appendContent(loadingNotice);
         }
 
-        AtomicInteger lastInsertPosition = new AtomicInteger(-1);
-        StringBuilder stringBuffer = new StringBuilder();
-        final AtomicBoolean notExpected = new AtomicBoolean(true);
-        final AtomicBoolean firstThinkingAnswer = new AtomicBoolean(false);
-        final AtomicBoolean startReasonedAnswer = new AtomicBoolean(false);
+        GenerateChatCallback chatCallback = new GenerateChatCallback(
+                project, textArea, replyShowInWindow, coding, commitDoc);
 
-        final AtomicBoolean isWriting = new AtomicBoolean(false);
-        final AtomicInteger countDot = new AtomicInteger(0);
-        final AtomicInteger commitUpdateCounter = new AtomicInteger(0);
         try {
-            AtomicReference<String> preEndString = new AtomicReference<>("");
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
-                    .thenAccept(response -> {
-                        response.body().forEach(line -> {
-                            if (line.startsWith("data")) {
-                                notExpected.set(false);
-                                line = line.substring(5);
-                                SseResponse sseResponse = null;
-                                BaiduSseResponse baiduSseResponse = null;
-
-                                if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))||ProviderNameEnum.FREE.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
-                                    try {
-                                        baiduSseResponse = JSON.parseObject(line, BaiduSseResponse.class);
-                                    } catch (Exception e) {
-                                        //// TODO: 2023/6/9
-                                    }
-                                } else {
-                                    try {
-                                        sseResponse = JSON.parseObject(line, SseResponse.class);
-                                    } catch (Exception e) {
-                                        //// TODO: 2023/6/9
-                                    }
-                                }
-                                if (sseResponse != null || baiduSseResponse != null) {
-                                    // 处理思考内容
-                                    if (sseResponse!=null && sseResponse.getChoices().get(0).getDelta().getReasoningContent()!=null && !sseResponse.getChoices().get(0).getDelta().getReasoningContent().isEmpty()){
-                                        if (!firstThinkingAnswer.get()){
-                                            firstThinkingAnswer.set(true);
-                                            if (textArea != null) {
-                                                textArea.appendThingkingTitle();
-                                            }
-                                        }
-                                        if (textArea != null) {
-                                            if (Boolean.TRUE.equals(replyShowInWindow)) {
-                                                textArea.appendContent(sseResponse.getChoices().get(0).getDelta().getReasoningContent());
-                                            } else {
-                                                textArea.appendContent(sseResponse.getChoices().get(0).getDelta().getReasoningContent());
-                                            }
-                                        }
-                                    }
-
-                                    String resContent;
-                                    if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))||ProviderNameEnum.FREE.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
-                                        resContent = baiduSseResponse.getResult();
-                                    } else {
-                                        resContent = sseResponse.getChoices().get(0).getDelta().getContent();
-                                    }
-                                    if (resContent != null && !resContent.isEmpty()) {
-                                        if (firstThinkingAnswer.get()&& !startReasonedAnswer.get()){
-                                            startReasonedAnswer.set(true);
-                                            if (textArea != null) {
-                                                textArea.appendThingkingEnd();
-                                            }
-                                        }
-                                        if (textArea != null) {
-                                            if (Boolean.TRUE.equals(replyShowInWindow)) {
-                                                textArea.appendContent(resContent);
-                                            } else {
-                                                if (countDot.get() % 4 == 0 && countDot.get() != 0) {
-                                                    textArea.setText(textArea.getText().substring(0, textArea.getText().length() - 3));
-                                                } else {
-                                                    textArea.appendContent(".");
-                                                }
-                                            }
-                                        }
-                                        stringBuffer.append(resContent);
-                                        
-                                        // 实时更新commit消息框（如果提供了commitDoc）
-                                        if (commitDoc != null) {
-                                            // 每5次更新一次，避免过于频繁的更新
-                                            if (commitUpdateCounter.incrementAndGet() % 5 == 0) {
-                                                ApplicationManager.getApplication().invokeLater(() -> {
-                                                    ApplicationManager.getApplication().runWriteAction(() -> {
-                                                        // 提取当前的commit消息内容
-                                                        String currentCommitMessage = extractCommitMessageFromResponse(stringBuffer.toString());
-                                                        if (!currentCommitMessage.isEmpty()) {
-                                                            commitDoc.setText(currentCommitMessage);
-                                                        }
-                                                    });
-                                                });
-                                            }
-                                        }
-                                        
-                                        if (Boolean.TRUE.equals(coding)) {
-                                            ApplicationManager.getApplication().invokeAndWait(() -> {
-                                                ApplicationManager.getApplication().runWriteAction(() -> {
-                                                    Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-                                                    if (editor != null) {
-                                                        Document document = editor.getDocument();
-                                                        SelectionModel selectionModel = editor.getSelectionModel();
-
-                                                        int insertPosition;
-                                                        if (lastInsertPosition.get() == -1) { // This means it's the first time to insert
-                                                            if (selectionModel.hasSelection()) {
-                                                                // If there's a selection, find the end line of the selection
-                                                                int selectionEnd = selectionModel.getSelectionEnd();
-                                                                int endLine = document.getLineNumber(selectionEnd);
-//                                                                // Insert at the end of the line where the selection ends
-//                                                                insertPosition = document.getLineEndOffset(endLine);
-                                                                // Check if the selection ends at the last line of the document
-                                                                int lastLine = document.getLineCount() - 1;
-                                                                if (endLine == lastLine) {
-                                                                    // If selection ends at the last line, append a new line to the document first
-                                                                    int tmpInsertPosition = document.getTextLength();
-
-                                                                    WriteCommandAction.runWriteCommandAction(editor.getProject(), () -> {
-                                                                        document.insertString(tmpInsertPosition, "\n");
-                                                                    });
-
-                                                                    insertPosition=tmpInsertPosition+1; // Move insertion point after the new line
-                                                                } else {
-                                                                    // If not the last line, insert at the end of the line as before
-                                                                    insertPosition = document.getLineEndOffset(endLine);
-                                                                }
-
-                                                            } else {
-                                                                // If there's no selection, insert at the end of the document
-                                                                insertPosition = document.getTextLength();
-                                                            }
-                                                        } else { // This is not the first time, so we insert at the last insert position
-                                                            insertPosition = lastInsertPosition.get();
-                                                        }
-                                                        if (isWriting.get() && resContent.endsWith("`") && !resContent.startsWith("`")) {
-                                                            preEndString.set(resContent);
-                                                            System.out.println(preEndString.get());
-                                                        }
-                                                        if (isWriting.get() && stringBuffer.indexOf("```") != stringBuffer.lastIndexOf("```")) {
-                                                            isWriting.set(false);
-                                                            if (resContent.contains("```")) {
-                                                                String textToInsert;
-                                                                String[] parts = resContent.split("```");
-                                                                if (parts.length>0){
-                                                                    textToInsert=parts[0];
-                                                                } else {
-                                                                    textToInsert = null;
-                                                                }
-                                                                if (!StringUtils.isEmpty(textToInsert)){
-                                                                    WriteCommandAction.runWriteCommandAction(project, () ->
-                                                                            document.insertString(insertPosition, textToInsert));
-                                                                    lastInsertPosition.set(insertPosition + textToInsert.length());
-                                                                }
-                                                            } else {
-                                                                String textToInsert = preEndString.get().replace("`", "");
-                                                                WriteCommandAction.runWriteCommandAction(project, () ->
-                                                                        document.insertString(insertPosition, textToInsert));
-                                                                lastInsertPosition.set(insertPosition + textToInsert.length());
-                                                            }
-                                                        }
-
-                                                        if (stringBuffer.indexOf("```") >= 0 && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```") && stringBuffer.lastIndexOf("\n") > stringBuffer.indexOf("```")) {
-                                                            // Insert a newline and the data
-                                                            isWriting.set(true);
-                                                            String textToInsert;
-                                                            if (resContent.contains("```") && !resContent.endsWith("```")) {
-                                                                textToInsert = resContent.split("```")[1];
-                                                            } else {
-                                                                textToInsert = resContent.replace("`", "");
-                                                            }
-                                                            WriteCommandAction.runWriteCommandAction(project, () ->
-                                                                    document.insertString(insertPosition, textToInsert));
-
-                                                            // Update the last insert position to the end of the inserted text
-                                                            lastInsertPosition.set(insertPosition + textToInsert.length());
-                                                        }
-                                                    }
-                                                });
-                                            });
-                                        }
-
-                                    }
-                                }
-                            } else {
-                                stringBuffer.append(line);
-                            }
-                        });
-                    }).join();
+            LlmClient.streamChat(llmRequest, chatCallback);
         } catch (ProcessCanceledException exception){
             throw exception;
         } catch (Exception e) {
@@ -665,10 +470,8 @@ public class GenerateAction extends AnAction {
         } finally {
             CommonUtil.stopRunningStatus(project);
         }
-//        if (textArea != null) {
-//            textArea.highlight();
-//        }
-        String replyContent = stringBuffer.toString();
+
+        String replyContent = chatCallback.getCollectedContent();
         
         // 最终更新commit消息框（如果提供了commitDoc）
         if (commitDoc != null) {
@@ -683,9 +486,10 @@ public class GenerateAction extends AnAction {
         Message message = new Message();
         message.setRole("assistant");
         message.setContent(replyContent);
+        message.setThinkingContent(chatCallback.getCollectedThinkingContent());
         project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(message);
         JsonStorage.saveConservation(project.getUserData(GPT_4_LLL_NOW_TOPIC), project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY));
-        if (notExpected.get()) {
+        if (chatCallback.isNotExpected()) {
             SwingUtilities.invokeLater(
                     () -> Messages.showMessageDialog(project, replyContent, "ChatGpt", Messages.getInformationIcon())
             );
@@ -693,10 +497,11 @@ public class GenerateAction extends AnAction {
         }
 
         
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
+        ProviderAdapter continuationAdapter = ProviderAdapterRegistry.getAdapter(currentProvider);
+        if (continuationAdapter.supportsContinuationRetry()) {
             //判断是否需要继续未完成的内容
             if (ChatUtils.needsContinuation(replyContent) && retryTime < 2) {
-                project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(ChatUtils.getContinueMessage4Baidu());
+                project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(continuationAdapter.getContinuationMessage());
                 content.setMessages(project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY),ModelUtils.getSelectedProvider(project));
                 chat(content, project, coding, replyShowInWindow, loadingNotice, retryTime + 1, commitDoc);
             }
@@ -704,9 +509,202 @@ public class GenerateAction extends AnAction {
         return replyContent;
     }
 
+    // ==================== Function Calling 集成 ====================
 
+    /**
+     * 检查指定项目是否启用了 function calling。
+     * 通过 WindowTool 实例获取 FC 框架状态。
+     *
+     * @param project 当前项目
+     * @return true 如果 FC 已初始化且启用
+     */
+    public static boolean isFunctionCallingEnabled(Project project) {
+        if (project == null) return false;
+        WindowTool windowTool = WindowTool.getInstance(project);
+        if (windowTool == null) return false;
+        FunctionCallOrchestrator orchestrator = windowTool.getFunctionCallOrchestrator();
+        FunctionCallConfig config = windowTool.getFunctionCallConfig();
+        return orchestrator != null && config != null && config.isEnableFunctionCalling();
+    }
 
+    /**
+     * 使用 function calling 执行对话。
+     * 通过 WindowTool 的 FunctionCallOrchestrator 执行带工具调用的对话流程。
+     * 如果 FC 不可用或执行失败，返回 null 表示应回退到传统 chat 流程。
+     *
+     * @param content 对话内容
+     * @param project 当前项目
+     * @return FC 结果，或 null 表示应回退到传统流程
+     */
+    public static FunctionCallResult chatWithFunctionCalling(ChatContent content, Project project) {
+        WindowTool windowTool = WindowTool.getInstance(project);
+        if (windowTool == null) return null;
 
+        FunctionCallOrchestrator orchestrator = windowTool.getFunctionCallOrchestrator();
+        FunctionCallConfig config = windowTool.getFunctionCallConfig();
+        if (orchestrator == null || config == null) return null;
+
+        try {
+            FunctionCallRequest request = FunctionCallRequest.builder()
+                    .chatContent(content)
+                    .availableTools(McpToolRegistry.getAllTools())
+                    .maxRounds(config.getMaxRounds())
+                    .config(config)
+                    .build();
+
+            McpContext context = McpContext.fromIdeState(project, null);
+
+            FunctionCallOrchestrator.LlmCaller llmCaller = (req) -> {
+                MyPluginSettings settings = MyPluginSettings.getInstance();
+                String url = ChatUtils.getUrl(settings, project);
+                String apiKey = ChatUtils.getApiKey(settings, project);
+                String proxy = settings.getProxyAddress();
+                String currentProvider = ModelUtils.getSelectedProvider(project);
+
+                LlmRequest llmRequest = LlmRequest.builder()
+                        .url(url)
+                        .chatContent(req.getChatContent())
+                        .apiKey(apiKey)
+                        .proxy(proxy)
+                        .provider(currentProvider)
+                        .build();
+
+                return LlmClient.syncChatRaw(llmRequest);
+            };
+
+            // 设置流式 LlmCaller（reasoning/content 实时展示）
+            orchestrator.setStreamingLlmCaller((req, displayCb) -> {
+                MyPluginSettings settings = MyPluginSettings.getInstance();
+                String url = ChatUtils.getUrl(settings, project);
+                String apiKey = ChatUtils.getApiKey(settings, project);
+                String proxy = settings.getProxyAddress();
+                String currentProvider = ModelUtils.getSelectedProvider(project);
+
+                LlmRequest llmRequest = LlmRequest.builder()
+                        .url(url)
+                        .chatContent(req.getChatContent())
+                        .apiKey(apiKey)
+                        .proxy(proxy)
+                        .provider(currentProvider)
+                        .build();
+
+                com.wmsay.gpt4_lll.llm.StreamingFcCollector collector =
+                        new com.wmsay.gpt4_lll.llm.StreamingFcCollector(displayCb);
+                LlmClient.streamChat(llmRequest, collector);
+                return collector.reconstructResponse();
+            });
+
+            // 创建进度回调，实时更新 UI
+            AgentChatView textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+            FunctionCallOrchestrator.ProgressCallback progressCallback =
+                    createFcProgressCallback(textArea);
+
+            FunctionCallResult result = orchestrator.execute(
+                    request, context, llmCaller, progressCallback);
+
+            return result;
+        } catch (Exception e) {
+            System.err.println("[FC] Function calling failed in GenerateAction: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 创建 FC 进度回调，实时在 AgentChatView 中显示工具调用状态。
+     */
+    private static FunctionCallOrchestrator.ProgressCallback createFcProgressCallback(
+            AgentChatView area) {
+        if (area == null) {
+            return new FunctionCallOrchestrator.ProgressCallback() {};
+        }
+        return new FunctionCallOrchestrator.ProgressCallback() {
+            private final java.util.concurrent.atomic.AtomicReference<com.wmsay.gpt4_lll.component.block.ToolUseBlock>
+                    currentToolBlock = new java.util.concurrent.atomic.AtomicReference<>();
+
+            @Override
+            public void onLlmCallStarting(int round) {
+            }
+
+            // ---- 非流式路径回调 ----
+            @Override
+            public void onReasoningContent(int round, String reasoningContent) {
+                SwingUtilities.invokeLater(() -> {
+                    area.appendThingkingTitle();
+                    area.appendContent(reasoningContent);
+                    area.appendThingkingEnd();
+                });
+            }
+
+            @Override
+            public void onTextContent(int round, String content) {
+                SwingUtilities.invokeLater(() -> area.appendContent(content));
+            }
+
+            // ---- 流式路径回调：reasoning/content 实时增量展示 ----
+            @Override
+            public void onReasoningStarted(int round) {
+                SwingUtilities.invokeLater(() -> area.appendThingkingTitle());
+            }
+
+            @Override
+            public void onReasoningDelta(int round, String delta) {
+                SwingUtilities.invokeLater(() -> area.appendContent(delta));
+            }
+
+            @Override
+            public void onReasoningComplete(int round) {
+                SwingUtilities.invokeLater(() -> area.appendThingkingEnd());
+            }
+
+            @Override
+            public void onTextDelta(int round, String delta) {
+                SwingUtilities.invokeLater(() -> area.appendContent(delta));
+            }
+
+            @Override
+            public void onLlmCallCompleted(int round, int toolCallCount) {
+            }
+
+            @Override
+            public void onToolExecutionStarting(String toolName, java.util.Map<String, Object> params) {
+                SwingUtilities.invokeLater(() -> {
+                    var block = area.addToolUseBlock(toolName, params);
+                    currentToolBlock.set(block);
+                });
+            }
+
+            @Override
+            public void onToolExecutionCompleted(ToolCallResult result) {
+                SwingUtilities.invokeLater(() -> {
+                    var block = currentToolBlock.getAndSet(null);
+                    if (block != null) {
+                        block.markCompleted(result.isSuccess(), result.getDurationMs());
+                    }
+                    String toolName = result.getToolName();
+                    if (result.isSuccess()) {
+                        String resultText = result.getResult() != null
+                                ? result.getResult().getDisplayText() : "(no output)";
+                        if (resultText == null || resultText.isEmpty()) {
+                            resultText = "(no output)";
+                        }
+                        area.addToolResultBlock(toolName, resultText);
+                    } else {
+                        String errorText = result.getError() != null
+                                ? result.getError().getMessage()
+                                + (result.getError().getSuggestion() != null
+                                    ? "\n" + result.getError().getSuggestion() : "")
+                                : "Unknown error";
+                        area.addToolResultBlock(toolName + " (ERROR)", errorText);
+                    }
+                });
+            }
+        };
+    }
+
+    /**
+     * 在 AgentChatView 中显示 FC 工具调用历史。
+     */
+    // displayFcToolCallHistory removed — replaced by real-time ProgressCallback
 
     public String getOpenFileType(Project project) {
         FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
@@ -841,6 +839,212 @@ public class GenerateAction extends AnAction {
         
         // 如果没有找到代码块，返回整个响应
         return response.trim();
+    }
+
+    /**
+     * GenerateAction.chat() 的流式回调实现。
+     * 将原匿名回调提取为命名类，封装编辑器写入状态机和 UI 展示逻辑。
+     * <p>
+     * 状态机逻辑（coding=true 时的编辑器实时写入）保持原有行为不变，
+     * 仅从匿名代码块提取为命名类以提升可读性和可测试性。
+     *
+     * @see GenerateAction#chat(ChatContent, Project, Boolean, Boolean, String, Integer, Document)
+     */
+    static class GenerateChatCallback implements LlmStreamCallback {
+        // ---- 外部依赖（构造时注入） ----
+        private final Project project;
+        private final AgentChatView textArea;
+        private final Boolean replyShowInWindow;
+        private final Boolean coding;
+        private final Document commitDoc;
+
+        // ---- 流式处理状态 ----
+        private final StringBuilder stringBuffer = new StringBuilder();
+        private final StringBuilder thinkingBuffer = new StringBuilder();
+        private final AtomicBoolean notExpected = new AtomicBoolean(true);
+        private final AtomicBoolean firstThinkingAnswer = new AtomicBoolean(false);
+        private final AtomicBoolean startReasonedAnswer = new AtomicBoolean(false);
+        private final AtomicBoolean isWriting = new AtomicBoolean(false);
+        private final AtomicInteger lastInsertPosition = new AtomicInteger(-1);
+        private final AtomicInteger countDot = new AtomicInteger(0);
+        private final AtomicInteger commitUpdateCounter = new AtomicInteger(0);
+        private final AtomicReference<String> preEndString = new AtomicReference<>("");
+
+        GenerateChatCallback(Project project, AgentChatView textArea,
+                             Boolean replyShowInWindow, Boolean coding, Document commitDoc) {
+            this.project = project;
+            this.textArea = textArea;
+            this.replyShowInWindow = replyShowInWindow;
+            this.coding = coding;
+            this.commitDoc = commitDoc;
+        }
+
+        /** 获取已收集的完整回复内容（含 data 行内容和非 data 行文本）。 */
+        public String getCollectedContent() {
+            return stringBuffer.toString();
+        }
+
+        /** 获取已收集的思考过程内容（reasoning_content），为空时返回 null。 */
+        public String getCollectedThinkingContent() {
+            return thinkingBuffer.length() > 0 ? thinkingBuffer.toString() : null;
+        }
+
+        /** 是否未收到任何 data 行（即响应不符合预期的 SSE 格式）。 */
+        public boolean isNotExpected() {
+            return notExpected.get();
+        }
+
+        @Override
+        public void onDataLineReceived() {
+            notExpected.set(false);
+        }
+
+        @Override
+        public void onNonDataLine(String line) {
+            stringBuffer.append(line);
+        }
+
+        @Override
+        public void onReasoningContent(String reasoningDelta) {
+            thinkingBuffer.append(reasoningDelta);
+            if (!firstThinkingAnswer.get()) {
+                firstThinkingAnswer.set(true);
+                if (textArea != null) {
+                    textArea.appendThingkingTitle();
+                }
+            }
+            if (textArea != null) {
+                textArea.appendContent(reasoningDelta);
+            }
+        }
+
+        @Override
+        public void onContent(String resContent) {
+            // ---- 思考→正式回复的过渡 ----
+            if (firstThinkingAnswer.get() && !startReasonedAnswer.get()) {
+                startReasonedAnswer.set(true);
+                if (textArea != null) {
+                    textArea.appendThingkingEnd();
+                }
+            }
+
+            // ---- ToolWindow 展示 ----
+            if (textArea != null) {
+                if (Boolean.TRUE.equals(replyShowInWindow)) {
+                    textArea.appendContent(resContent);
+                } else {
+                    if (countDot.get() % 4 == 0 && countDot.get() != 0) {
+                        textArea.setText(textArea.getText().substring(0, textArea.getText().length() - 3));
+                    } else {
+                        textArea.appendContent(".");
+                    }
+                }
+            }
+
+            // ---- 收集内容 ----
+            stringBuffer.append(resContent);
+
+            // ---- 实时更新 commit 消息框 ----
+            if (commitDoc != null) {
+                if (commitUpdateCounter.incrementAndGet() % 5 == 0) {
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        ApplicationManager.getApplication().runWriteAction(() -> {
+                            String currentCommitMessage = extractCommitMessageFromResponse(stringBuffer.toString());
+                            if (!currentCommitMessage.isEmpty()) {
+                                commitDoc.setText(currentCommitMessage);
+                            }
+                        });
+                    }, ModalityState.defaultModalityState());
+                }
+            }
+
+            // ---- 编辑器实时写入状态机（coding=true） ----
+            if (Boolean.TRUE.equals(coding)) {
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    ApplicationManager.getApplication().runWriteAction(() -> {
+                        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+                        if (editor != null) {
+                            insertContentToEditor(editor, resContent);
+                        }
+                    });
+                }, ModalityState.defaultModalityState());
+            }
+        }
+
+        /**
+         * 编辑器写入状态机核心逻辑。
+         * 根据代码块标记（```）控制写入开始和结束。
+         * ⚠️ 此方法内部逻辑与原 GenerateAction.chat() 完全一致，不做任何改动。
+         */
+        private void insertContentToEditor(Editor editor, String resContent) {
+            Document document = editor.getDocument();
+            SelectionModel selectionModel = editor.getSelectionModel();
+
+            int insertPosition;
+            if (lastInsertPosition.get() == -1) {
+                if (selectionModel.hasSelection()) {
+                    int selectionEnd = selectionModel.getSelectionEnd();
+                    int endLine = document.getLineNumber(selectionEnd);
+                    int lastLine = document.getLineCount() - 1;
+                    if (endLine == lastLine) {
+                        int tmpInsertPosition = document.getTextLength();
+                        WriteCommandAction.runWriteCommandAction(editor.getProject(), () -> {
+                            document.insertString(tmpInsertPosition, "\n");
+                        });
+                        insertPosition = tmpInsertPosition + 1;
+                    } else {
+                        insertPosition = document.getLineEndOffset(endLine);
+                    }
+                } else {
+                    insertPosition = document.getTextLength();
+                }
+            } else {
+                insertPosition = lastInsertPosition.get();
+            }
+
+            if (isWriting.get() && resContent.endsWith("`") && !resContent.startsWith("`")) {
+                preEndString.set(resContent);
+                System.out.println(preEndString.get());
+            }
+
+            if (isWriting.get() && stringBuffer.indexOf("```") != stringBuffer.lastIndexOf("```")) {
+                isWriting.set(false);
+                if (resContent.contains("```")) {
+                    String textToInsert;
+                    String[] parts = resContent.split("```");
+                    if (parts.length > 0) {
+                        textToInsert = parts[0];
+                    } else {
+                        textToInsert = null;
+                    }
+                    if (!StringUtils.isEmpty(textToInsert)) {
+                        WriteCommandAction.runWriteCommandAction(project, () ->
+                                document.insertString(insertPosition, textToInsert));
+                        lastInsertPosition.set(insertPosition + textToInsert.length());
+                    }
+                } else {
+                    String textToInsert = preEndString.get().replace("`", "");
+                    WriteCommandAction.runWriteCommandAction(project, () ->
+                            document.insertString(insertPosition, textToInsert));
+                    lastInsertPosition.set(insertPosition + textToInsert.length());
+                }
+            }
+
+            if (stringBuffer.indexOf("```") >= 0
+                    && stringBuffer.indexOf("```") == stringBuffer.lastIndexOf("```")
+                    && stringBuffer.lastIndexOf("\n") > stringBuffer.indexOf("```")) {
+                isWriting.set(true);
+                String textToInsert;
+                if (resContent.contains("```") && !resContent.endsWith("```")) {
+                    textToInsert = resContent.split("```")[1];
+                } else {
+                    textToInsert = resContent.replace("`", "");
+                }
+                WriteCommandAction.runWriteCommandAction(project, () ->
+                        document.insertString(insertPosition, textToInsert));
+                lastInsertPosition.set(insertPosition + textToInsert.length());
+            }
+        }
     }
 }
 

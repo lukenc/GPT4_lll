@@ -25,6 +25,8 @@ public class MyPluginConfigurable implements Configurable {
     private JTextField grokApiKeyField;
     //deepseek
     private JTextField deepseekApiKeyField;
+    //火山引擎（豆包）
+    private JTextField volcApiKeyField;
     //自定义的配置
     private JTextField personalApiKeyField;
     private JTextField personalAddressField;
@@ -105,7 +107,14 @@ public class MyPluginConfigurable implements Configurable {
         addTitleLabel(panel, c, gridy++, "DeepSeek配置/DeepSeek Configuration");
         // DeepSeek API Key 设置
         addLabelAndField(panel, c, gridy++, "DeepSeek Api Key:", deepseekApiKeyField = new JTextField(20));
-        tongyiApiKeyField.setToolTipText("输入您的DeepSeek Api Key");
+        deepseekApiKeyField.setToolTipText("输入您的DeepSeek Api Key");
+
+        // 分隔线
+        addSeparator(panel, c, gridy++);
+        addTitleLabel(panel, c, gridy++, "火山引擎（豆包）配置/VolcEngine (Doubao) Configuration");
+        // 火山引擎 API Key 设置
+        addLabelAndField(panel, c, gridy++, "火山引擎 Api Key:", volcApiKeyField = new JTextField(20));
+        volcApiKeyField.setToolTipText("输入您的火山引擎(豆包) Api Key，即 ARK_API_KEY");
 
         // 分隔线
         addSeparator(panel, c, gridy++);
@@ -188,7 +197,8 @@ public class MyPluginConfigurable implements Configurable {
                         !personalApiKeyField.getText().equals(settings.getPersonalApiKey()) ||
                         !personalModelField.getText().equals(settings.getPersonalModel())||
                         !grokApiKeyField.getText().equals(settings.getGrokApiKey())||
-                        !deepseekApiKeyField.getText().equals(settings.getDeepSeekApiKey())
+                        !deepseekApiKeyField.getText().equals(settings.getDeepSeekApiKey())||
+                        !volcApiKeyField.getText().equals(settings.getVolcApiKey())
                 ;
 
     }
@@ -206,6 +216,7 @@ public class MyPluginConfigurable implements Configurable {
         settings.setPersonalModel(personalModelField.getText());
         settings.setGrokApiKey(grokApiKeyField.getText());
         settings.setDeepSeekApiKey(deepseekApiKeyField.getText());
+        settings.setVolcApiKey(volcApiKeyField.getText());
     }
 
     @Override
@@ -221,6 +232,7 @@ public class MyPluginConfigurable implements Configurable {
         personalApiKeyField.setText(settings.getPersonalApiKey());
         grokApiKeyField.setText(settings.getGrokApiKey());
         deepseekApiKeyField.setText(settings.getDeepSeekApiKey());
+        volcApiKeyField.setText(settings.getVolcApiKey());
     }
 }
 

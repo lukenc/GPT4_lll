@@ -31,6 +31,9 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
 
         public String deepSeekApiKey;
 
+        //火山引擎（豆包）配置
+        public String volcApiKey;
+
     }
 
     private State state = new State();
@@ -121,4 +124,12 @@ public class MyPluginSettings implements PersistentStateComponent<MyPluginSettin
     public String getDeepSeekApiKey() {
         return state.deepSeekApiKey;
     }
+
+    public void setVolcApiKey(String volcApiKey) {
+        state.volcApiKey = volcApiKey;
+    }
+    public String getVolcApiKey() {
+        return state.volcApiKey;
+    }
+
 }

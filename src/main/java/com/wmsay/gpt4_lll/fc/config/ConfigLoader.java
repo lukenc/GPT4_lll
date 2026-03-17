@@ -33,7 +33,7 @@ import java.util.function.Function;
  * ConfigLoader loader = new ConfigLoader();
  *
  * // 完整加载：文件 + 环境变量覆盖
- * FunctionCallConfig config = loader.load(Path.of(".kiro/function-calling-config.json"));
+ * FunctionCallConfig config = loader.load(Path.of(".lll/function-calling-config.json"));
  *
  * // 仅从文件加载
  * FunctionCallConfig fileConfig = loader.loadFromFile(path);
