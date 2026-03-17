@@ -1,0 +1,10 @@
+package com.wmsay.gpt4_lll.component.block;
+
+public enum BlockType {
+    MARKDOWN,
+    CODE,
+    THINKING,
+    TOOL_CALL,
+    TOOL_USE,
+    TOOL_RESULT
+}
