@@ -1,15 +1,16 @@
 package com.wmsay.gpt4_lll.utils;
 
-import com.alibaba.fastjson.JSON;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.wmsay.gpt4_lll.MyPluginSettings;
+import com.wmsay.gpt4_lll.llm.LlmClient;
+import com.wmsay.gpt4_lll.llm.LlmRequest;
+import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapter;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
-import com.wmsay.gpt4_lll.model.SseResponse;
-import com.wmsay.gpt4_lll.model.baidu.BaiduSseResponse;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -21,7 +22,6 @@ import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,8 +29,6 @@ import java.util.List;
 public class ChatUtils {
 
     private static final Logger log = LoggerFactory.getLogger(ChatUtils.class);
-
-    private static final String ACCESS_TOKEN_QUERY_KEY= "?access_token=";
 
     public static Message getOddMessage4Baidu(){
         Message message = new Message();
@@ -77,72 +75,68 @@ public class ChatUtils {
 
 
     /**
-     * 获取API URL。
+     * 获取 API URL。
+     * 通过 ProviderAdapter 派发，统一处理所有供应商的 URL 获取逻辑。
      *
+     * @param settings  插件设置
+     * @param provider  供应商名称
+     * @param modelName 模型名称
      * @return API URL
      */
-    public static String getUrlByProvider(MyPluginSettings settings,String  provider,String modelName) {
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
-            String accessToken = AuthUtils.getBaiduAccessToken();
-            return ModelUtils.getUrlByProvider(provider)+ modelName + ACCESS_TOKEN_QUERY_KEY + accessToken;
-        }
-        //todo 当前只有百度是免费的 所以先将免费的都写成百度的
-        if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
-            String accessToken = AuthUtils.getFreeBaiduAccessToken();
-            return "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + ACCESS_TOKEN_QUERY_KEY + accessToken;
-        }
-        if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
-            return settings.getPersonalApiUrl();
-        }
-        // 处理标准接口的公有平台url
-        return ModelUtils.getUrlByProvider(provider);
+    public static String getUrlByProvider(MyPluginSettings settings, String provider, String modelName) {
+        ProviderAdapter adapter = ProviderAdapterRegistry.getAdapter(provider);
+        return adapter.getApiUrl(settings, modelName);
     }
 
-    public static String getUrl(MyPluginSettings settings,Project project) {
+    /**
+     * 获取 API URL（从 Project 获取供应商和模型信息）。
+     *
+     * @param settings 插件设置
+     * @param project  当前项目
+     * @return API URL
+     */
+    public static String getUrl(MyPluginSettings settings, Project project) {
         String provider = ModelUtils.getSelectedProvider(project);
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
-            String accessToken = AuthUtils.getBaiduAccessToken();
-            return ModelUtils.getUrlByProvider(provider)+ ModelUtils.getModelNameByDisplay(ModelUtils.getSelectedModel(project).getDisplayName()) + ACCESS_TOKEN_QUERY_KEY + accessToken;
-        }
-        //todo 当前只有百度是免费的 所以先将免费的都写成百度的
-        if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
-            String accessToken = AuthUtils.getFreeBaiduAccessToken();
-            return "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k" + ACCESS_TOKEN_QUERY_KEY + accessToken;
-        }
-        if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
-            return settings.getPersonalApiUrl();
-        }
-        // 处理标准接口的公有平台url
-        return ModelUtils.getUrlByProvider(provider);
+        String modelName = ModelUtils.getModelNameByDisplay(ModelUtils.getSelectedModel(project).getDisplayName());
+        return getUrlByProvider(settings, provider, modelName);
     }
 
-
-
-    public static String getApiKey(MyPluginSettings settings,Project project) {
+    /**
+     * 获取 API Key。
+     * 通过 ProviderAdapter 派发，统一处理所有供应商的 API Key 获取逻辑。
+     *
+     * @param settings 插件设置
+     * @param project  当前项目
+     * @return API Key
+     */
+    public static String getApiKey(MyPluginSettings settings, Project project) {
         String provider = ModelUtils.getSelectedProvider(project);
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
-            return AuthUtils.getBaiduAccessToken();
-        }
-        //todo 当前只有百度是免费的 所以先将免费的都写成百度的
-        if (ProviderNameEnum.FREE.getProviderName().equals(provider)) {
-            return AuthUtils.getFreeBaiduAccessToken();
-        }
-        if (ProviderNameEnum.PERSONAL.getProviderName().equals(provider)){
-            return settings.getPersonalApiKey();
-        }
-        if (ProviderNameEnum.OPEN_AI.getProviderName().equals(provider)){
-            return settings.getApiKey();
-        }
-        if (ProviderNameEnum.ALI.getProviderName().equals(provider)){
-            return settings.getTongyiApiKey();
-        }
-        if (ProviderNameEnum.GROK.getProviderName().equals(provider)){
-            return settings.getGrokApiKey();
-        }
-        if (ProviderNameEnum.DEEP_SEEK.getProviderName().equals(provider)){
-            return settings.getDeepSeekApiKey();
-        }
-        return "";
+        ProviderAdapter adapter = ProviderAdapterRegistry.getAdapter(provider);
+        return adapter.getApiKey(settings);
+    }
+
+    // ==================== 供应商适配器便捷方法 ====================
+
+    /**
+     * 获取 system message 应使用的角色名。
+     * 通过 ProviderAdapter 派发，替代各 Action 中散落的 if(BAIDU) setRole("user") 判断。
+     *
+     * @param provider 供应商名称
+     * @return "system" 或 "user"
+     */
+    public static String getSystemRole(String provider) {
+        return ProviderAdapterRegistry.getAdapter(provider).getSystemMessageRole();
+    }
+
+    /**
+     * 判断当前供应商是否支持回复未完成时的续传重试。
+     * 当前仅百度文心支持该特性。
+     *
+     * @param provider 供应商名称
+     * @return true 支持续传重试
+     */
+    public static boolean supportsContinuationRetry(String provider) {
+        return ProviderAdapterRegistry.getAdapter(provider).supportsContinuationRetry();
     }
 
     public static Boolean needsContinuation(String replyContent) {
@@ -223,6 +217,21 @@ public class ChatUtils {
                 .build();
     }
 
+    /**
+     * 构建非流式 HTTP 请求（用于 Function Calling）。
+     * 与 buildHttpRequest 相同，但 Accept 为 application/json。
+     */
+    public static HttpRequest buildHttpRequestJson(String url, String requestBody, String apiKey) {
+        return HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .timeout(Duration.ofMinutes(2))
+                .build();
+    }
+
 
     public static boolean isValidPort(String portStr) {
         try {
@@ -269,62 +278,35 @@ public class ChatUtils {
         }
         String proxy = settings.getProxyAddress();
 
-        String requestBody = JSON.toJSONString(content);
-
-        HttpClient client = ChatUtils.buildHttpClient(proxy);
-        HttpRequest request;
+        LlmRequest request;
         try {
-            request = ChatUtils.buildHttpRequest(url, requestBody, apiKey);
-        }catch (IllegalArgumentException exception){
-            if (exception.getMessage().equals("URI with undefined scheme")) {
+            request = LlmRequest.builder()
+                    .url(url)
+                    .chatContent(content)
+                    .apiKey(apiKey)
+                    .proxy(proxy)
+                    .provider(provider)
+                    .build();
+        } catch (IllegalArgumentException exception) {
+            if (exception.getMessage() != null && exception.getMessage().contains("URI with undefined scheme")) {
                 throw new IllegalArgumentException("Input the correct api url/请输入正确api地址。");
             } else {
                 throw new IllegalArgumentException("Request establishment failed, please check the relevant settings and input./建立请求失败，请检查相关设置与输入");
             }
         }
+
         StringBuilder stringBuffer = new StringBuilder();
+        LlmClient.streamChat(request, new LlmStreamCallback() {
+            @Override
+            public void onContent(String contentDelta) {
+                stringBuffer.append(contentDelta);
+            }
 
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofLines())
-                .thenAccept(response -> {
-                    log.debug("response.body:{}", response.body());
-                    response.body().forEach(line -> {
-                        if (line.startsWith("data")) {
-//                            notExpected.set(false);
-                            line = line.substring(5);
-                            SseResponse sseResponse = null;
-                            BaiduSseResponse baiduSseResponse = null;
-
-                            if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)||ProviderNameEnum.FREE.getProviderName().equals(provider)) {
-                                try {
-                                    baiduSseResponse = JSON.parseObject(line, BaiduSseResponse.class);
-                                } catch (Exception e) {
-                                    //// TODO: 2023/6/9
-                                }
-                            } else {
-                                try {
-                                    sseResponse = JSON.parseObject(line, SseResponse.class);
-                                } catch (Exception e) {
-                                    //// TODO: 2023/6/9
-                                }
-                            }
-                            if (sseResponse != null || baiduSseResponse != null) {
-                                String resContent;
-                                if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)||ProviderNameEnum.FREE.getProviderName().equals(provider)) {
-                                    resContent = baiduSseResponse.getResult();
-                                } else {
-                                    resContent = sseResponse.getChoices().get(0).getDelta().getContent();
-                                }
-                                if (resContent != null) {
-                                    stringBuffer.append(resContent);
-                                }
-                            }
-                        } else {
-                            stringBuffer.append(line);
-                        }
-                    });
-                }).join();
+            @Override
+            public void onNonDataLine(String line) {
+                stringBuffer.append(line);
+            }
+        });
         return stringBuffer.toString();
-
-
     }
 }

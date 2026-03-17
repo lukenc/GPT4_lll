@@ -15,6 +15,8 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.wmsay.gpt4_lll.model.RuntimeStatus;
+
 import static com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey.GPT_4_LLL_RUNNING_STATUS;
 
 public class CommonUtil {
@@ -271,12 +273,17 @@ public class CommonUtil {
 
 
     public static void stopRunningStatus(Project project){
+        stopRunningStatus(project, true);
+    }
+    public static void stopRunningStatus(Project project, boolean success){
         project.putUserData(GPT_4_LLL_RUNNING_STATUS,false);
+        RuntimeStatusManager.setStatus(project, success ? RuntimeStatus.COMPLETED : RuntimeStatus.ERROR);
     }
     public static void startRunningStatus(Project project){
         project.putUserData(GPT_4_LLL_RUNNING_STATUS,true);
+        RuntimeStatusManager.setStatus(project, RuntimeStatus.RUNNING);
     }
-    public static Boolean isRunningStatus(Project project){
+    public static boolean isRunningStatus(Project project){
         return Boolean.TRUE.equals( project.getUserData(GPT_4_LLL_RUNNING_STATUS));
     }
 

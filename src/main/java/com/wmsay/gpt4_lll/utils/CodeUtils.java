@@ -83,18 +83,6 @@ public class CodeUtils {
             10、兼容性：使用的语法是否兼容主流浏览器和设备。
             """;
 
-    public static String BACK_END_DEV_STD= """
-            1、类、方法、变量的命名：1、是否遵循编程语言的命名惯例；2、命名是否清晰、描述性强，易于理解其作用；3、是否避免了过于简短或过于泛化的命名，以及歧义和误导性的命名；
-            2、空指针风险：这一项要谨慎评估。不要遗漏，也不要误报。
-            3、数组越界风险：评估数组和集合操作中是否有适当的长度或边界检查。
-            4、并发控制：1、能否使用多线程技术完善当前代码，提升效率；2、是否正确使用同步和锁机制；3、对多线程和并发操作的处理是否正确；4、检查死锁风险和线程安全问题；
-            5、注释完整性：1、检查关键代码段是否有清晰的注释；2、注释是否与代码逻辑一致、是否恰当；
-            6、异常捕捉及处理：1、是否需要捕捉异常而没有做；2、检查异常处理是否合理，避免过分泛化的捕捉；
-            7、日志的完善度和合规性：1、日志是否包含足够的上下文信息，便于问题排查；2、检查日志级别的适当性（如 debug, info, warn, error）；3、确保不记录敏感信息，如密码和个人数据
-            8、是否有安全方面的问题：是否存在安全漏洞
-            9、是否有性能方面的问题：1、评估算法和数据结构选择对性能的影响；2、检查是否有不必要的数据库访问或网络通信，避免不必要的循环和重复计算能否改用批处理；3、评估资源使用和管理，如内存泄漏、文件句柄泄漏等；4、能否适当使用缓存机制和异步处理，以提高应用性能。
-            10、其余方面（例如：1、可维护性；2、是否使用了设计模式和最佳实践以提高代码重用；3、如果是方法，是否易于使用；4、是否可以复用已有的公开类库代替；5、代码是否易读；6、代码结构是否满足“高内聚、松耦合”）
-            """;
 
 
     public static String BACK_END_DEV_STD_PROMPT = """
@@ -157,56 +145,6 @@ public class CodeUtils {
                 10.6 结构设计：代码结构是否遵循 “高内聚、低耦合” 的原则。
                         """;
 
-    public static String BACK_END_DEV_STD_PROMPT_ENG = """
-          Scoring Standard (Total 100 Points)
-          Please evaluate the code strictly according to the following 10 dimensions, with each dimension worth a maximum of 10 points:
-           1.  **Naming Conventions (10 points)**
-               * 1.1 Does it follow the naming conventions of the current programming language (e.g., camelCase, PascalCase for classes)?
-               * 1.2 Are names clear, descriptive, and intuitively reflect their function or purpose?
-               * 1.3 Does it avoid overly short or generic names?
-               * 1.4 Check for ambiguous or misleading names.
-           2.  **Null Pointer Risk (10 points)**
-               * 2.1 Are necessary checks performed for potentially null objects?
-               * 2.2 Are language features for handling nulls used correctly and effectively (e.g., Java's Optional, Kotlin's null-safety)?
-               * 2.3 Ensure code neither omits necessary null checks nor overuses them, impacting conciseness.
-           3.  **Array and Collection Boundary Risks (10 points)**
-               * 3.1 Are appropriate boundary checks (e.g., index range) performed in array or collection operations?
-               * 3.2 Are there logical flaws that could lead to array/collection out-of-bounds errors?
-               * 3.3 Are edge cases like empty collections or arrays handled correctly?
-           4.  **Concurrency Control (10 points)**
-               * 4.1 Does the code operate in a multi-threaded environment? If so, are shared resources properly protected?
-               * 4.2 Based on the use case, are synchronization and locking mechanisms (e.g., synchronized, Lock) used correctly to prevent race conditions?
-               * 4.3 Is thread safety considered for concurrent operations?
-               * 4.4 Is the risk of deadlocks checked?
-           5.  **Comment Completeness (10 points)**
-               * 5.1 Are clear and accurate comments added to critical, complex, or non-obvious code sections?
-               * 5.2 Does the comment content align with the actual code logic and is it kept up-to-date, avoiding misdirection?
-               * 5.3 Is the amount of commenting appropriate, avoiding too much (clutter) or too little (obscurity)? Are public APIs documented (e.g., JavaDoc)?
-           6.  **Exception Handling (10 points)**
-               * 6.1 Are necessary and predictable exceptions caught to prevent unexpected program termination?
-               * 6.2 Is the exception handling logic reasonable? Does it avoid overly broad catches (e.g., `catch (Exception e)`) and handle exceptions appropriately (recover, retry, log, wrap, or rethrow)?
-               * 6.3 Is adequate logging or meaningful error feedback provided to users/callers for exceptional situations?
-           7.  **Logging Completeness and Compliance (10 points)**
-               * 7.1 Do logs record sufficient context (e.g., key parameters, user ID, trace ID) to facilitate troubleshooting?
-               * 7.2 Are log levels (e.g., DEBUG, INFO, WARN, ERROR) used appropriately and consistently?
-               * 7.3 Is it ensured that sensitive information (e.g., passwords, PII, bank details, secrets) is NOT logged, complying with security and privacy regulations?
-           8.  **Security (10 points)**
-               * 8.1 Are there potential common security vulnerabilities (e.g., SQL Injection, Cross-Site Scripting (XSS), Command Injection, Insecure Deserialization, Hardcoded Credentials, sensitive data exposure)?
-               * 8.2 Is input validation sufficient to defend against malicious input?
-               * 8.3 Is authentication and authorization logic sound? Are there risks of privilege escalation or bypass?
-               * 8.4 Do dependencies have known security vulnerabilities?
-           9.  **Performance Optimization (10 points)**
-               * 9.1 Are appropriate algorithms and data structures chosen?
-               * 9.2 Are unnecessary computations, redundant database queries, or frequent I/O operations avoided?
-               * 9.3 Is resource management handled properly (e.g., closing streams, releasing connection pool resources)? Is there a risk of memory leaks?
-               * 9.4 Are performance optimization techniques (e.g., caching, asynchronous processing, batching, index optimization) applied where appropriate?
-           10. **Other Aspects of Code Quality (10 points)**
-               * 10.1 **Maintainability/Readability:** Is the code structure clear and the logic easy to understand? Does it follow principles like SOLID? Are there overly long methods or classes? Is modularization reasonable (high cohesion, low coupling)?
-               * 10.2 **Design Patterns:** Are design patterns applied appropriately to enhance reusability, flexibility, and extensibility?
-               * 10.3 **Code Duplication:** Is unnecessary code duplication avoided (following the DRY - Don't Repeat Yourself principle)?
-               * 10.4 **Library/Framework Usage:** Are language features, standard libraries, or third-party frameworks used appropriately, avoiding reinventing the wheel?
-               * 10.5 **Simplicity:** Is the code concise and clear, avoiding unnecessary complexity?                            
-                        """;
 
 
     public static final String BACK_END_DEV_STD_PROMPT_ENG_TEMPLATE = """

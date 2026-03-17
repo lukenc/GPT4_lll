@@ -32,6 +32,7 @@ public class ModelUtils {
         modelProviders.add(new ModelProvider(ProviderNameEnum.ALI.getProviderName(), "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "国内厂商中头部水平了"));
         modelProviders.add(new ModelProvider(ProviderNameEnum.GROK.getProviderName(), "https://api.x.ai/v1/chat/completions", "X出的的平台，马斯克早的应该不错。"));
         modelProviders.add(new ModelProvider(ProviderNameEnum.DEEP_SEEK.getProviderName(), "https://api.deepseek.com/chat/completions", "国内头部厂商"));
+        modelProviders.add(new ModelProvider(ProviderNameEnum.VOLC_ENGINE.getProviderName(), "https://ark.cn-beijing.volces.com/api/v3/chat/completions", "字节跳动火山引擎豆包系列"));
 
         provider2Url = modelProviders.stream().collect(Collectors.toMap(ModelProvider::getName, ModelProvider::getUrl));
         // 免费模型
@@ -47,6 +48,7 @@ public class ModelUtils {
         modelOptions.add(new SelectModelOption("llama_3_70b", "Meta AI于2024年4月18日发布的Meta Llama 3系列70B参数大语言模型", ProviderNameEnum.BAIDU.getProviderName(), "Meta-Llama-3-70B-Instruct"));
 
         // Alibaba 模型
+        modelOptions.add(new SelectModelOption("qwen3.5-plus", "千问3.5-Plus：397B参数MoE架构，100万token上下文，自适应推理，性价比极高", ProviderNameEnum.ALI.getProviderName(), "Qwen3.5 Plus"));
         modelOptions.add(new SelectModelOption("qwen3-coder-plus", "推荐： Qwen3-Coder-Plus 系列模型是基于 Qwen3 的代码生成模型", ProviderNameEnum.ALI.getProviderName(), "Qwen3 Coder Plus"));
         modelOptions.add(new SelectModelOption("qwen3-coder-flash", "基于 Qwen3 的代码生成模型", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Flash"));
         modelOptions.add(new SelectModelOption("qwen-coder-plus", "稳定版的专门搞代码的模型。好于turbo。", ProviderNameEnum.ALI.getProviderName(), "Qwen Coder Plus(better then turbo)"));
@@ -71,6 +73,13 @@ public class ModelUtils {
         //DeepSeek
         modelOptions.add(new SelectModelOption("deepseek-chat", "deepseek-chat 模型已全面升级为 DeepSeek-V3。是DeepSeek团队推出的大语言模型，支持多模态对话，具有强大的文本理解能力。", ProviderNameEnum.DEEP_SEEK.getProviderName(), "DeepSeek(DeepSeek-V3)"));
         modelOptions.add(new SelectModelOption("deepseek-reasoner", "deepseek-reasoner是DeepSeek 最新推出的推理模型 DeepSeek-R1。", ProviderNameEnum.DEEP_SEEK.getProviderName(), "DeepSeek-R1"));
+        // 火山引擎（豆包）系列 — 仅保留支持 Function Calling 的模型
+        modelOptions.add(new SelectModelOption("doubao-seed-2-0-pro-260215", "豆包Seed 2.0 Pro旗舰模型，支持长链路Agent和Function Calling", ProviderNameEnum.VOLC_ENGINE.getProviderName(), "Doubao Seed 2.0 Pro"));
+        modelOptions.add(new SelectModelOption("doubao-seed-2-0-lite-260215", "豆包Seed 2.0 Lite均衡型模型，支持Function Calling", ProviderNameEnum.VOLC_ENGINE.getProviderName(), "Doubao Seed 2.0 Lite"));
+        modelOptions.add(new SelectModelOption("doubao-seed-2-0-code-preview-260215", "豆包Seed 2.0 Code编程增强版，擅长代码生成与理解", ProviderNameEnum.VOLC_ENGINE.getProviderName(), "Doubao Seed 2.0 Code"));
+        modelOptions.add(new SelectModelOption("doubao-1-5-pro-256k-250115", "豆包1.5 Pro 256K长上下文模型，支持Function Calling", ProviderNameEnum.VOLC_ENGINE.getProviderName(), "Doubao 1.5 Pro 256K"));
+        modelOptions.add(new SelectModelOption("doubao-1-5-pro-32k-250115", "豆包1.5 Pro 32K模型，综合能力强，支持Function Calling", ProviderNameEnum.VOLC_ENGINE.getProviderName(), "Doubao 1.5 Pro 32K"));
+
         //允许用户使用自己公司或个人的接口
         modelOptions.add(new SelectModelOption("","用户自己提供的api",ProviderNameEnum.PERSONAL.getProviderName(),"自定义/Personal"));
 
