@@ -1,7 +1,11 @@
 package com.wmsay.gpt4_lll;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
+import com.wmsay.gpt4_lll.fc.memory.ConversationData;
+import com.wmsay.gpt4_lll.fc.memory.SummaryMetadata;
 import com.wmsay.gpt4_lll.utils.PluginPathUtils;
 import com.wmsay.gpt4_lll.model.Message;
 import groovy.util.logging.Slf4j;
@@ -260,5 +264,93 @@ public class JsonStorage {
         }
 
         return filterByDateRange(fromDate, null);
+    }
+
+    // ---------------------------------------------------------------
+    // ConversationData 扩展方法（新格式支持）
+    // ---------------------------------------------------------------
+
+    /**
+     * 保存对话数据（含摘要元数据和 token 状态）。
+     * <p>
+     * 使用新格式存储：{@code { "messages": [...], "summaryMetadata": [...], "lastKnownPromptTokens": N }}
+     * 不修改现有 {@link #saveConservation} 方法的行为。
+     *
+     * @param topic                  对话主题
+     * @param messages               原始消息列表
+     * @param metadata               摘要元数据列表（可为 null）
+     * @param lastKnownPromptTokens  最近真实 prompt_tokens（-1 表示未知）
+     */
+    public static void saveConversationWithMetadata(String topic, List<Message> messages,
+                                                     List<SummaryMetadata> metadata,
+                                                     int lastKnownPromptTokens) {
+        try {
+            // Load raw JSON to preserve mixed old/new format entries
+            String rawJson = "{}";
+            if (Files.exists(FILE_PATH)) {
+                byte[] bytes = Files.readAllBytes(FILE_PATH);
+                if (bytes.length > 0) {
+                    rawJson = new String(bytes);
+                }
+            }
+
+            JSONObject root = JSON.parseObject(rawJson);
+            if (root == null) {
+                root = new JSONObject(true); // ordered
+            }
+
+            // Build new-format entry
+            ConversationData data = new ConversationData(messages, metadata, lastKnownPromptTokens);
+            root.put(topic, JSON.toJSON(data));
+
+            Files.createDirectories(FILE_PATH.getParent());
+            Files.write(FILE_PATH, root.toJSONString().getBytes(),
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to save conversation with metadata: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 加载对话数据，自动识别新旧格式。
+     * <p>
+     * 新格式（value 为对象）：解析为 {@link ConversationData}。
+     * 旧格式（value 为数组）：消息列表正常加载，{@code summaryMetadata} 为 null，
+     * {@code lastKnownPromptTokens} 为 -1。
+     *
+     * @param topic 对话主题
+     * @return ConversationData，若主题不存在返回 null
+     */
+    public static ConversationData loadConversationData(String topic) {
+        try {
+            if (Files.notExists(FILE_PATH)) {
+                return null;
+            }
+            byte[] bytes = Files.readAllBytes(FILE_PATH);
+            if (bytes.length == 0) {
+                return null;
+            }
+
+            JSONObject root = JSON.parseObject(new String(bytes));
+            if (root == null || !root.containsKey(topic)) {
+                return null;
+            }
+
+            Object value = root.get(topic);
+
+            if (value instanceof JSONArray) {
+                // Old format: value is a plain message list
+                List<Message> messages = JSON.parseArray(value.toString(), Message.class);
+                return new ConversationData(messages, null, -1);
+            } else if (value instanceof JSONObject) {
+                // New format: value is a ConversationData object
+                return JSON.parseObject(value.toString(), ConversationData.class);
+            } else {
+                log.warn("Unknown format for topic '{}', returning null", topic);
+                return null;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load conversation data: " + e.getMessage(), e);
+        }
     }
 }
