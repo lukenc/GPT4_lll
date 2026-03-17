@@ -11,7 +11,31 @@
 
     <change-notes>
         <![CDATA[
-        <h2>4.0.0 (2026-03-16)</h2>
+        <h2>4.0.1 (2026-03-17)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>新增 shell_exec 工具：AI Agent 可在项目工作区内安全地执行非交互式本地命令（如构建、测试、版本控制查询等），获取包含 stdout、stderr、退出码、执行时长和风险等级的结构化结果。</li>
+            <li>Added shell_exec tool: AI Agent can safely execute non-interactive local commands within the project workspace (e.g. build, test, VCS queries), receiving structured results including stdout, stderr, exit code, duration and risk classification.</li>
+            <li>四层纵深安全防御：Schema 约束（argv 数组传参）→ Validator 语义校验（白名单、黑名单、元字符检测、symlink 边界校验）→ Policy 风险策略（四级风险评估 READ_ONLY / WORKSPACE_MUTATING / NETWORKED / SYSTEM_MUTATING）→ Runtime 运行时限制（超时、输出截断、进程树终止）。</li>
+            <li>Four-layer defense-in-depth security: Schema constraints (argv array) → Validator semantic checks (allowlist, denylist, metacharacter detection, symlink boundary validation) → Policy risk assessment (4-level: READ_ONLY / WORKSPACE_MUTATING / NETWORKED / SYSTEM_MUTATING) → Runtime limits (timeout, output truncation, process tree termination).</li>
+            <li>可配置策略引擎：通过项目根目录下 .gpt4lll/shell-policy.json 自定义可执行文件白名单、命令黑名单模式、环境变量白名单、shell 模式开关和审批策略。</li>
+            <li>Configurable policy engine: Customize executable allowlist, deny patterns, environment variable whitelist, shell mode toggle and approval policy via .gpt4lll/shell-policy.json in project root.</li>
+            <li>智能风险评估：自动识别 Git 子命令风险等级（只读/变更/危险）、构建命令、网络命令和系统破坏性命令，根据风险等级决定是否需要用户审批。</li>
+            <li>Smart risk assessment: Automatically classifies Git subcommand risk levels (readonly/mutating/dangerous), build commands, network commands and system-mutating commands, determining user approval requirement based on risk level.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>ExecutionEngine 更新：将 shell_exec 加入需要用户审批的敏感工具集合，确保写入/执行类工具在调用前经过用户确认。</li>
+            <li>ExecutionEngine updated: Added shell_exec to the approval-required tool set, ensuring write/execute tools require user confirmation before invocation.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>4.0.0 (2026-03-16)</h2>
 <ul>
     <li>
         <h3>FEATURE/新功能:</h3>
@@ -746,7 +770,15 @@
 <p>Built-in Function Calling orchestrator enabling AI models to invoke tools within the IDE. Supports multi-round tool call loops (up to 20 rounds), automatic parameter validation, execution with user approval, and result feedback. Compatible with OpenAI, Anthropic and Markdown protocol formats, with built-in degradation fallback mechanism for reliability.</p>
 
 <h4>MCP Tool System</h4>
-<p>Model Context Protocol (MCP) tool system providing file read, file write, keyword search and project tree tools. The File Write Tool supports four modes: overwrite, patch (str_replace), append and insert_after_line, with atomic writes for data safety and automatic line ending preservation. Tools are sandboxed to the project workspace for security.</p>
+<p>Model Context Protocol (MCP) tool system providing five built-in tools for AI Agent autonomous operation:</p>
+<ul>
+    <li><b>read_file</b> — Read file content with optional line range</li>
+    <li><b>write_file</b> — Write files with four modes: overwrite, patch (str_replace), append and insert_after_line, using atomic writes for data safety</li>
+    <li><b>grep</b> — Keyword search with context lines, file size limits, directory blacklist and binary file filtering</li>
+    <li><b>tree</b> — Project directory tree with configurable ignore patterns</li>
+    <li><b>shell_exec</b> — Execute non-interactive local commands with 4-layer security (schema → validator → policy → runtime), structured output including stdout/stderr/exit code/risk level, configurable via .gpt4lll/shell-policy.json</li>
+</ul>
+<p>All tools are sandboxed to the project workspace for security.</p>
 
 <h4>Unified LLM Client</h4>
 <p>Centralized LLM client abstraction layer handling HTTP and SSE communication with multiple providers. Supports streaming chat, synchronous chat, and raw JSON mode for function calling. Provider-specific differences (URL, API key format, message structure, SSE parsing) are handled transparently via adapter pattern.</p>
@@ -843,7 +875,15 @@
 <p>内置 Function Calling 编排引擎，使 AI 模型能够在 IDE 中自主调用工具。支持多轮工具调用循环（最多20轮），自动参数验证、用户审批执行和结果反馈。兼容 OpenAI、Anthropic 和 Markdown 三种协议格式，内置降级容错机制。</p>
 
 <h4>MCP 工具系统</h4>
-<p>Model Context Protocol（MCP）工具系统，提供文件读取、文件写入、关键词搜索和项目目录树工具。文件写入工具支持四种模式：覆盖写入、补丁替换（str_replace）、追加写入和按行插入，采用原子写入确保数据安全，自动保留原始换行格式。工具沙箱化限制在项目工作区内确保安全。</p>
+<p>Model Context Protocol（MCP）工具系统，提供五个内置工具供 AI Agent 自主操作：</p>
+<ul>
+    <li><b>read_file</b> — 文件读取，支持行范围指定</li>
+    <li><b>write_file</b> — 文件写入，支持覆盖写入、补丁替换（str_replace）、追加写入和按行插入四种模式，原子写入确保数据安全</li>
+    <li><b>grep</b> — 关键词搜索，支持上下文行数、文件大小限制、目录黑名单和二进制文件过滤</li>
+    <li><b>tree</b> — 项目目录树，支持自定义忽略目录</li>
+    <li><b>shell_exec</b> — 本地命令执行，四层安全防御（Schema → Validator → Policy → Runtime），结构化输出包含 stdout/stderr/退出码/风险等级，通过 .gpt4lll/shell-policy.json 配置策略</li>
+</ul>
+<p>所有工具均沙箱化限制在项目工作区内，确保安全。</p>
 
 <h4>统一 LLM 客户端</h4>
 <p>集中管理与多个供应商的 HTTP 和 SSE 通信的 LLM 客户端抽象层。支持流式聊天、同步聊天和原始 JSON 三种模式。通过适配器模式透明处理供应商差异（URL、API Key 格式、消息结构、SSE 解析）。</p>
