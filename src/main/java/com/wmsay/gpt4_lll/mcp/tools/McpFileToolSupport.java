@@ -44,6 +44,21 @@ final class McpFileToolSupport {
         }
     }
 
+    static long getLong(Map<String, Object> params, String key, long defaultValue) {
+        Object value = params.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
+    }
+
     static boolean getBoolean(Map<String, Object> params, String key, boolean defaultValue) {
         Object value = params.get(key);
         if (value == null) {

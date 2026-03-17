@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.mcp;
 
 import com.wmsay.gpt4_lll.mcp.tools.FileReadTool;
+import com.wmsay.gpt4_lll.mcp.tools.FileWriteTool;
 import com.wmsay.gpt4_lll.mcp.tools.KeywordSearchTool;
 import com.wmsay.gpt4_lll.mcp.tools.ProjectTreeTool;
 
@@ -20,6 +21,7 @@ public class McpToolRegistry {
     static {
         register(new KeywordSearchTool());
         register(new FileReadTool());
+        register(new FileWriteTool());
         register(new ProjectTreeTool());
     }
 

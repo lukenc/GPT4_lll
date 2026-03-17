@@ -54,4 +54,26 @@ public class McpToolResult {
     public String getErrorMessage() {
         return errorMessage;
     }
+
+    /**
+     * 获取用于展示的文本内容。
+     * TEXT 类型返回 textContent；STRUCTURED 类型将 structuredData 序列化为 JSON 字符串；
+     * ERROR 类型返回 errorMessage。
+     */
+    public String getDisplayText() {
+        if (textContent != null) {
+            return textContent;
+        }
+        if (structuredData != null && !structuredData.isEmpty()) {
+            try {
+                return com.alibaba.fastjson.JSON.toJSONString(structuredData, true);
+            } catch (Exception e) {
+                return structuredData.toString();
+            }
+        }
+        if (errorMessage != null) {
+            return errorMessage;
+        }
+        return null;
+    }
 }
