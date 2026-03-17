@@ -10,7 +10,7 @@ import com.wmsay.gpt4_lll.JsonStorage;
 import com.wmsay.gpt4_lll.MyPluginSettings;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
+import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CodeUtils;
@@ -103,11 +103,7 @@ public class VCSAuthorSelectionDialog extends DialogWrapper {
         String model = ChatUtils.getModelName(project);
         String replyLanguage = CommonUtil.getSystemLanguage();
         Message systemMessage = new Message();
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))) {
-            systemMessage.setRole("user");
-        } else {
-            systemMessage.setRole("system");
-        }
+        systemMessage.setRole(ChatUtils.getSystemRole(ModelUtils.getSelectedProvider(project)));
         String assistantSystemMess = "You are a technical analyst responsible for translating Git commit messages into clear business-oriented progress reports. Based on the commit messages I provide, generate a report in {Language} that emphasizes business progress and context over technical implementation details.";
         systemMessage.setContent(assistantSystemMess.replace("{Language}", replyLanguage));
 
@@ -136,7 +132,7 @@ public class VCSAuthorSelectionDialog extends DialogWrapper {
         chatContent.setTemperature(0.1);
         try {
             //清理界面
-            Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+            AgentChatView textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
             if (textArea != null) {
                 textArea.clearShowWindow();
             }

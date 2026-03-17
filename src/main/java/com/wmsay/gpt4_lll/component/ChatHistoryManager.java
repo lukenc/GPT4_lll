@@ -11,6 +11,7 @@ import com.wmsay.gpt4_lll.JsonStorage;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
+import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -439,7 +440,7 @@ public class ChatHistoryManager extends DialogWrapper {
         project.putUserData(Gpt4lllChatKey.GPT_4_LLL_CONVERSATION_HISTORY, new ArrayList<>(messages));
 
         // Update the chat window
-        Gpt4lllTextArea textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+        AgentChatView textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
         if (textArea != null) {
             textArea.clearShowWindow();
             for (Message message : messages) {

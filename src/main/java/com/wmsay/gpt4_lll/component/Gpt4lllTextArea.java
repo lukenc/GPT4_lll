@@ -7,7 +7,11 @@ import com.wmsay.gpt4_lll.CommentAction;
 import com.wmsay.gpt4_lll.model.Message;
 
 import javax.swing.*;
+import javax.swing.Timer;
+import javax.swing.text.Document;
 import java.awt.Point;
+import java.io.StringReader;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Gpt4lllTextArea extends JEditorPane {
     private Parser parser;
@@ -16,7 +20,13 @@ public class Gpt4lllTextArea extends JEditorPane {
 
     MutableDataSet OPTIONS ;
 
+    private final ConcurrentLinkedQueue<String> pendingContent = new ConcurrentLinkedQueue<>();
+    private Timer updateTimer;
+    private static final int COALESCE_DELAY_MS = 80;
+
     private JScrollPane scrollPane;
+    /** 上一次渲染后的 HTML，用于跳过无变化的更新 */
+    private String lastRenderedHtml = "";
 
     public void setScrollPane(JScrollPane scrollPane) {
         this.scrollPane = scrollPane;
@@ -25,19 +35,53 @@ public class Gpt4lllTextArea extends JEditorPane {
     public Gpt4lllTextArea() {
         setContentType("text/html");
         setEditable(false);
+        // 启用双缓冲，防止重绘时闪烁
+        setDoubleBuffered(true);
         contentBuilder = new StringBuilder();
         OPTIONS = new MutableDataSet();
         parser = Parser.builder(OPTIONS).build();
         renderer = HtmlRenderer.builder(OPTIONS).build();
+        initTimer();
+    }
+
+    private void initTimer() {
+        updateTimer = new Timer(COALESCE_DELAY_MS, e -> flushPendingContent());
+        updateTimer.setRepeats(false);
+    }
+
+    private void flushPendingContent() {
+        String item;
+        boolean drained = false;
+        while ((item = pendingContent.poll()) != null) {
+            contentBuilder.append(item);
+            drained = true;
+        }
+        if (!drained) {
+            return;
+        }
+
+        boolean wasAtBottom = isAtBottom();
+        Point oldViewPosition = (scrollPane != null) ? scrollPane.getViewport().getViewPosition() : null;
+
+        updateText();
+
+        if (wasAtBottom) {
+            scrollToBottom();
+        } else if (oldViewPosition != null) {
+            scrollPane.getViewport().setViewPosition(oldViewPosition);
+        }
     }
 
     public void clearShowWindow() {
+        updateTimer.stop();
+        pendingContent.clear();
         contentBuilder.setLength(0);
+        lastRenderedHtml = "";
         setText("""
                 <html>
                    <head>
                 </head>
-                <body style='width: 100%; word-wrap: break-word;'>
+                <body style='width: 100%;'>
                 </body>
                 </html>
                 """);
@@ -45,7 +89,13 @@ public class Gpt4lllTextArea extends JEditorPane {
 
     private void updateText() {
         String html = renderer.render(parser.parse(contentBuilder.toString()));
-        html = """
+        // 跳过内容未变化的更新，避免无意义的重绘
+        if (html.equals(lastRenderedHtml)) {
+            return;
+        }
+        lastRenderedHtml = html;
+
+        String fullHtml = """
                 <html>
                    <head>
                 """
@@ -53,13 +103,23 @@ public class Gpt4lllTextArea extends JEditorPane {
                 """
                  </head>
                 
-                 <body style='width: 100%; word-wrap: break-word;'>
+                 <body style='width: 100%;'>
              """
                 +
                 html
                 +
                 "</body></html>";
-        setText(html);
+
+        // 用 Document 级别替换代替 setText()，避免组件先清空再重绘导致的闪烁
+        try {
+            Document doc = getDocument();
+            doc.putProperty(Document.StreamDescriptionProperty, null);
+            // 创建新的空 Document 并读入内容，然后一次性替换
+            getEditorKit().read(new StringReader(fullHtml), doc, 0);
+        } catch (Exception e) {
+            // 降级回 setText，保证功能不受影响
+            setText(fullHtml);
+        }
     }
 
     private void scrollToBottom() {
@@ -87,15 +147,10 @@ public class Gpt4lllTextArea extends JEditorPane {
     }
 
     public void appendContent(String content) {
-        boolean wasAtBottom = isAtBottom();
-        Point oldViewPosition = (scrollPane != null) ? scrollPane.getViewport().getViewPosition() : null;
-        contentBuilder.append(content);
-        updateText();
+        pendingContent.add(content);
         SwingUtilities.invokeLater(() -> {
-            if (wasAtBottom) {
-                scrollToBottom();
-            } else if (oldViewPosition != null) {
-                scrollPane.getViewport().setViewPosition(oldViewPosition);
+            if (!updateTimer.isRunning()) {
+                updateTimer.restart();
             }
         });
     }

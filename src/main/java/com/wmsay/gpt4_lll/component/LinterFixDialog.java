@@ -138,7 +138,7 @@ public class LinterFixDialog extends DialogWrapper {
 
         JBLabel hintLabel = new JBLabel(
                 "<html><b>提示：</b>按 <code>Enter</code> 键应用所有修复 | " +
-                "<b>Hint:</b> Press <code>Enter</code> to apply all fixes</html>");
+                        "<b>Hint:</b> Press <code>Enter</code> to apply all fixes</html>");
         hintLabel.setForeground(JBColor.GRAY);
         panel.add(hintLabel, BorderLayout.WEST);
 
@@ -157,15 +157,15 @@ public class LinterFixDialog extends DialogWrapper {
      */
     private JPanel createLegendItem(String text, Color bgColor) {
         JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
-        
+
         JPanel colorBox = new JPanel();
         colorBox.setPreferredSize(new Dimension(12, 12));
         colorBox.setBackground(bgColor);
         colorBox.setBorder(BorderFactory.createLineBorder(JBColor.border()));
-        
+
         JLabel label = new JLabel(text);
         label.setFont(label.getFont().deriveFont(11f));
-        
+
         item.add(colorBox);
         item.add(label);
         return item;
@@ -186,7 +186,7 @@ public class LinterFixDialog extends DialogWrapper {
             CodeChange change = changes.get(i);
             JPanel changePanel = createChangeItemPanel(change, i + 1);
             panel.add(changePanel);
-            
+
             // 添加分隔线
             if (i < changes.size() - 1) {
                 JSeparator separator = new JSeparator();
@@ -217,9 +217,9 @@ public class LinterFixDialog extends DialogWrapper {
             refreshPreview();
         });
         infoPanel.add(checkBox, BorderLayout.WEST);
-        
+
         // 变更类型标签
-        JLabel typeLabel = new JLabel(String.format("#%d  %s  行 %d", 
+        JLabel typeLabel = new JLabel(String.format("#%d  %s  行 %d",
                 index, change.getTypeDisplayName(), change.getLineNumber()));
         typeLabel.setFont(typeLabel.getFont().deriveFont(Font.BOLD, 12f));
         typeLabel.setBorder(new EmptyBorder(0, 0, 5, 0));
@@ -255,25 +255,25 @@ public class LinterFixDialog extends DialogWrapper {
 
         switch (change.getType()) {
             case DELETE:
-                JPanel deletePanel = createCodeLinePanel("-", change.getLineNumber(), 
+                JPanel deletePanel = createCodeLinePanel("-", change.getLineNumber(),
                         change.getOriginalContent(), DELETE_BG, monoFont);
                 panel.add(deletePanel);
                 break;
-                
+
             case INSERT:
-                JPanel insertPanel = createCodeLinePanel("+", change.getLineNumber(), 
+                JPanel insertPanel = createCodeLinePanel("+", change.getLineNumber(),
                         change.getNewContent(), INSERT_BG, monoFont);
                 panel.add(insertPanel);
                 break;
-                
+
             case MODIFY:
-                JPanel oldPanel = createCodeLinePanel("-", change.getLineNumber(), 
+                JPanel oldPanel = createCodeLinePanel("-", change.getLineNumber(),
                         change.getOriginalContent(), MODIFY_OLD_BG, monoFont);
                 panel.add(oldPanel);
-                
+
                 panel.add(Box.createVerticalStrut(2));
-                
-                JPanel newPanel = createCodeLinePanel("+", change.getLineNumber(), 
+
+                JPanel newPanel = createCodeLinePanel("+", change.getLineNumber(),
                         change.getNewContent(), MODIFY_NEW_BG, monoFont);
                 panel.add(newPanel);
                 break;
@@ -339,7 +339,8 @@ public class LinterFixDialog extends DialogWrapper {
                 sortedChanges.add(changes.get(i));
             }
         }
-        sortedChanges.sort((a, b) -> Integer.compare(b.getLineNumber(), a.getLineNumber()));
+        // 按行号升序排列，配合偏移量正确处理连续操作
+        sortedChanges.sort(Comparator.comparingInt(CodeChange::getLineNumber));
 
         // 先关闭对话框，退出对话框模态状态
         super.doOKAction();
@@ -353,8 +354,32 @@ public class LinterFixDialog extends DialogWrapper {
         ApplicationManager.getApplication().invokeLater(() -> {
             WriteCommandAction.runWriteCommandAction(proj, () -> {
                 Document document = editor.getDocument();
+                // 维护两类偏移量：
+                // - nonInsertOffset: DELETE/MODIFY 造成的行数变化，影响所有后续操作
+                // - insertOffset: INSERT 造成的行数变化，只影响后续非 INSERT 操作
+                // INSERT 的 afterLine 是基于原始文档行号递增的，已隐含了前序 INSERT 的偏移，
+                // 所以后续 INSERT 不需要累加前序 INSERT 的 offset
+                int nonInsertOffset = 0;
+                int insertOffset = 0;
                 for (CodeChange change : sortedChanges) {
-                    applyChange(document, change);
+                    int totalOffset;
+                    if (change.getType() == CodeChange.ChangeType.INSERT) {
+                        totalOffset = nonInsertOffset; // INSERT 只受 DELETE/MODIFY 影响
+                    } else {
+                        totalOffset = nonInsertOffset + insertOffset; // 非 INSERT 受所有操作影响
+                    }
+                    applyChangeWithOffset(document, change, totalOffset);
+                    switch (change.getType()) {
+                        case DELETE -> nonInsertOffset--;
+                        case INSERT -> insertOffset++;
+                        case MODIFY -> {
+                            String nc = change.getNewContent();
+                            String oc = change.getOriginalContent();
+                            int newLines = (nc != null) ? nc.split("\\n", -1).length : 1;
+                            int oldLines = (oc != null) ? oc.split("\\n", -1).length : 1;
+                            nonInsertOffset += (newLines - oldLines);
+                        }
+                    }
                 }
             });
         }, ModalityState.nonModal());
@@ -382,25 +407,38 @@ public class LinterFixDialog extends DialogWrapper {
         }
         selectedChanges.sort(Comparator.comparingInt(CodeChange::getLineNumber));
 
-        int offset = 0; // 记录因插入/删除导致的行位移
+        int nonInsertOffset = 0;
+        int insertOffset = 0;
         for (CodeChange change : selectedChanges) {
-            int relative = change.getLineNumber() - startLine + offset; // 当前变更的相对行索引
+            int totalOffset;
+            if (change.getType() == CodeChange.ChangeType.INSERT) {
+                totalOffset = nonInsertOffset;
+            } else {
+                totalOffset = nonInsertOffset + insertOffset;
+            }
+            int relative = change.getLineNumber() - startLine + totalOffset;
             switch (change.getType()) {
                 case DELETE -> {
                     if (relative >= 0 && relative < lineList.size()) {
                         lineList.remove(relative);
-                        offset--; // 删除使后续行号前移
+                        nonInsertOffset--;
                     }
                 }
                 case INSERT -> {
-                    int insertPos = change.getLineNumber() - startLine + offset + 1; // 在该行之后插入
+                    int insertPos = relative + 1; // 在该行之后插入
                     insertPos = Math.max(0, Math.min(insertPos, lineList.size()));
                     lineList.add(insertPos, change.getNewContent() == null ? "" : change.getNewContent());
-                    offset++; // 插入使后续行号后移
+                    insertOffset++;
                 }
                 case MODIFY -> {
                     if (relative >= 0 && relative < lineList.size()) {
-                        lineList.set(relative, change.getNewContent() == null ? "" : change.getNewContent());
+                        String nc = change.getNewContent() == null ? "" : change.getNewContent();
+                        String[] newLines = nc.split("\\n", -1);
+                        lineList.set(relative, newLines[0]);
+                        for (int j = 1; j < newLines.length; j++) {
+                            lineList.add(relative + j, newLines[j]);
+                            nonInsertOffset++;
+                        }
                     }
                 }
             }
@@ -448,7 +486,7 @@ public class LinterFixDialog extends DialogWrapper {
      */
     private void applyChange(Document document, CodeChange change) {
         int lineNum = change.getLineNumber() - 1; // 转换为 0-based
-        
+
         // 确保行号有效
         if (lineNum < 0 || lineNum >= document.getLineCount()) {
             return;
@@ -458,11 +496,39 @@ public class LinterFixDialog extends DialogWrapper {
             case DELETE:
                 deleteLineAt(document, lineNum);
                 break;
-                
+
             case INSERT:
                 insertLineAfter(document, lineNum, change.getNewContent());
                 break;
-                
+
+            case MODIFY:
+                modifyLineAt(document, lineNum, change.getNewContent());
+                break;
+        }
+    }
+
+    /**
+     * 应用单个变更（带偏移量补偿）
+     * offset 用于补偿之前 DELETE 操作导致的行号偏移。
+     * INSERT 不累加偏移，因为大模型返回的递增 afterLine 已隐含了行号偏移。
+     */
+    private void applyChangeWithOffset(Document document, CodeChange change, int offset) {
+        int lineNum = change.getLineNumber() - 1 + offset; // 转换为 0-based 并加上偏移
+
+        // 确保行号有效
+        if (lineNum < 0 || lineNum >= document.getLineCount()) {
+            return;
+        }
+
+        switch (change.getType()) {
+            case DELETE:
+                deleteLineAt(document, lineNum);
+                break;
+
+            case INSERT:
+                insertLineAfter(document, lineNum, change.getNewContent());
+                break;
+
             case MODIFY:
                 modifyLineAt(document, lineNum, change.getNewContent());
                 break;
@@ -476,10 +542,10 @@ public class LinterFixDialog extends DialogWrapper {
         if (lineNum < 0 || lineNum >= document.getLineCount()) {
             return;
         }
-        
+
         int startOffset = document.getLineStartOffset(lineNum);
         int endOffset = document.getLineEndOffset(lineNum);
-        
+
         // 如果不是最后一行，也删除换行符
         if (lineNum < document.getLineCount() - 1) {
             endOffset = document.getLineStartOffset(lineNum + 1);
@@ -487,7 +553,7 @@ public class LinterFixDialog extends DialogWrapper {
             // 如果是最后一行，删除前面的换行符
             startOffset = document.getLineEndOffset(lineNum - 1);
         }
-        
+
         document.deleteString(startOffset, endOffset);
     }
 
@@ -498,10 +564,10 @@ public class LinterFixDialog extends DialogWrapper {
         if (content == null) {
             content = "";
         }
-        
+
         int insertOffset;
         String textToInsert;
-        
+
         if (afterLineNum <= 0) {
             // 在文档开头插入
             insertOffset = 0;
@@ -515,7 +581,7 @@ public class LinterFixDialog extends DialogWrapper {
             insertOffset = document.getLineEndOffset(afterLineNum - 1);
             textToInsert = "\n" + content;
         }
-        
+
         document.insertString(insertOffset, textToInsert);
     }
 
@@ -526,14 +592,14 @@ public class LinterFixDialog extends DialogWrapper {
         if (lineNum < 0 || lineNum >= document.getLineCount()) {
             return;
         }
-        
+
         if (newContent == null) {
             newContent = "";
         }
-        
+
         int startOffset = document.getLineStartOffset(lineNum);
         int endOffset = document.getLineEndOffset(lineNum);
-        
+
         document.replaceString(startOffset, endOffset, newContent);
     }
 
