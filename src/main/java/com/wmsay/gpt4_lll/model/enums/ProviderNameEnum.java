@@ -8,6 +8,7 @@ public enum ProviderNameEnum {
     OPEN_AI("OpenAI"),
     GROK("X-GROK"),
     DEEP_SEEK("DeepSeek"),
+    VOLC_ENGINE("VolcEngine"),
     ;
     final String providerName;
 

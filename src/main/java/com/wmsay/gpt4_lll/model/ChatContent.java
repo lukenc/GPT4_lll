@@ -5,8 +5,8 @@ import java.util.List;
 import javax.annotation.Generated;
 import com.google.gson.annotations.Expose;
 import com.wmsay.gpt4_lll.WindowTool;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
-import com.wmsay.gpt4_lll.utils.ChatUtils;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapter;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 
 @SuppressWarnings("unused")
 public class ChatContent {
@@ -20,47 +20,35 @@ public class ChatContent {
 
     @Expose
     private Boolean stream= true;
+
+    /**
+     * OpenAI/Anthropic function calling 工具定义列表。
+     * 当启用 function calling 时，由 ProtocolAdapter 格式化后设置。
+     * 序列化为 JSON 时会作为 "tools" 字段发送给 AI API。
+     */
+    private List<Object> tools;
+
     public List<Message> getMessages() {
         return messages;
     }
 
-    public void setMessages(List<Message> messages,String providerName) {
+    public void setMessages(List<Message> messages, String providerName) {
         this.messages = messages;
-        if (model != null &&
-                (
-                        ProviderNameEnum.BAIDU.getProviderName().equals(providerName)
-                                || ProviderNameEnum.FREE.getProviderName().equals(providerName)
-                )
-        ) {
-            adaptBaiduMessages();
+        if (model != null) {
+            ProviderAdapter adapter = ProviderAdapterRegistry.getAdapter(providerName);
+            this.messages = adapter.adaptMessages(this.messages);
         }
     }
 
-
-/**
- * 调整百度消息格式的方法。
- * 遍历消息列表，根据索引调整每个消息的角色，并在必要时插入新的消息。
- */
-public void adaptBaiduMessages() {
-    // 遍历消息列表
-    for (int i = 0; i < messages.size(); i++) {
-        Message message = messages.get(i);
-        // 如果是第一条消息，设置角色为"user"
-        if (i == 0) {
-            message.setRole("user");
-        } else {
-            // 如果不是第一条消息，检查索引是否为奇数
-            if (i % 2 == 1) {
-                // 如果当前消息的角色是"user"，则在当前位置插入一个新的消息
-                if ("user".equals(message.getRole())) {
-                    messages.add(i, ChatUtils.getOddMessage4Baidu());
-                }
-            }
-        }
+    /**
+     * 直接设置消息列表，不经过 ProviderAdapter 适配。
+     * 用于 Memory 集成时临时替换 LLM 视图消息。
+     *
+     * @param messages 消息列表
+     */
+    public void setDirectMessages(List<Message> messages) {
+        this.messages = messages;
     }
-}
-
-
 
     public String getModel() {
         return model;
@@ -84,5 +72,13 @@ public void adaptBaiduMessages() {
 
     public void setTemperature(Double temperature) {
         this.temperature = temperature;
+    }
+
+    public List<Object> getTools() {
+        return tools;
+    }
+
+    public void setTools(List<Object> tools) {
+        this.tools = tools;
     }
 }

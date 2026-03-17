@@ -1,8 +1,6 @@
 package com.wmsay.gpt4_lll.model.key;
 
 import com.intellij.openapi.util.Key;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
-
 import javax.swing.*;
 
 public class Gpt4lllHistoryButtonKey {
