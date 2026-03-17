@@ -20,14 +20,35 @@ import com.intellij.util.ui.JBUI;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllComboxKey;
 import com.wmsay.gpt4_lll.component.Gpt4lllPlaceholderTextArea;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.AgentChatView;
+import com.wmsay.gpt4_lll.component.StatusBorderPainter;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllHistoryButtonKey;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
+import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.config.ConfigLoader;
+import com.wmsay.gpt4_lll.fc.config.ExtensionLoader;
+import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.model.*;
+import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapterRegistry;
+import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
+import com.wmsay.gpt4_lll.llm.LlmClient;
+import com.wmsay.gpt4_lll.llm.LlmRequest;
+import com.wmsay.gpt4_lll.llm.StreamingFcCollector;
+import com.wmsay.gpt4_lll.mcp.McpContext;
+import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
+import com.wmsay.gpt4_lll.model.RuntimeStatus;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
+import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
+import com.wmsay.gpt4_lll.utils.RuntimeStatusManager;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -36,6 +57,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.*;
@@ -47,12 +70,23 @@ import static com.wmsay.gpt4_lll.utils.ChatUtils.getModelName;
 public class WindowTool implements ToolWindowFactory {
     private static final ConcurrentHashMap<String, WindowTool> projectInstances = new ConcurrentHashMap<>();
 
-    private Gpt4lllTextArea readOnlyTextArea;
+    private AgentChatView readOnlyTextArea;
 
     private final Map<String, List<SelectModelOption>> providerModels;
     private ComboBox<String> providerComboBox;
     private ComboBox<SelectModelOption> modelComboBox;
     private JButton historyButton;
+
+    // ---- Stop button & request thread ----
+    private JButton stopButton;
+    private volatile Thread currentRequestThread;
+
+    // ---- Function Calling 框架组件 ----
+    private FunctionCallOrchestrator functionCallOrchestrator;
+    private FunctionCallConfig functionCallConfig;
+    private ValidationEngine validationEngine;
+    private ErrorHandler errorHandler;
+    private ObservabilityManager observabilityManager;
 
     public WindowTool() {
         providerModels = new HashMap<>(ModelUtils.provider2ModelList);
@@ -76,8 +110,7 @@ public class WindowTool implements ToolWindowFactory {
         // 创建工具窗口内容
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
-        readOnlyTextArea = new Gpt4lllTextArea();
-        readOnlyTextArea.setContentType("text/html");
+        readOnlyTextArea = new AgentChatView();
         project.putUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA, readOnlyTextArea);
 
         JPanel modelSelectionPanel = createModelSelectionPanel(project);
@@ -88,12 +121,13 @@ public class WindowTool implements ToolWindowFactory {
         c.fill = GridBagConstraints.HORIZONTAL;
         panel.add(modelSelectionPanel, c);
 
-        // 创建只读文本框
-        readOnlyTextArea.setEditable(false);
         readOnlyTextArea.clearShowWindow();
 
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
         readOnlyTextArea.setScrollPane(scrollPane);
+        StatusBorderPainter statusBorderPainter = new StatusBorderPainter(scrollPane);
+        RuntimeStatusManager.addListener(project, statusBorderPainter);
+        scrollPane.setBorder(statusBorderPainter);
         Insets insets = JBUI.insets(0, 5, 15, 5); // 设置上下左右各10像素的边距
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
@@ -120,15 +154,16 @@ public class WindowTool implements ToolWindowFactory {
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Gpt4lllTextArea area = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+                AgentChatView area = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
                 String input = textField.getText();
                 if (StringUtil.isEmpty(input)) {
                     Messages.showMessageDialog(project, "Please enter what you want to say in the chat box first, and then click Send\n请先在聊天框中输入您想说的话，然后再点击发送哦~", "Error", Messages.getErrorIcon());
                     return;
                 }
-                area.appendContent("\n\n- - - - - - - - - - - \n");
+                area.startUserTurn();
                 area.appendContent("YOU:" + input);
-                area.appendContent("\n- - - - - - - - - - - \n");
+                // activeTurn 置空，让后续 AI 回复自动创建新的 assistant turn
+                area.startAssistantTurn();
                 if (project.getUserData(GPT_4_LLL_NOW_TOPIC)==null||project.getUserData(GPT_4_LLL_NOW_TOPIC).isEmpty()) {
                     project.putUserData(GPT_4_LLL_NOW_TOPIC,GenerateAction.formatter.format(LocalDateTime.now()) + "--Chat:" + input);
                 }
@@ -143,38 +178,71 @@ public class WindowTool implements ToolWindowFactory {
                 chatContent.setMessages(ChatUtils.getProjectChatHistory(project), ModelUtils.getSelectedProvider(project));
                 String model = getModelName(project);
                 chatContent.setModel(model);
-                new Thread(() -> {
-                    String res = GenerateAction.chat(chatContent, project, false, true, "");
-                }).start();
 
+                // 检查是否启用 function calling
+                if (isFunctionCallingEnabled()) {
+                    new Thread(() -> {
+                        currentRequestThread = Thread.currentThread();
+                        try {
+                            executeFunctionCallingChat(chatContent, project, area);
+                        } finally {
+                            currentRequestThread = null;
+                        }
+                    }).start();
+                } else {
+                    new Thread(() -> {
+                        currentRequestThread = Thread.currentThread();
+                        try {
+                            String res = GenerateAction.chat(chatContent, project, false, true, "");
+                        } finally {
+                            currentRequestThread = null;
+                        }
+                    }).start();
+                }
 
                 textField.setText("");
             }
         });
+
+        // Stop button — initially hidden, visible only when RUNNING
+        stopButton = new JButton("停止/Stop");
+        stopButton.setVisible(false);
+        stopButton.addActionListener(e -> cancelCurrentRequest(project));
+
+        // Wrap send + stop buttons in a horizontal panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        buttonPanel.add(button);
+        buttonPanel.add(stopButton);
+
         c = new GridBagConstraints();
         c.fill = GridBagConstraints.HORIZONTAL;
         c.gridx = 0;
         c.gridy = 4;
         c.weightx = 1;
-//        c.weighty = 0.05;  // 10% of the vertical space
-        panel.add(button, c);
+        panel.add(buttonPanel, c);
+
+        // Register StatusListener to toggle stop button visibility
+        RuntimeStatusManager.addListener(project, (oldStatus, newStatus) -> {
+            SwingUtilities.invokeLater(() -> {
+                stopButton.setVisible(newStatus == RuntimeStatus.RUNNING);
+            });
+        });
 
         JPanel newAndHistoryPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5)); // 左侧对齐，水平和垂直间隔为5像素
 
         // 创建“新建会话”按钮并添加图标（如果需要）
         JButton newSessionButton = new JButton("新建会话/New Session");
-        newSessionButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // todo 新建会话的逻辑
-                if (ChatUtils.getProjectChatHistory(project) != null && !ChatUtils.getProjectChatHistory(project).isEmpty() && !ChatUtils.getProjectTopic(project).isEmpty()) {
-                    JsonStorage.saveConservation(ChatUtils.getProjectTopic(project), ChatUtils.getProjectChatHistory(project));
-                    ChatUtils.getProjectChatHistory(project).clear();
-                }
-                ChatUtils.setProjectTopic(project,"");
-                project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).clearShowWindow();
-
+        newSessionButton.addActionListener(e -> {
+            // todo 新建会话的逻辑
+            if (ChatUtils.getProjectChatHistory(project) != null && !ChatUtils.getProjectChatHistory(project).isEmpty() && !ChatUtils.getProjectTopic(project).isEmpty()) {
+                JsonStorage.saveConservation(ChatUtils.getProjectTopic(project), ChatUtils.getProjectChatHistory(project));
+                ChatUtils.getProjectChatHistory(project).clear();
             }
+            ChatUtils.setProjectTopic(project,"");
+            if (project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA)!=null) {
+                project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).clearShowWindow();
+            }
+
         });
         newAndHistoryPanel.add(newSessionButton);
 
@@ -200,6 +268,8 @@ public class WindowTool implements ToolWindowFactory {
 
         initializeComboBoxes(project);
 
+        // 初始化 Function Calling 框架
+        initializeFunctionCalling(project);
 
         // 在此处添加你的插件界面的组件和布局
         ContentFactory contentFactory = ContentFactory.getInstance();
@@ -211,6 +281,7 @@ public class WindowTool implements ToolWindowFactory {
         project.getMessageBus().connect().subscribe(ProjectManager.TOPIC, new ProjectManagerListener() {
             @Override
             public void projectClosing(@NotNull Project project) {
+                statusBorderPainter.dispose();
                 projectInstances.remove(project.getName());
             }
         });
@@ -393,6 +464,24 @@ public class WindowTool implements ToolWindowFactory {
         return projectInstances.get(project.getName());
     }
 
+    /**
+     * 获取 FunctionCallOrchestrator 实例（供 GenerateAction 等外部调用方使用）。
+     *
+     * @return 编排器实例，如果 FC 未初始化则返回 null
+     */
+    public FunctionCallOrchestrator getFunctionCallOrchestrator() {
+        return functionCallOrchestrator;
+    }
+
+    /**
+     * 获取 FunctionCallConfig 实例（供 GenerateAction 等外部调用方使用）。
+     *
+     * @return 配置实例，如果 FC 未初始化则返回 null
+     */
+    public FunctionCallConfig getFunctionCallConfig() {
+        return functionCallConfig;
+    }
+
 
     private void initializeComboBoxes(Project project) {
         // 初始化提供商下拉框
@@ -435,5 +524,345 @@ public class WindowTool implements ToolWindowFactory {
         System.out.println("Saving settings: provider=" + provider + ", model=" + modelDisplay);
         settings.setLastProvider(provider);
         settings.setLastModelDisplayName(modelDisplay);
+    }
+
+    // ==================== Cancellation ====================
+
+    /**
+     * Interrupts the current request thread (if alive) and transitions status to ERROR.
+     */
+    private void cancelCurrentRequest(Project project) {
+        Thread thread = currentRequestThread;
+        if (thread != null && thread.isAlive()) {
+            thread.interrupt();
+        }
+        CommonUtil.stopRunningStatus(project, false);
+    }
+
+    // ==================== Function Calling 集成 ====================
+
+    /**
+     * 初始化 Function Calling 框架组件。
+     * 加载配置、创建各组件实例、加载 SPI 扩展、组装编排器。
+     * 初始化失败不影响现有功能，仅记录日志。
+     */
+    private void initializeFunctionCalling(Project project) {
+        try {
+            // 1. 加载配置
+            ConfigLoader configLoader = new ConfigLoader();
+            Path configPath = null;
+            if (project.getBasePath() != null) {
+                configPath = Paths.get(project.getBasePath(), ".lll", "function-calling-config.json");
+            }
+            functionCallConfig = configLoader.load(configPath);
+
+            // 2. 创建核心组件
+            validationEngine = new ValidationEngine();
+            errorHandler = new ErrorHandler();
+            observabilityManager = new ObservabilityManager();
+            observabilityManager.setLogLevel(functionCallConfig.getLogLevel());
+
+            RetryStrategy retryStrategy = new RetryStrategy();
+            UserApprovalManager approvalManager = new UserApprovalManager();
+            ExecutionEngine executionEngine = new ExecutionEngine(retryStrategy, approvalManager);
+
+            // 3. 加载 SPI 扩展
+            ExtensionLoader.loadAll(validationEngine, errorHandler);
+
+            // 4. 根据当前供应商选择协议适配器并创建编排器
+            String currentProvider = ModelUtils.getSelectedProvider(project);
+            ProtocolAdapter protocolAdapter = ProtocolAdapterRegistry.getAdapter(
+                    currentProvider != null ? currentProvider : "");
+
+            functionCallOrchestrator = new FunctionCallOrchestrator(
+                    protocolAdapter, validationEngine, executionEngine,
+                    errorHandler, observabilityManager);
+
+            System.out.println("[FC] Function calling framework initialized. Enabled="
+                    + functionCallConfig.isEnableFunctionCalling());
+        } catch (Exception e) {
+            System.err.println("[FC] Failed to initialize function calling framework: " + e.getMessage());
+            e.printStackTrace();
+            // 初始化失败不影响现有功能
+            functionCallOrchestrator = null;
+            functionCallConfig = null;
+        }
+    }
+
+    /**
+     * 检查 function calling 是否已启用且可用。
+     */
+    private boolean isFunctionCallingEnabled() {
+        return functionCallOrchestrator != null
+                && functionCallConfig != null
+                && functionCallConfig.isEnableFunctionCalling();
+    }
+
+    /**
+     * 使用 FunctionCallOrchestrator 执行带工具调用的对话。
+     * 在后台线程中运行，通过 EDT 更新 UI。
+     */
+    private void executeFunctionCallingChat(ChatContent chatContent, Project project, AgentChatView area) {
+        try {
+            // 构建 FunctionCallRequest
+            FunctionCallRequest request = FunctionCallRequest.builder()
+                    .chatContent(chatContent)
+                    .availableTools(McpToolRegistry.getAllTools())
+                    .maxRounds(functionCallConfig.getMaxRounds())
+                    .config(functionCallConfig)
+                    .build();
+
+            // 构建 McpContext
+            McpContext context = McpContext.fromIdeState(project, null);
+
+            // 创建 LlmCaller 回调（非流式回退用），桥接到现有 LlmClient
+            FunctionCallOrchestrator.LlmCaller llmCaller = (req) -> {
+                MyPluginSettings settings = MyPluginSettings.getInstance();
+                String url = ChatUtils.getUrl(settings, project);
+                String apiKey = ChatUtils.getApiKey(settings, project);
+                String proxy = settings.getProxyAddress();
+                String currentProvider = ModelUtils.getSelectedProvider(project);
+
+                LlmRequest llmRequest = LlmRequest.builder()
+                        .url(url)
+                        .chatContent(req.getChatContent())
+                        .apiKey(apiKey)
+                        .proxy(proxy)
+                        .provider(currentProvider)
+                        .build();
+
+                return LlmClient.syncChatRaw(llmRequest);
+            };
+
+            // 创建流式 LlmCaller：reasoning/content 实时展示，tool_calls 流式收集
+            FunctionCallOrchestrator.StreamingLlmCaller streamingLlmCaller = (req, displayCb) -> {
+                MyPluginSettings settings = MyPluginSettings.getInstance();
+                String url = ChatUtils.getUrl(settings, project);
+                String apiKey = ChatUtils.getApiKey(settings, project);
+                String proxy = settings.getProxyAddress();
+                String currentProvider = ModelUtils.getSelectedProvider(project);
+
+                LlmRequest llmRequest = LlmRequest.builder()
+                        .url(url)
+                        .chatContent(req.getChatContent())
+                        .apiKey(apiKey)
+                        .proxy(proxy)
+                        .provider(currentProvider)
+                        .build();
+
+                StreamingFcCollector collector = new StreamingFcCollector(displayCb);
+                LlmClient.streamChat(llmRequest, collector);
+                return collector.reconstructResponse();
+            };
+
+            functionCallOrchestrator.setStreamingLlmCaller(streamingLlmCaller);
+
+            // 按时间顺序收集内容块，用于历史加载时还原正确的交错顺序
+            final List<Message.ContentBlockRecord> orderedBlocks =
+                    Collections.synchronizedList(new ArrayList<>());
+            // 兼容旧字段（仍填充以保证旧逻辑可用）
+            final StringBuilder collectedThinking = new StringBuilder();
+            final StringBuilder collectedAllText = new StringBuilder();
+            final List<Message.ToolCallSummary> collectedToolSummaries = new ArrayList<>();
+
+            // 创建进度回调，实时更新 UI（使用结构化块）
+            FunctionCallOrchestrator.ProgressCallback progressCallback =
+                    new FunctionCallOrchestrator.ProgressCallback() {
+                private final java.util.concurrent.atomic.AtomicReference<com.wmsay.gpt4_lll.component.block.ToolUseBlock>
+                        currentToolBlock = new java.util.concurrent.atomic.AtomicReference<>();
+                private final java.util.concurrent.atomic.AtomicReference<String> currentToolName =
+                        new java.util.concurrent.atomic.AtomicReference<>();
+                private final java.util.concurrent.atomic.AtomicReference<Map<String, Object>> currentToolParams =
+                        new java.util.concurrent.atomic.AtomicReference<>();
+                private final java.util.concurrent.atomic.AtomicBoolean hasReasoning =
+                        new java.util.concurrent.atomic.AtomicBoolean(false);
+                private final java.util.concurrent.atomic.AtomicBoolean streamingMode =
+                        new java.util.concurrent.atomic.AtomicBoolean(false);
+
+                @Override
+                public void onLlmCallStarting(int round) {
+                    hasReasoning.set(false);
+                    streamingMode.set(false);
+                    collectedAllText.setLength(0);
+                }
+
+                // ---- 非流式路径回调 ----
+                @Override
+                public void onReasoningContent(int round, String reasoningContent) {
+                    hasReasoning.set(true);
+                    collectedThinking.setLength(0);
+                    collectedThinking.append(reasoningContent);
+                    orderedBlocks.add(Message.ContentBlockRecord.thinking(reasoningContent));
+                    SwingUtilities.invokeLater(() -> {
+                        area.appendThingkingTitle();
+                        area.appendContent(reasoningContent);
+                        area.appendThingkingEnd();
+                    });
+                }
+
+                @Override
+                public void onTextContent(int round, String content) {
+                    if (collectedAllText.length() > 0) {
+                        collectedAllText.append("\n\n");
+                    }
+                    collectedAllText.append(content);
+                    orderedBlocks.add(Message.ContentBlockRecord.text(content));
+                    SwingUtilities.invokeLater(() -> area.appendContent(content));
+                }
+
+                // ---- 流式路径回调：reasoning/content 实时增量展示 ----
+                @Override
+                public void onReasoningStarted(int round) {
+                    streamingMode.set(true);
+                    hasReasoning.set(true);
+                    collectedThinking.setLength(0);
+                    SwingUtilities.invokeLater(() -> area.appendThingkingTitle());
+                }
+
+                @Override
+                public void onReasoningDelta(int round, String delta) {
+                    collectedThinking.append(delta);
+                    SwingUtilities.invokeLater(() -> area.appendContent(delta));
+                }
+
+                @Override
+                public void onReasoningComplete(int round) {
+                    orderedBlocks.add(Message.ContentBlockRecord.thinking(collectedThinking.toString()));
+                    SwingUtilities.invokeLater(() -> area.appendThingkingEnd());
+                }
+
+                @Override
+                public void onTextDelta(int round, String delta) {
+                    streamingMode.set(true);
+                    collectedAllText.append(delta);
+                    SwingUtilities.invokeLater(() -> area.appendContent(delta));
+                }
+
+                @Override
+                public void onLlmCallCompleted(int round, int toolCallCount) {
+                    // 流式路径：text 通过 onTextDelta 增量展示，在此处汇总到 orderedBlocks
+                    // 非流式路径：text 已在 onTextContent 中加入 orderedBlocks，此处跳过
+                    if (streamingMode.get() && collectedAllText.length() > 0) {
+                        orderedBlocks.add(Message.ContentBlockRecord.text(collectedAllText.toString()));
+                    }
+                }
+
+                @Override
+                public void onToolExecutionStarting(String toolName, java.util.Map<String, Object> params) {
+                    currentToolName.set(toolName);
+                    currentToolParams.set(params);
+                    SwingUtilities.invokeLater(() -> {
+                        var block = area.addToolUseBlock(toolName, params);
+                        currentToolBlock.set(block);
+                    });
+                }
+
+                @Override
+                public void onToolExecutionCompleted(ToolCallResult result) {
+                    String toolName = result.getToolName();
+                    String resultText;
+                    if (result.isSuccess()) {
+                        resultText = result.getResult() != null
+                                ? result.getResult().getDisplayText() : "(no output)";
+                        if (resultText == null || resultText.isEmpty()) {
+                            resultText = "(no output)";
+                        }
+                    } else {
+                        resultText = result.getError() != null
+                                ? result.getError().getMessage()
+                                + (result.getError().getSuggestion() != null
+                                    ? "\n" + result.getError().getSuggestion() : "")
+                                : "Unknown error";
+                    }
+                    Map<String, Object> toolParams = currentToolParams.get();
+                    collectedToolSummaries.add(new Message.ToolCallSummary(
+                            toolName, toolParams,
+                            result.isSuccess(), result.getDurationMs(), resultText));
+                    orderedBlocks.add(Message.ContentBlockRecord.toolUse(
+                            toolName, toolParams, result.isSuccess(), result.getDurationMs()));
+                    orderedBlocks.add(Message.ContentBlockRecord.toolResult(toolName, resultText));
+
+                    final String displayResultText = resultText;
+                    SwingUtilities.invokeLater(() -> {
+                        var block = currentToolBlock.getAndSet(null);
+                        if (block != null) {
+                            block.markCompleted(result.isSuccess(), result.getDurationMs());
+                        }
+                        if (result.isSuccess()) {
+                            area.addToolResultBlock(toolName, displayResultText);
+                        } else {
+                            area.addToolResultBlock(toolName + " (ERROR)", displayResultText);
+                        }
+                    });
+                }
+            };
+
+            // 执行编排器（带实时进度回调，文本内容通过 onTextContent 实时展示）
+            FunctionCallResult result = functionCallOrchestrator.execute(
+                    request, context, llmCaller, progressCallback);
+
+            // 处理非成功结果
+            if (!result.isSuccess() && result.getType() != FunctionCallResult.ResultType.SUCCESS) {
+                handleFunctionCallResult(result, project, area);
+            }
+
+            // 保存到对话历史（含所有轮次的文本、思考内容和工具调用摘要）
+            String allText = collectedAllText.length() > 0
+                    ? collectedAllText.toString()
+                    : (result.getContent() != null ? result.getContent() : "");
+            Message assistantMessage = new Message();
+            assistantMessage.setRole("assistant");
+            assistantMessage.setContent(allText);
+            if (collectedThinking.length() > 0) {
+                assistantMessage.setThinkingContent(collectedThinking.toString());
+            }
+            if (!collectedToolSummaries.isEmpty()) {
+                assistantMessage.setToolCallSummaries(collectedToolSummaries);
+            }
+            if (!orderedBlocks.isEmpty()) {
+                assistantMessage.setContentBlocks(new ArrayList<>(orderedBlocks));
+            }
+            ChatUtils.getProjectChatHistory(project).add(assistantMessage);
+            JsonStorage.saveConservation(
+                    project.getUserData(GPT_4_LLL_NOW_TOPIC),
+                    ChatUtils.getProjectChatHistory(project));
+
+        } catch (Exception e) {
+            // 错误回退：显示错误并使用传统对话
+            SwingUtilities.invokeLater(() -> {
+                area.appendContent("\n⚠️ Function calling error: " + e.getMessage()
+                        + "\nFalling back to traditional chat...\n");
+            });
+            // 回退到传统对话
+            GenerateAction.chat(chatContent, project, false, true, "");
+        }
+    }
+
+    /**
+     * 在 UI 中显示工具调用历史（工具名称、状态、结果摘要）。
+     */
+    // displayToolCallHistory removed — replaced by real-time ProgressCallback
+
+    /**
+     * 处理非成功的 FunctionCallResult，在 UI 中显示适当的提示。
+     */
+    private void handleFunctionCallResult(FunctionCallResult result, Project project, AgentChatView area) {
+        switch (result.getType()) {
+            case ERROR:
+                SwingUtilities.invokeLater(() ->
+                        area.appendContent("\n⚠️ Error: " + result.getContent()));
+                break;
+            case MAX_ROUNDS_EXCEEDED:
+                SwingUtilities.invokeLater(() ->
+                        area.appendContent("\n⚠️ Maximum conversation rounds exceeded. "
+                                + "The AI made too many tool calls without reaching a final answer."));
+                break;
+            case DEGRADED:
+                SwingUtilities.invokeLater(() ->
+                        area.appendContent("\nℹ️ " + result.getContent()));
+                break;
+            default:
+                break;
+        }
     }
 }

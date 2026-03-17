@@ -15,7 +15,6 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CodeUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -164,11 +163,7 @@ public class ScoreFilesAction2 extends AnAction {
 
             String fileType = file.getFileType().getName();
             Message systemMessage = new Message();
-            if (ProviderNameEnum.BAIDU.getProviderName().equals(providerName)) {
-                systemMessage.setRole("user");
-            } else {
-                systemMessage.setRole("system");
-            }
+            systemMessage.setRole(ChatUtils.getSystemRole(providerName));
             systemMessage.setContent(CodeUtils.SCORE_AI_PROMPT);
 
             Message message = new Message();

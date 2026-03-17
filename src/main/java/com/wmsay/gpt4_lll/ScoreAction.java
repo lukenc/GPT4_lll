@@ -9,11 +9,10 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
-import com.wmsay.gpt4_lll.component.Gpt4lllTextArea;
+import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CodeUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -22,7 +21,6 @@ import com.wmsay.gpt4_lll.utils.ModelUtils;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.wmsay.gpt4_lll.utils.CodeUtils.BACK_END_DEV_STD_PROMPT_ENG;
 import static com.wmsay.gpt4_lll.utils.CodeUtils.BACK_END_DEV_STD_PROMPT_ENG_TEMPLATE;
 
 
@@ -69,11 +67,7 @@ public class ScoreAction extends AnAction {
         SelectionModel selectionModel = editor.getSelectionModel();
         String selectedText = selectionModel.getSelectedText();
         Message systemMessage = new Message();
-        if (ProviderNameEnum.BAIDU.getProviderName().equals(ModelUtils.getSelectedProvider(project))){
-            systemMessage.setRole("user");
-        }else {
-            systemMessage.setRole("system");
-        }
+        systemMessage.setRole(ChatUtils.getSystemRole(ModelUtils.getSelectedProvider(project)));
 //            systemMessage.setName("owner");
         systemMessage.setContent("你是一个计算机科学家，数据专家，有着多年的代码重构经验和多年的代码优化经验的架构师。你对代码的审查十分严格。对于审查评价代码，你总能指出代码中的各种问题，但你不会说不存在的问题，同时也不会遗漏任何一处问题。");
 
@@ -104,7 +98,7 @@ public class ScoreAction extends AnAction {
             ChatUtils.getProjectChatHistory(project).addAll(chatContent.getMessages());
 
             //清理界面
-            Gpt4lllTextArea textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
+            AgentChatView textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
             if (textArea != null) {
                 textArea.clearShowWindow();
             }
