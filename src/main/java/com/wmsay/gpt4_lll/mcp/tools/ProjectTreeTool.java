@@ -25,7 +25,7 @@ public class ProjectTreeTool implements McpTool {
 
     private static final Set<String> DEFAULT_IGNORE_DIRS = Set.of(
             ".git", ".idea", "node_modules", "target", "build", "out", ".gradle",
-            ".vscode", ".intellijPlatform", "bin", ".kiro"
+            ".vscode", ".intellijPlatform", "bin", ".lll"
     );
 
     @Override
