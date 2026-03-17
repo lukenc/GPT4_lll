@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.wmsay"
-version = "3.9.1"
+version = "4.0.0"
 
 repositories {
     mavenCentral()
@@ -20,8 +20,13 @@ dependencies {
     implementation("com.alibaba:fastjson:1.2.83")
     implementation("com.vladsch.flexmark:flexmark:0.64.8")
     implementation("com.vladsch.flexmark:flexmark-util-html:0.64.8")
+    implementation("com.vladsch.flexmark:flexmark-ext-tables:0.64.8")
     implementation("org.mozilla:rhino:1.7.15")
     implementation("org.jsoup:jsoup:1.17.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("net.jqwik:jqwik:1.8.5")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     intellijPlatform {
         create("IC", "2025.1")
         intellijIdeaCommunity("2025.1")
@@ -34,9 +39,9 @@ tasks {
         sourceCompatibility = "17"
         targetCompatibility = "17"
     }
-//    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-//        kotlinOptions.jvmTarget = "17"
-//    }
+    test {
+        useJUnitPlatform()
+    }
 
     patchPluginXml {
         sinceBuild.set("222")

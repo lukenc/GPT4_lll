@@ -11,7 +11,49 @@
 
     <change-notes>
         <![CDATA[
-        <h2>3.9.2 (2025-12-24)</h2>
+        <h2>4.0.0 (2026-03-16)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>全新 Agent 聊天界面：采用 AgentChatView 替代旧版文本区域，支持分块渲染（Markdown、代码块、思考过程、工具调用与结果），提供更流畅的流式对话体验和智能自动滚动。</li>
+            <li>New Agent Chat View: Replaced legacy text area with AgentChatView supporting block-based rendering (Markdown, code blocks, thinking process, tool calls & results), providing smoother streaming conversation experience with smart auto-scrolling.</li>
+            <li>新增 Function Calling 编排引擎：支持多轮工具调用循环（最多20轮），自动解析、验证、执行工具调用并将结果回传 LLM，兼容 OpenAI、Anthropic 和 Markdown 三种协议格式，内置降级容错机制。</li>
+            <li>Added Function Calling Orchestrator: Supports multi-round tool call loops (up to 20 rounds), automatically parsing, validating, executing tool calls and feeding results back to LLM, compatible with OpenAI, Anthropic and Markdown protocol formats, with built-in degradation fallback.</li>
+            <li>新增统一 LLM 客户端抽象层：集中管理 HTTP 和 SSE 通信，提供流式聊天（streamChat）、同步聊天（syncChat）和原始 JSON 调用（syncChatRaw）三种模式，通过 ProviderAdapter 适配不同供应商差异。</li>
+            <li>Added unified LLM Client abstraction layer: Centralized HTTP and SSE communication with three modes - streaming chat (streamChat), synchronous chat (syncChat) and raw JSON call (syncChatRaw), adapting to different providers via ProviderAdapter.</li>
+            <li>新增 MCP 文件写入工具（FileWriteTool）：支持四种写入模式 — 覆盖写入（overwrite）、补丁替换（patch/str_replace）、追加写入（append）和按行插入（insert_after_line），采用原子写入确保数据安全，自动保留原始换行格式。</li>
+            <li>Added MCP File Write Tool (FileWriteTool): Supports four write modes - overwrite, patch (str_replace), append and insert_after_line, using atomic writes for data safety with automatic line ending preservation.</li>
+            <li>新增对话记忆管理系统：提供滑动窗口记忆（SlidingWindowMemory）、摘要记忆（SummarizingMemory）、自适应记忆（AdaptiveMemory）和复合记忆（CompositeMemory）多种策略，支持基于 Token 的上下文管理和 LLM 自动摘要。</li>
+            <li>Added Conversation Memory Management System: Provides multiple strategies including sliding window memory, summarizing memory, adaptive memory and composite memory, supporting token-based context management and LLM auto-summarization.</li>
+            <li>新增运行状态可视化指示器：通过 StatusBorderPainter 动态展示任务状态（空闲、运行中动画、完成、错误），并支持 Stop 按钮在运行时显示，提升用户操作反馈体验。</li>
+            <li>Added Runtime Status Visual Indicator: Dynamically displays task status (idle, running animation, completed, error) via StatusBorderPainter, with Stop button shown during execution for better user feedback.</li>
+            <li>新增内容块渲染系统（Content Block System）：支持 MarkdownBlock、CodeBlock、ThinkingBlock、ToolCallBlock、ToolUseBlock 和 ToolResultBlock 六种类型，StreamContentSplitter 实现流式内容的实时分块解析和渲染。</li>
+            <li>Added Content Block Rendering System: Supports six block types - MarkdownBlock, CodeBlock, ThinkingBlock, ToolCallBlock, ToolUseBlock and ToolResultBlock, with StreamContentSplitter for real-time streaming content parsing and rendering.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>重构 GenerateAction 核心逻辑：使用 LlmClient 替代直接 HTTP 调用，集成 RuntimeStatusManager 进行状态管理，支持 Function Calling 工作流，通过 ProgressCallback 实时展示工具调用过程。</li>
+            <li>Refactored GenerateAction core logic: Replaced direct HTTP calls with LlmClient, integrated RuntimeStatusManager for status management, enabled Function Calling workflow with real-time tool call display via ProgressCallback.</li>
+            <li>重构工具窗口（WindowTool）：使用 AgentChatView 替代旧版组件，集成 StatusBorderPainter 状态反馈边框，支持 Function Calling 模式下的完整工具调用流程展示。</li>
+            <li>Refactored WindowTool: Replaced legacy components with AgentChatView, integrated StatusBorderPainter for status feedback, supporting complete tool call flow display in Function Calling mode.</li>
+            <li>增强 MCP 工具注册与搜索：优化 KeywordSearchTool 和 ProjectTreeTool，增强 McpFileToolSupport 工作区路径安全校验。</li>
+            <li>Enhanced MCP tool registry and search: Optimized KeywordSearchTool and ProjectTreeTool, enhanced McpFileToolSupport workspace path security validation.</li>
+            <li>优化 LinterFixDialog 修复对话框：改进代码对比展示和交互体验。</li>
+            <li>Optimized LinterFixDialog: Improved code comparison display and interaction experience.</li>
+            <li>重构 ChatUtils 工具类：扩展消息构建能力，支持新的 Function Calling 消息格式。</li>
+            <li>Refactored ChatUtils: Extended message building capabilities with support for new Function Calling message formats.</li>
+            <li>增强 Message 和 ChatContent 模型：扩展数据模型以支持工具调用、工具结果等新消息类型。</li>
+            <li>Enhanced Message and ChatContent models: Extended data models to support tool calls, tool results and other new message types.</li>
+            <li>新增全面的单元测试和属性测试：覆盖 Function Calling 编排、协议适配、验证引擎、记忆管理、MCP 工具等核心模块，共新增超过 20 个测试类。</li>
+            <li>Added comprehensive unit tests and property tests: Covering Function Calling orchestration, protocol adapters, validation engine, memory management, MCP tools and other core modules, with over 20 new test classes.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>3.9.2 (2025-12-24)</h2>
 <ul>
     <li>
         <h3>FEATURE/新功能:</h3>
@@ -696,22 +738,39 @@
     <description>
         <![CDATA[
 <h2>Features</h2>
+
+<h4>Agent Chat View with Block Rendering</h4>
+<p>A completely redesigned chat interface with block-based content rendering. Supports six content block types: Markdown, Code, Thinking Process, Tool Call, Tool Use, and Tool Result. Provides smooth streaming display with smart auto-scrolling and per-turn bubble layout for both user and assistant messages.</p>
+
+<h4>Function Calling (Tool Use) Engine</h4>
+<p>Built-in Function Calling orchestrator enabling AI models to invoke tools within the IDE. Supports multi-round tool call loops (up to 20 rounds), automatic parameter validation, execution with user approval, and result feedback. Compatible with OpenAI, Anthropic and Markdown protocol formats, with built-in degradation fallback mechanism for reliability.</p>
+
+<h4>MCP Tool System</h4>
+<p>Model Context Protocol (MCP) tool system providing file read, file write, keyword search and project tree tools. The File Write Tool supports four modes: overwrite, patch (str_replace), append and insert_after_line, with atomic writes for data safety and automatic line ending preservation. Tools are sandboxed to the project workspace for security.</p>
+
+<h4>Unified LLM Client</h4>
+<p>Centralized LLM client abstraction layer handling HTTP and SSE communication with multiple providers. Supports streaming chat, synchronous chat, and raw JSON mode for function calling. Provider-specific differences (URL, API key format, message structure, SSE parsing) are handled transparently via adapter pattern.</p>
+
+<h4>Conversation Memory Management</h4>
+<p>Intelligent conversation memory system with multiple strategies: sliding window (token-based truncation), summarizing (LLM auto-summarization when context exceeds threshold), adaptive (similarity-based), and composite (multi-tier). Includes real token usage tracking from API responses.</p>
+
+<h4>Runtime Status Indicator</h4>
+<p>Visual status feedback via animated border: idle (no border), running (animated green sweep), completed (solid green), error (red). A Stop button appears during execution for task cancellation. Status automatically resets after 3 seconds.</p>
+
 <h4>Free AIGC Access</h4>
 <p>The AIGC capability is now freely available to all users. Enjoy intelligent generation services at no extra cost. However, due to high demand, you may need to queue each time you use this feature.</p>
 
 <h4>Multi-Platform Support</h4>
 <p>
-    The plugin now supports multiple platforms, including not only OpenAI's ChatGPT but also Baidu's ERNIE Bot (Wenxin Yiyan) and Alibaba's Tongyi Qianwen.
-    This ensures that users can leverage the strengths of various AI models. In the future, we plan to extend compatibility to even more platforms, providing
-    greater flexibility and choice for our users.
+    The plugin supports multiple AI platforms with unified interface and seamless provider switching.
     <h5>Supported List</h5>
     <ul>
-        <li>openai</li>
-        <li>grok</li>
-        <li>tongyi</li>
-        <li>ERNIE</li>
-        <li>DeepSeek</li>
-        <li>openai standard personal api</li>
+        <li>OpenAI (GPT-4, GPT-4o, etc.)</li>
+        <li>Grok</li>
+        <li>Tongyi Qianwen (Qwen3-Coder-Plus, Qwen3-Coder-Flash, etc.)</li>
+        <li>Baidu ERNIE Bot</li>
+        <li>DeepSeek (V3, R1)</li>
+        <li>OpenAI-standard custom API</li>
     </ul>
 </p>
 
@@ -728,47 +787,38 @@
 <p>Implemented the capability to generate code on demand, providing code snippets when needed.</p>
 
 <h4>Automatic Code Comments Generation</h4>
-<p>Added a feature that allows you to auto-generate code comments using ChatGPT. By simply highlighting the code, the plugin will call on the ChatGPT AI model to generate comprehensive and contextually appropriate code comments.</p>
+<p>Added a feature that allows you to auto-generate code comments using AI. By simply highlighting the code, the plugin will call on the AI model to generate comprehensive and contextually appropriate code comments.</p>
+
+<h4>Intelligent Comment Translation</h4>
+<p>Real-time translation for comments in external library files with streaming translation experience. Supports seamless toggling between original and translated content, with regeneration support. Significantly improves code reading and study efficiency.</p>
 
 <h4>History Recording Feature</h4>
 <p>Added a history recording feature to prevent data loss. Every conversation will now be recorded, allowing easy access to previous interactions.</p>
-<p>The project now ensures that no content is lost and has been optimized accordingly.</p>
 
 <h4>Code Assessment</h4>
-<p>Introduced a new Code Assessment feature, allowing team leaders to evaluate team members' code. This feature aims to facilitate code reviews, improve code quality, and foster continuous learning within the team.</p>
+<p>Code Assessment feature allowing team leaders to evaluate team members' code. Facilitates code reviews, improves code quality, and fosters continuous learning within the team.</p>
 
 <h4>Unit Test Generation</h4>
-<p>One-click unit test generation feature that automatically creates executable unit test files from selected code blocks. This eliminates the need for manual copying and pasting, streamlining the testing process and boosting efficiency in code testing.</p>
+<p>One-click unit test generation feature that automatically creates executable unit test files from selected code blocks.</p>
 
 <h4>SQL Statement Evaluation and Optimization</h4>
 <p>Comprehensive SQL statement evaluation and optimization feature that provides syntax correctness checks, performance optimization suggestions, security assessments, index usage recommendations, query efficiency analysis, and best practice suggestions.</p>
 
 <h4>AI-Powered Commit Message Generation</h4>
-<p>Automatically generates standardized commit messages based on Git changes using AI technology. This feature improves version control efficiency by creating meaningful and descriptive commit messages that accurately reflect the changes made.</p>
+<p>Automatically generates standardized commit messages based on Git changes using AI technology.</p>
 
 <h4>Git Work Report Generation</h4>
-<p>Generate detailed work reports by filtering Git commits by author and time range. This feature supports team collaboration and project management by providing comprehensive insights into development activities and progress tracking.</p>
+<p>Generate detailed work reports by filtering Git commits by author and time range for team collaboration and project management.</p>
 
 <h4>Batch File Assessment</h4>
-<p>Evaluate multiple code files or folders simultaneously by selecting them in the project file list. This feature generates comprehensive evaluation content for all selected files, making it efficient for large-scale code quality assessment.</p>
-
-<h4>Real-Time Chat Interface</h4>
-<p>Integrated chat interface within the IDE that supports real-time conversations with AI models. Features include session management, conversation history, and seamless integration with code context. The interface supports multi-line input, HTML content rendering, and automatic conversation topic management.</p>
+<p>Evaluate multiple code files or folders simultaneously by selecting them in the project file list.</p>
 
 <h4>AI-Powered Linter Fix</h4>
 <p>Intelligent code fix suggestions based on JetBrains IDE Linter errors. Select problematic code, right-click and choose "GPT4lll: Fix Linter Errors" or use shortcut Ctrl+Alt+L to get AI-generated fix suggestions. A side-by-side comparison dialog shows original and fixed code. Press Enter to apply the fix instantly.</p>
 <br>
-<p>GPT4_lll is a plugin designed for IntelliJ IDEA users, aiming to provide real-time code querying and analysis services using OpenAI's GPT-4 model. This plugin serves as a powerful assistant while you write or read code, helping you better understand and improve your code.</p>
-<br>
-<p>The core functionalities of this plugin are generated by ChatGpt itself, and I have made only a few modifications to the text. I am grateful for the outstanding work and technical support of artificial intelligence.</p>
+<p>GPT4_lll is a plugin designed for IntelliJ IDEA users, providing real-time code querying, analysis and AI-assisted development services. With the new Function Calling engine, the plugin can now autonomously use tools to read, search and modify project files, making it a powerful AI coding assistant within your IDE.</p>
 <br>
 <p>GPT4_lll plugin is a clean plugin with no potential risks or security issues. We warmly welcome aspiring individuals to join our development team and collaborate on enhancing this plugin.</p>
-<br>
-<p>The development of this plugin was a necessary move. The previous plugin I used required entering personal OPENAI_API_KEY, but unfortunately, my account information was misused, and the data was abused, resulting in the suspension of my account.</p>
-<br>
-<p>It now fully supports Baidu's ERNIE Bot, also known as Wenxin Yiyan. This integration allows users to leverage the powerful capabilities of Wenxin Yiyan for even deeper and more accurate code analysis.</p>
-<br>
-<p>Given OpenAI's extremely unfriendly attitude towards China, resulting in a large number of account suspensions for Chinese users, I, as a programmer with integrity and spirit, have decided to embrace the excellent domestic large model product - Wenxin Yiyan. If in the future Wenxin Yiyan also fails to meet my needs or exhibits unfriendly behavior, I will resolutely turn to other trustworthy domestic vendors and continue to persevere on my programming journey.</p>
 <h2>Help</h2>
 <h3>Installation Guide</h3>
 <ol>
@@ -785,78 +835,87 @@
 </ul>
 
 <h2>特性</h2>
+
+<h4>Agent 聊天界面（分块渲染）</h4>
+<p>全新设计的聊天界面，支持六种内容块类型的分块渲染：Markdown、代码块、思考过程、工具调用、工具使用和工具结果。提供流畅的流式显示效果，智能自动滚动，按对话轮次分气泡展示用户和助手消息。</p>
+
+<h4>Function Calling（工具调用）引擎</h4>
+<p>内置 Function Calling 编排引擎，使 AI 模型能够在 IDE 中自主调用工具。支持多轮工具调用循环（最多20轮），自动参数验证、用户审批执行和结果反馈。兼容 OpenAI、Anthropic 和 Markdown 三种协议格式，内置降级容错机制。</p>
+
+<h4>MCP 工具系统</h4>
+<p>Model Context Protocol（MCP）工具系统，提供文件读取、文件写入、关键词搜索和项目目录树工具。文件写入工具支持四种模式：覆盖写入、补丁替换（str_replace）、追加写入和按行插入，采用原子写入确保数据安全，自动保留原始换行格式。工具沙箱化限制在项目工作区内确保安全。</p>
+
+<h4>统一 LLM 客户端</h4>
+<p>集中管理与多个供应商的 HTTP 和 SSE 通信的 LLM 客户端抽象层。支持流式聊天、同步聊天和原始 JSON 三种模式。通过适配器模式透明处理供应商差异（URL、API Key 格式、消息结构、SSE 解析）。</p>
+
+<h4>对话记忆管理</h4>
+<p>智能对话记忆系统，提供多种策略：滑动窗口记忆（基于 Token 截断）、摘要记忆（超出阈值时 LLM 自动摘要）、自适应记忆（基于相似度）和复合记忆（多层级）。包含 API 返回的真实 Token 用量追踪。</p>
+
+<h4>运行状态可视化</h4>
+<p>通过动画边框展示任务状态：空闲（无边框）、运行中（绿色扫光动画）、完成（绿色实线）、错误（红色）。执行时显示 Stop 按钮支持任务取消，状态3秒后自动复位。</p>
+
 <h4>免费使用AIGC</h4>
 <p>AIGC能力现已向所有用户免费开放。无需额外费用，即可享受智能化的生成服务。但由于使用人数过多，每次使用此功能时可能需要排队等待。</p>
 
 <h4>多平台支持</h4>
 <p>
-    插件现已支持多个平台，不仅支持OpenAI的ChatGPT，还支持百度的文心一言和阿里的通义千问。
-    这确保了用户可以利用各种AI模型的优势。未来，我们计划进一步扩展兼容性，支持更多平台，为用户提供更大的灵活性和选择。
+    插件支持多个 AI 平台，提供统一接口和无缝切换。
     <h5>支持列表</h5>
     <ul>
-        <li>openai</li>
-        <li>grok</li>
-        <li>通义</li>
-        <li>文心一言</li>
-        <li>深度求索</li>
-        <li>openai标准的自定义接口</li>
+        <li>OpenAI (GPT-4, GPT-4o 等)</li>
+        <li>Grok</li>
+        <li>通义千问 (Qwen3-Coder-Plus, Qwen3-Coder-Flash 等)</li>
+        <li>百度文心一言</li>
+        <li>深度求索 (V3, R1)</li>
+        <li>OpenAI 标准的自定义接口</li>
     </ul>
 </p>
 
-<h4>根据todo生成代码</h4>
-<p>在项目中根据TODO评论生成代码的能力已被引入。此功能通过将可操作的TODO转化为功能性代码段，实现了快速开发。</p>
+<h4>根据TODO生成代码</h4>
+<p>在项目中根据TODO评论生成代码，通过将可操作的TODO转化为功能性代码段实现快速开发。</p>
 
 <h4>自然语言识别</h4>
-<p>改进了自然语言识别逻辑，提高了准确度和性能。插件支持100多种语言，并自动检测用户的系统语言，以用户偏好的语言提供回复。</p>
+<p>支持100多种语言，自动检测用户系统语言，以用户偏好的语言提供回复。</p>
 
 <h4>自动识别代码类型</h4>
-<p>提升了代码类型识别功能，自动识别代码类型。</p>
+<p>自动识别代码类型，无需手动配置。</p>
 
 <h4>按需生成代码</h4>
-<p>增加按需生成代码的功能，根据需要提供代码片段。</p>
+<p>根据需要生成代码片段。</p>
 
 <h4>自动生成代码注释</h4>
-<p>添加了使用ChatGPT自动生成代码注释的功能。只需简单地圈选代码，插件就会调用ChatGPT AI模型生成全面且符合上下文的代码注释。</p>
+<p>只需圈选代码，插件即可调用 AI 模型生成全面且符合上下文的代码注释。</p>
+
+<h4>智能注释翻译</h4>
+<p>对外部库文件中的注释进行实时流式翻译，支持在原文和翻译之间无缝切换，并可重新生成翻译内容，显著提升代码阅读和学习效率。</p>
 
 <h4>历史记录功能</h4>
 <p>增加了历史记录功能，防止数据丢失。每次对话都会被记录，方便查看之前的交互记录。</p>
-<p>该项目现在确保不丢失任何内容，并进行了相应的优化。</p>
 
 <h4>代码评估</h4>
-<p>新引入了代码评估功能，允许团队领导评估团队成员的代码。这个功能旨在促进代码审查，提高代码质量，并在团队中促进持续学习。</p>
+<p>代码评估功能，允许团队领导评估团队成员的代码，促进代码审查和持续学习。</p>
 
 <h4>单元测试生成</h4>
-<p>一键生成单元测试功能，能够从选定的代码块自动生成可执行的单元测试文件。这省去了手动复制和粘贴的步骤，简化了测试过程，提高了代码测试的效率和简便性。</p>
+<p>一键生成单元测试功能，从选定代码块自动生成可执行的单元测试文件。</p>
 
 <h4>SQL语句评估和优化</h4>
-<p>全面的SQL语句评估和优化功能，提供语法正确性检查、性能优化建议、安全性评估、索引使用建议、查询效率分析和最佳实践建议。</p>
+<p>全面的SQL语句评估和优化功能，提供语法检查、性能优化建议、安全性评估、索引使用建议、查询效率分析和最佳实践建议。</p>
 
 <h4>AI智能提交信息生成</h4>
-<p>基于Git变更内容使用AI技术自动生成符合规范的提交信息。此功能通过创建有意义和描述性的提交信息来提高版本控制效率，准确反映所做的更改。</p>
+<p>基于Git变更内容使用AI技术自动生成符合规范的提交信息。</p>
 
 <h4>Git工作报告生成</h4>
-<p>通过按作者和时间范围筛选Git提交记录来生成详细的工作报告。此功能通过提供对开发活动和进度跟踪的全面洞察来支持团队协作和项目管理。</p>
+<p>通过按作者和时间范围筛选Git提交记录来生成详细的工作报告，支持团队协作和项目管理。</p>
 
 <h4>批量文件评估</h4>
-<p>通过在项目文件列表中选择多个代码文件或文件夹来同时评估它们。此功能为所有选定的文件生成全面的评估内容，使大规模代码质量评估变得高效。</p>
-
-<h4>实时聊天界面</h4>
-<p>IDE内集成的聊天界面，支持与AI模型的实时对话。功能包括会话管理、对话历史记录以及与代码上下文的无缝集成。界面支持多行输入、HTML内容渲染和自动对话主题管理。</p>
+<p>在项目文件列表中选择多个代码文件或文件夹同时评估。</p>
 
 <h4>AI 智能 Linter 修复</h4>
 <p>基于 JetBrains IDE Linter 错误的智能代码修复建议。选中有问题的代码，右键选择"GPT4lll: Fix Linter Errors"或使用快捷键 Ctrl+Alt+L 获取 AI 生成的修复建议。并排对比对话框显示原始代码和修复后的代码，按回车键即可立即应用修复。</p>
 <br>
-<p>GPT4_lll是为IntelliJ IDEA用户设计的插件，旨在利用OpenAI的GPT-4模型提供实时的代码查询和分析服务。这个插件在你编写或阅读代码时充当一个强大的助手，帮助你更好地理解和改进你的代码。</p>
+<p>GPT4_lll 是为 IntelliJ IDEA 用户设计的插件，提供实时的代码查询、分析和 AI 辅助开发服务。通过全新的 Function Calling 引擎，插件现在可以自主使用工具读取、搜索和修改项目文件，成为 IDE 内的强大 AI 编程助手。</p>
 <br>
-<p>这个插件的核心功能是由ChatGpt自动生成的，我只对文本进行了少量修改。对人工智能的出色工作和技术支持表示感激。</p>
-<br>
-<p>GPT4_lll插件是一个干净的插件，没有潜在的风险或安全问题。我们热烈欢迎有抱负的人加入我们的开发团队，共同改进这个插件。</p>
-<br>
-<p>开发这个插件是一种无奈之举。我之前使用的插件要求输入个人的OPENAI_API_KEY，但不幸的是，我的账户信息被滥用，数据被滥用，导致我的账户被封禁。</p>
-<br>
-<p>现在它完全支持百度的文心一言（ERNIE Bot)。这一集成使用户能够利用文心一言的强大功能进行更深入、更准确的代码分析</p>
-<br>
-<p>鉴于OpenAI对中国持极为不友好的态度，频繁地对中国用户账号进行封禁，作为一名有骨气、有脾气的程序员，我毅然决定转而拥抱国内优秀的大模型产品——文心一言和通义千问。未来，倘若文心一言也无法满足我的需求或展现出不友好的态度，我将毫不犹豫地转向其他值得信赖的国内厂商，继续坚守我的编程之路。</p>
+<p>GPT4_lll 插件是一个干净的插件，没有潜在的风险或安全问题。我们热烈欢迎有抱负的人加入我们的开发团队，共同改进这个插件。</p>
 <h2>帮助</h2>
 <h3>安装指南</h3>
 <ol>
