@@ -11,7 +11,6 @@ import com.wmsay.gpt4_lll.MyPluginSettings;
 import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.CommentTranslation;
 import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.enums.ProviderNameEnum;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.slf4j.Logger;
@@ -472,11 +471,7 @@ public class CommentTranslationService {
 
             Message systemMessage = new Message();
             String provider = ModelUtils.getAvailableProvider(project);
-            if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
-                systemMessage.setRole("user");
-            } else {
-                systemMessage.setRole("system");
-            }
+            systemMessage.setRole(ChatUtils.getSystemRole(provider));
             systemMessage.setContent("你是一个专业的代码注释翻译助手，能够准确翻译各种编程语言的注释内容。");
 
             Message userMessage = new Message();
@@ -596,11 +591,7 @@ public class CommentTranslationService {
 
             Message systemMessage = new Message();
             String provider = ModelUtils.getAvailableProvider(project);
-            if (ProviderNameEnum.BAIDU.getProviderName().equals(provider)) {
-                systemMessage.setRole("user");
-            } else {
-                systemMessage.setRole("system");
-            }
+            systemMessage.setRole(ChatUtils.getSystemRole(provider));
             systemMessage.setContent("你是一个专业的代码注释翻译助手，能够准确翻译各种编程语言的注释内容。");
 
             Message userMessage = new Message();

@@ -94,21 +94,21 @@ public class CommentTranslationRenderer {
             final String tooltip = String.format(
                 "<html><body style='max-width: 500px;'>" +
                 "<div style='font-family: Arial, sans-serif; padding: 10px;'>" +
-                "<div style='background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 8px; border-radius: 6px; margin-bottom: 10px; text-align: center;'>" +
+                "<div style='background-color: #4CAF50; color: white; padding: 8px; margin-bottom: 10px; text-align: center;'>" +
                 "<b>🔄 注释翻译模式</b>" +
                 "</div>" +
                 
-                "<div style='background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 8px; margin: 8px 0; border-radius: 4px;'>" +
+                "<div style='background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 8px; margin: 8px 0;'>" +
                 "<div style='color: #495057; font-weight: bold; margin-bottom: 4px;'>📝 原始注释:</div>" +
-                "<div style='font-family: Consolas, Monaco, monospace; color: #6c757d; font-size: 12px; line-height: 1.4;'>%s</div>" +
+                "<div style='font-family: Consolas, Monaco, monospace; color: #6c757d; font-size: 12px;'>%s</div>" +
                 "</div>" +
                 
-                "<div style='background-color: #e8f5e8; border-left: 4px solid #28a745; padding: 8px; margin: 8px 0; border-radius: 4px;'>" +
+                "<div style='background-color: #e8f5e8; border-left: 4px solid #28a745; padding: 8px; margin: 8px 0;'>" +
                 "<div style='color: #155724; font-weight: bold; margin-bottom: 4px;'>✨ 中文翻译:</div>" +
-                "<div style='font-family: Consolas, Monaco, monospace; color: #155724; font-size: 12px; line-height: 1.4; font-weight: bold;'>%s</div>" +
+                "<div style='font-family: Consolas, Monaco, monospace; color: #155724; font-size: 12px; font-weight: bold;'>%s</div>" +
                 "</div>" +
                 
-                "<div style='text-align: center; margin-top: 10px; padding: 6px; background-color: #fff3cd; border-radius: 4px;'>" +
+                "<div style='text-align: center; margin-top: 10px; padding: 6px; background-color: #fff3cd;'>" +
                 "<small style='color: #856404;'>💡 右键菜单选择 \"Show Original Comments\" 可切换回原文显示</small>" +
                 "</div>" +
                 "</div>" +
