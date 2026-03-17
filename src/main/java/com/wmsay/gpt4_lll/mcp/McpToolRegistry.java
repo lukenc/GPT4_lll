@@ -4,6 +4,7 @@ import com.wmsay.gpt4_lll.mcp.tools.FileReadTool;
 import com.wmsay.gpt4_lll.mcp.tools.FileWriteTool;
 import com.wmsay.gpt4_lll.mcp.tools.KeywordSearchTool;
 import com.wmsay.gpt4_lll.mcp.tools.ProjectTreeTool;
+import com.wmsay.gpt4_lll.mcp.tools.ShellExecTool;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,6 +24,7 @@ public class McpToolRegistry {
         register(new FileReadTool());
         register(new FileWriteTool());
         register(new ProjectTreeTool());
+        register(new ShellExecTool());
     }
 
     public static void register(McpTool tool) {

@@ -41,7 +41,7 @@ public class ExecutionEngine {
 
     /** 已知的需要用户审批的工具（写入/删除/执行类） */
     private static final Set<String> APPROVAL_REQUIRED_TOOLS = Set.of(
-            "write_file", "delete_file", "execute_command", "run_command"
+            "write_file", "delete_file", "execute_command", "run_command", "shell_exec"
     );
 
     /** 工具自定义超时配置，key 为工具名称，value 为超时秒数 */
