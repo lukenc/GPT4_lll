@@ -61,7 +61,7 @@ public class ShellExecPolicy {
             "curl.*\\|.*sh", "curl.*\\|.*bash",
             "wget.*\\|.*sh", "wget.*\\|.*bash",
             "\\bkill\\s+-9\\s+-1\\b",
-            ":(){ :|:& };:"  // fork bomb
+            "\\Q:(){ :|:& };:\\E"  // fork bomb (literal match via \Q...\E)
     );
 
     // git 子命令风险映射
