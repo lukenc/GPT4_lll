@@ -424,6 +424,27 @@ public class AgentChatView extends JPanel implements Scrollable {
                     ToolResultBlock resultBlock = new ToolResultBlock(label, resultText);
                     turn.addBlock(resultBlock);
                     break;
+                case "plan":
+                    if (block.getContent() != null && !block.getContent().isEmpty()) {
+                        turn.setActiveBlock(null);
+                        turn.appendContent(block.getContent());
+                        turn.flushContent();
+                        turn.setActiveBlock(null);
+                    }
+                    break;
+                case "plan_step":
+                    turn.setActiveBlock(null);
+                    Integer idx = block.getStepIndex();
+                    boolean ok = Boolean.TRUE.equals(block.getStepSuccess());
+                    String res = block.getStepResult() != null ? block.getStepResult() : "";
+                    int stepNum = idx != null ? idx + 1 : 0;
+                    String stepText = (ok ? "✅" : "❌") + " Step " + stepNum
+                            + (ok ? " 完成" : " 失败")
+                            + (res.isEmpty() ? "" : "\n   " + truncateForDisplay(res, 300));
+                    turn.appendContent("\n" + stepText + "\n");
+                    turn.flushContent();
+                    turn.setActiveBlock(null);
+                    break;
                 default:
                     break;
             }
@@ -478,6 +499,11 @@ public class AgentChatView extends JPanel implements Scrollable {
         if (!rebuiltBlocks.isEmpty()) {
             renderOrderedBlocks(turn, rebuiltBlocks);
         }
+    }
+
+    private static String truncateForDisplay(String text, int maxLen) {
+        if (text == null) return "";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 
     /**

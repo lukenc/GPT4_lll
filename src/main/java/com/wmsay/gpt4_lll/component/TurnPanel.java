@@ -74,21 +74,31 @@ public class TurnPanel {
 
             @Override
             public void onCodeFenceStart(String language) {
-                CodeBlock codeBlock = new CodeBlock(language);
-                codeBlock.setOnContentChanged(TurnPanel.this::notifyContentChanged);
-                addBlock(codeBlock);
-                activeBlock = codeBlock;
+                if (language != null && language.trim().equalsIgnoreCase("mermaid")) {
+                    MermaidBlock mermaidBlock = new MermaidBlock();
+                    mermaidBlock.setOnContentChanged(TurnPanel.this::notifyContentChanged);
+                    addBlock(mermaidBlock);
+                    activeBlock = mermaidBlock;
+                } else {
+                    CodeBlock codeBlock = new CodeBlock(language);
+                    codeBlock.setOnContentChanged(TurnPanel.this::notifyContentChanged);
+                    addBlock(codeBlock);
+                    activeBlock = codeBlock;
+                }
             }
 
             @Override
             public void onCodeContent(String text) {
-                if (activeBlock instanceof CodeBlock) {
+                if (activeBlock instanceof CodeBlock || activeBlock instanceof MermaidBlock) {
                     activeBlock.appendContent(text);
                 }
             }
 
             @Override
             public void onCodeFenceEnd() {
+                if (activeBlock instanceof MermaidBlock mb) {
+                    mb.triggerRender();
+                }
                 activeBlock = null;
             }
         });
@@ -221,6 +231,8 @@ public class TurnPanel {
             tb.dispose();
         } else if (block instanceof ToolUseBlock tub) {
             tub.dispose();
+        } else if (block instanceof MermaidBlock meb) {
+            meb.dispose();
         }
     }
 }
