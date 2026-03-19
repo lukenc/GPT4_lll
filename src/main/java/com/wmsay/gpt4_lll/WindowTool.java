@@ -36,6 +36,9 @@ import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
 import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
 import com.wmsay.gpt4_lll.fc.model.*;
 import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.strategy.ExecutionStrategy;
+import com.wmsay.gpt4_lll.fc.strategy.ExecutionStrategyFactory;
+import com.wmsay.gpt4_lll.fc.strategy.PlanStep;
 import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapter;
 import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapterRegistry;
 import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
@@ -80,6 +83,9 @@ public class WindowTool implements ToolWindowFactory {
     // ---- Stop button & request thread ----
     private JButton stopButton;
     private volatile Thread currentRequestThread;
+
+    // ---- Strategy toggle ----
+    private ComboBox<String> strategyComboBox;
 
     // ---- Function Calling 框架组件 ----
     private FunctionCallOrchestrator functionCallOrchestrator;
@@ -374,7 +380,7 @@ public class WindowTool implements ToolWindowFactory {
             }
         });
 
-        // 添加组件到面板
+        // Row 0: Provider + Model
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 0;
@@ -396,7 +402,70 @@ public class WindowTool implements ToolWindowFactory {
         gbc.weightx = 0.6;
         panel.add(modelComboBox, gbc);
 
+        // Row 1: Strategy selector
+        strategyComboBox = new ComboBox<>();
+        for (ExecutionStrategy strategy : ExecutionStrategyFactory.getAll()) {
+            strategyComboBox.addItem(strategy.getDisplayName());
+        }
+        strategyComboBox.setSelectedItem("ReAct");
+        strategyComboBox.setToolTipText("选择执行策略 / Select execution strategy");
+        strategyComboBox.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                String selectedDisplay = (String) strategyComboBox.getSelectedItem();
+                switchExecutionStrategy(selectedDisplay);
+            }
+        });
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.weightx = 0;
+        panel.add(new JLabel("Strategy: "), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        gbc.weightx = 0.4;
+        panel.add(strategyComboBox, gbc);
+        gbc.gridwidth = 1;
+
+        // Strategy description label
+        JLabel strategyDescLabel = new JLabel("观察→思考→行动循环，适用于通用任务");
+        strategyDescLabel.setFont(strategyDescLabel.getFont().deriveFont(Font.ITALIC, 11f));
+        strategyDescLabel.setForeground(java.awt.Color.GRAY);
+        gbc.gridx = 3;
+        gbc.gridwidth = 2;
+        gbc.weightx = 0.6;
+        panel.add(strategyDescLabel, gbc);
+        gbc.gridwidth = 1;
+
+        // Update description when strategy changes
+        strategyComboBox.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                String selectedDisplay = (String) strategyComboBox.getSelectedItem();
+                for (ExecutionStrategy s : ExecutionStrategyFactory.getAll()) {
+                    if (s.getDisplayName().equals(selectedDisplay)) {
+                        strategyDescLabel.setText(s.getDescription());
+                        break;
+                    }
+                }
+            }
+        });
+
         return panel;
+    }
+
+    /**
+     * 切换执行策略（通过 UI 下拉框触发）。
+     */
+    private void switchExecutionStrategy(String displayName) {
+        if (functionCallOrchestrator == null) return;
+        for (ExecutionStrategy strategy : ExecutionStrategyFactory.getAll()) {
+            if (strategy.getDisplayName().equals(displayName)) {
+                functionCallOrchestrator.setExecutionStrategyName(strategy.getName());
+                System.out.println("[FC] Execution strategy switched to: "
+                        + strategy.getName() + " (" + strategy.getDisplayName() + ")");
+                break;
+            }
+        }
     }
 
     private void updateModelComboBox(Project project) {
@@ -578,8 +647,28 @@ public class WindowTool implements ToolWindowFactory {
                     protocolAdapter, validationEngine, executionEngine,
                     errorHandler, observabilityManager);
 
+            // 注册默认执行钩子（超时保护 + 连续失败检测）
+            functionCallOrchestrator.addExecutionHook(
+                    com.wmsay.gpt4_lll.fc.strategy.hooks.TimeoutGuardHook.ofMinutes(35));
+            functionCallOrchestrator.addExecutionHook(
+                    com.wmsay.gpt4_lll.fc.strategy.hooks.ConsecutiveFailureHook.withDefaults());
+
+            // 应用配置中的执行策略
+            String configStrategy = functionCallConfig.getExecutionStrategy();
+            if (configStrategy != null && !configStrategy.isEmpty()) {
+                functionCallOrchestrator.setExecutionStrategyName(configStrategy);
+                // 同步 UI 下拉框
+                if (strategyComboBox != null) {
+                    ExecutionStrategy strategy = ExecutionStrategyFactory.get(configStrategy);
+                    if (strategy != null) {
+                        strategyComboBox.setSelectedItem(strategy.getDisplayName());
+                    }
+                }
+            }
+
             System.out.println("[FC] Function calling framework initialized. Enabled="
-                    + functionCallConfig.isEnableFunctionCalling());
+                    + functionCallConfig.isEnableFunctionCalling()
+                    + ", Strategy=" + functionCallOrchestrator.getExecutionStrategyName());
         } catch (Exception e) {
             System.err.println("[FC] Failed to initialize function calling framework: " + e.getMessage());
             e.printStackTrace();
@@ -794,6 +883,50 @@ public class WindowTool implements ToolWindowFactory {
                             area.addToolResultBlock(toolName + " (ERROR)", displayResultText);
                         }
                     });
+                }
+
+                // ---- Plan-and-Execute 策略回调 ----
+                @Override
+                public void onStrategyPhase(String phase, String description) {
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n📋 " + description + "\n"));
+                }
+
+                @Override
+                public void onPlanGenerated(List<PlanStep> steps) {
+                    StringBuilder planText = new StringBuilder("\n📋 **执行计划** (" + steps.size() + " 步):\n");
+                    for (PlanStep step : steps) {
+                        planText.append("  ").append(step.getIndex() + 1)
+                                .append(". ").append(step.getDescription()).append("\n");
+                    }
+                    orderedBlocks.add(Message.ContentBlockRecord.plan(planText.toString()));
+                    SwingUtilities.invokeLater(() -> area.appendContent(planText.toString()));
+                }
+
+                @Override
+                public void onPlanStepStarting(int stepIndex, String stepDescription) {
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n▶ **Step " + (stepIndex + 1) + "**: "
+                                    + stepDescription + "\n"));
+                }
+
+                @Override
+                public void onPlanStepCompleted(int stepIndex, boolean success, String resultSummary) {
+                    orderedBlocks.add(Message.ContentBlockRecord.planStep(
+                            stepIndex, success, resultSummary));
+                    String icon = success ? "✅" : "❌";
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n" + icon + " Step " + (stepIndex + 1)
+                                    + (success ? " 完成" : " 失败") + "\n"));
+                }
+
+                @Override
+                public void onPlanRevised(List<PlanStep> revisedSteps) {
+                    long remaining = revisedSteps.stream()
+                            .filter(s -> s.getStatus() == PlanStep.Status.PENDING)
+                            .count();
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n🔄 计划已修订，剩余 " + remaining + " 步\n"));
                 }
             };
 

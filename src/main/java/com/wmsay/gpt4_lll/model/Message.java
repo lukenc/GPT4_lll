@@ -43,6 +43,8 @@ public class Message {
      * "text" — AI 对话文本，content 为正文
      * "tool_use" — 工具调用，toolName/params/success/durationMs
      * "tool_result" — 工具结果，toolName/resultText
+     * "plan" — PlanAndExecute 执行计划，content 为格式化的计划文本
+     * "plan_step" — 计划步骤执行完成，stepIndex/stepSuccess/stepResult
      */
     public static class ContentBlockRecord {
         private String type;
@@ -55,6 +57,15 @@ public class Message {
         private long durationMs;
         @JSONField(name = "result_text")
         private String resultText;
+        /** plan_step 类型：步骤索引（从 0 开始） */
+        @JSONField(name = "step_index")
+        private Integer stepIndex;
+        /** plan_step 类型：步骤是否成功 */
+        @JSONField(name = "step_success")
+        private Boolean stepSuccess;
+        /** plan_step 类型：步骤执行结果摘要 */
+        @JSONField(name = "step_result")
+        private String stepResult;
 
         public ContentBlockRecord() {}
 
@@ -91,6 +102,24 @@ public class Message {
             return r;
         }
 
+        /** PlanAndExecute：执行计划（步骤列表） */
+        public static ContentBlockRecord plan(String planText) {
+            ContentBlockRecord r = new ContentBlockRecord();
+            r.type = "plan";
+            r.content = planText;
+            return r;
+        }
+
+        /** PlanAndExecute：单个步骤执行完成 */
+        public static ContentBlockRecord planStep(int stepIndex, boolean success, String resultSummary) {
+            ContentBlockRecord r = new ContentBlockRecord();
+            r.type = "plan_step";
+            r.stepIndex = stepIndex;
+            r.stepSuccess = success;
+            r.stepResult = resultSummary != null ? resultSummary : "";
+            return r;
+        }
+
         public String getType() { return type; }
         public void setType(String type) { this.type = type; }
         public String getContent() { return content; }
@@ -105,6 +134,12 @@ public class Message {
         public void setDurationMs(long durationMs) { this.durationMs = durationMs; }
         public String getResultText() { return resultText; }
         public void setResultText(String resultText) { this.resultText = resultText; }
+        public Integer getStepIndex() { return stepIndex; }
+        public void setStepIndex(Integer stepIndex) { this.stepIndex = stepIndex; }
+        public Boolean getStepSuccess() { return stepSuccess; }
+        public void setStepSuccess(Boolean stepSuccess) { this.stepSuccess = stepSuccess; }
+        public String getStepResult() { return stepResult; }
+        public void setStepResult(String stepResult) { this.stepResult = stepResult; }
     }
 
     public static class ToolCallSummary {
