@@ -4,13 +4,17 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
 import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
 import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
-import com.wmsay.gpt4_lll.fc.memory.MemoryStats;
-import com.wmsay.gpt4_lll.fc.memory.TokenUsageInfo;
 import com.wmsay.gpt4_lll.fc.memory.UsageTracker;
 import com.wmsay.gpt4_lll.fc.model.*;
 import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
 import com.wmsay.gpt4_lll.fc.protocol.DegradationManager;
 import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.strategy.CompoundExecutionHook;
+import com.wmsay.gpt4_lll.fc.strategy.ExecutionHook;
+import com.wmsay.gpt4_lll.fc.strategy.ExecutionStrategy;
+import com.wmsay.gpt4_lll.fc.strategy.ExecutionStrategyContext;
+import com.wmsay.gpt4_lll.fc.strategy.ExecutionStrategyFactory;
+import com.wmsay.gpt4_lll.fc.strategy.PlanStep;
 import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
 import com.wmsay.gpt4_lll.mcp.McpContext;
 import com.wmsay.gpt4_lll.mcp.McpToolResult;
@@ -129,6 +133,23 @@ public class FunctionCallOrchestrator {
 
         /** 摘要操作失败 */
         default void onMemorySummarizingFailed(String reason) {}
+
+        // ---- Plan-and-Execute 策略相关回调 ----
+
+        /** 策略执行阶段变化（planning / executing / synthesizing / fallback） */
+        default void onStrategyPhase(String phase, String description) {}
+
+        /** 计划已生成 */
+        default void onPlanGenerated(List<PlanStep> steps) {}
+
+        /** 计划步骤开始执行 */
+        default void onPlanStepStarting(int stepIndex, String stepDescription) {}
+
+        /** 计划步骤执行完成 */
+        default void onPlanStepCompleted(int stepIndex, boolean success, String resultSummary) {}
+
+        /** 计划已修订（步骤失败后重新规划） */
+        default void onPlanRevised(List<PlanStep> revisedSteps) {}
     }
 
     /** 空实现，用于无回调场景 */
@@ -147,6 +168,10 @@ public class FunctionCallOrchestrator {
     private UsageTracker usageTracker;
     /** 可选的流式 LLM 调用器，非 null 时 FC 使用流式调用（实时展示 reasoning） */
     private StreamingLlmCaller streamingLlmCaller;
+    /** 当前执行策略名称，支持运行时切换（默认 "react"） */
+    private volatile String executionStrategyName = ExecutionStrategyFactory.DEFAULT_STRATEGY;
+    /** 执行钩子（组合钩子，支持多个钩子链式调用） */
+    private final CompoundExecutionHook executionHooks = new CompoundExecutionHook();
 
     /**
      * 创建编排器实例。
@@ -250,6 +275,59 @@ public class FunctionCallOrchestrator {
     }
 
     /**
+     * 获取当前执行策略名称。
+     */
+    public String getExecutionStrategyName() {
+        return executionStrategyName;
+    }
+
+    /**
+     * 设置执行策略名称（支持运行时切换）。
+     *
+     * @param strategyName 策略名称（"react" 或 "plan_and_execute"）
+     */
+    public void setExecutionStrategyName(String strategyName) {
+        if (strategyName != null && ExecutionStrategyFactory.isRegistered(strategyName)) {
+            this.executionStrategyName = strategyName;
+            LOG.info("Execution strategy switched to: " + strategyName);
+        } else {
+            LOG.warn("Unknown strategy '" + strategyName + "', keeping current: " + executionStrategyName);
+        }
+    }
+
+    /**
+     * 获取当前执行策略实例。
+     */
+    public ExecutionStrategy getExecutionStrategy() {
+        return ExecutionStrategyFactory.get(executionStrategyName);
+    }
+
+    /**
+     * 添加执行钩子。钩子按添加顺序依次调用。
+     *
+     * @param hook 执行钩子
+     */
+    public void addExecutionHook(ExecutionHook hook) {
+        executionHooks.addHook(hook);
+    }
+
+    /**
+     * 移除执行钩子。
+     *
+     * @param hook 要移除的钩子
+     */
+    public void removeExecutionHook(ExecutionHook hook) {
+        executionHooks.removeHook(hook);
+    }
+
+    /**
+     * 获取当前所有已注册的执行钩子。
+     */
+    public List<ExecutionHook> getExecutionHooks() {
+        return executionHooks.getHooks();
+    }
+
+    /**
      * 执行 function calling 对话流程。
      *
      * <ol>
@@ -273,6 +351,12 @@ public class FunctionCallOrchestrator {
 
     /**
      * 执行 function calling 对话流程（带进度回调）。
+     * <p>
+     * 根据当前 {@link #executionStrategyName} 选择执行策略：
+     * <ul>
+     *   <li>"react" — ReAct 循环（默认，与重构前行为一致）</li>
+     *   <li>"plan_and_execute" — 先规划后执行，适用于复杂多步骤任务</li>
+     * </ul>
      *
      * @param request          初始请求
      * @param context          MCP 执行上下文
@@ -285,244 +369,21 @@ public class FunctionCallOrchestrator {
                                       LlmCaller llmCaller,
                                       ProgressCallback progressCallback) {
         ProgressCallback callback = progressCallback != null ? progressCallback : NOOP_CALLBACK;
-        String sessionId = ObservabilityManager.generateSessionId();
-        observability.startSession(sessionId);
 
-        List<ToolCallResult> toolCallHistory = new ArrayList<>();
-        // 对话历史：收集每轮工具结果格式化后的消息，供后续 LLM 调用使用
-        List<Message> toolResultMessages = new ArrayList<>();
+        // 构建策略共享上下文（传入执行钩子）
+        ExecutionHook effectiveHook = executionHooks.isEmpty() ? null : executionHooks;
+        ExecutionStrategyContext strategyContext = new ExecutionStrategyContext(
+                protocolAdapter, validationEngine, executionEngine,
+                errorHandler, observability, degradationManager,
+                memory, usageTracker, streamingLlmCaller, effectiveHook
+        );
 
-        int maxRounds = request.getMaxRounds() > 0 ? request.getMaxRounds() : DEFAULT_MAX_ROUNDS;
+        // 解析并调度到执行策略
+        ExecutionStrategy strategy = ExecutionStrategyFactory.get(executionStrategyName);
+        LOG.info("Dispatching to execution strategy: " + strategy.getName()
+                + " (" + strategy.getDisplayName() + ")");
 
-        try {
-            // 0. 检查降级状态：如果 function calling 已被禁用，直接返回 DEGRADED (Req 16.2, 16.5)
-            if (degradationManager.isDisabled()) {
-                String reason = degradationManager.getCurrentModeDescription(false);
-                LOG.info("Function calling disabled, returning DEGRADED result: " + reason);
-                return FunctionCallResult.degraded(reason, sessionId);
-            }
-
-            // 0b. 检测供应商是否支持原生 function calling (Req 16.1, 16.3, 16.6)
-            boolean isNative = protocolAdapter.supportsNativeFunctionCalling();
-            if (!isNative) {
-                degradationManager.recordDegradationToPromptEngineering(protocolAdapter.getName());
-            }
-
-            // 1. 准备工具描述并注入到 ChatContent 中，使 AI API 能感知可用工具
-            injectToolDescriptions(request);
-
-            // 1b. 根据是否有 streamingLlmCaller 决定流式/非流式
-            boolean useStreaming = streamingLlmCaller != null;
-            if (request.getChatContent() != null) {
-                request.getChatContent().setStream(useStreaming);
-            }
-
-            // 1c. Memory 初始化：将初始消息加载到 Memory (Req 11.2)
-            if (memory != null && request.getChatContent() != null
-                    && request.getChatContent().getMessages() != null) {
-                memory.addAll(request.getChatContent().getMessages());
-                LOG.info("Loaded " + request.getChatContent().getMessages().size()
-                        + " initial messages into ConversationMemory");
-            }
-
-            // 2. 对话循环
-            for (int round = 0; round < maxRounds; round++) {
-                // 2a. 在每轮开始前再次检查降级状态（可能在循环中被禁用）
-                if (degradationManager.isDisabled()) {
-                    String reason = degradationManager.getCurrentModeDescription(false);
-                    LOG.info("Function calling disabled mid-session, returning DEGRADED result: " + reason);
-                    return FunctionCallResult.degraded(reason, sessionId);
-                }
-
-                // 3. 调用 LLM
-                callback.onLlmCallStarting(round);
-
-                // 3a. Memory 集成：使用 Memory 的 getMessages() 获取 LLM 视图 (Req 11.4)
-                List<Message> originalMessages = null;
-                if (memory != null && request.getChatContent() != null
-                        && request.getChatContent().getMessages() != null) {
-                    try {
-                        List<Message> llmMessages = memory.getMessages();
-                        // 保存原始消息列表引用，以便 LLM 调用后恢复
-                        originalMessages = request.getChatContent().getMessages();
-                        // 临时替换 chatContent 的消息列表为 Memory 的 LLM 视图
-                        List<Message> mutableLlmMessages = new ArrayList<>(llmMessages);
-                        request.getChatContent().setDirectMessages(mutableLlmMessages);
-                    } catch (Exception e) {
-                        LOG.warn("Memory getMessages() failed, falling back to original messages", e);
-                        // 回退到原始消息列表 (Req 11.7, 14.4)
-                    }
-                }
-
-                // 3b. 调用 LLM（流式或非流式）
-                String llmResponse;
-                ResponseContentResult contentResult;
-                boolean streamedThisRound = false;
-
-                if (useStreaming) {
-                    // 流式路径：reasoning/content 实时展示
-                    request.getChatContent().setStream(true);
-                    final int currentRound = round;
-                    final boolean[] reasoningStarted = {false};
-                    final StringBuilder streamedContent = new StringBuilder();
-
-                    com.wmsay.gpt4_lll.llm.StreamingFcCollector.DisplayCallback displayCb =
-                            new com.wmsay.gpt4_lll.llm.StreamingFcCollector.DisplayCallback() {
-                        @Override
-                        public void onReasoningDelta(String delta) {
-                            if (!reasoningStarted[0]) {
-                                reasoningStarted[0] = true;
-                                callback.onReasoningStarted(currentRound);
-                            }
-                            callback.onReasoningDelta(currentRound, delta);
-                        }
-                        @Override
-                        public void onContentDelta(String delta) {
-                            if (reasoningStarted[0]) {
-                                reasoningStarted[0] = false;
-                                callback.onReasoningComplete(currentRound);
-                            }
-                            streamedContent.append(delta);
-                            callback.onTextDelta(currentRound, delta);
-                        }
-                    };
-
-                    try {
-                        llmResponse = streamingLlmCaller.call(request, displayCb);
-                        streamedThisRound = true;
-                    } catch (Exception e) {
-                        LOG.warn("Streaming LLM call failed, falling back to sync: " + e.getMessage());
-                        request.getChatContent().setStream(false);
-                        llmResponse = callLlm(request, llmCaller);
-                    }
-
-                    if (reasoningStarted[0]) {
-                        callback.onReasoningComplete(currentRound);
-                    }
-
-                    if (streamedThisRound) {
-                        contentResult = new ResponseContentResult();
-                        if (streamedContent.length() > 0) {
-                            contentResult.allText.append(streamedContent);
-                        }
-                    } else {
-                        contentResult = processResponseContentInOrder(llmResponse, round, callback);
-                    }
-                } else {
-                    // 非流式路径：保持原有行为
-                    llmResponse = callLlm(request, llmCaller);
-                    contentResult = null;
-                }
-
-                // 3c. LLM 调用后恢复原始消息列表
-                if (originalMessages != null && request.getChatContent() != null) {
-                    request.getChatContent().setDirectMessages(originalMessages);
-                }
-
-                // 3d. Memory 集成：从 LLM 响应中提取真实 usage 数据 (Req 11.10, 11.11, 11.12)
-                if (memory != null && usageTracker != null) {
-                    TokenUsageInfo usageInfo = usageTracker.extractUsage(llmResponse);
-                    if (usageInfo != null) {
-                        memory.updateRealTokenUsage(usageInfo);
-                        LOG.info("Real token usage: prompt=" + usageInfo.getPromptTokens()
-                                + ", completion=" + usageInfo.getCompletionTokens());
-                    } else {
-                        LOG.warn("Failed to extract usage from LLM response, using persisted lastKnownPromptTokens="
-                                + memory.getLastKnownPromptTokens());
-                    }
-                }
-
-                // 3e. 非流式路径：按原始顺序处理响应中的内容块
-                if (contentResult == null) {
-                    contentResult = processResponseContentInOrder(llmResponse, round, callback);
-                }
-
-                // 4. 解析工具调用（仍使用 protocolAdapter 以保持兼容性）
-                List<ToolCall> toolCalls = protocolAdapter.parseToolCalls(llmResponse);
-
-                // 4b. 对非原生协议，记录解析结果用于失败率统计 (Req 16.2)
-                if (!isNative) {
-                    boolean parseSuccess = !toolCalls.isEmpty();
-                    degradationManager.recordParseAttempt(parseSuccess);
-                }
-
-                callback.onLlmCallCompleted(round, toolCalls.size());
-
-                // 5. 如果没有工具调用，返回最终结果
-                String textContent = contentResult.allText.toString();
-                if (toolCalls.isEmpty()) {
-                    return FunctionCallResult.success(
-                            textContent.isEmpty() ? null : textContent, sessionId, toolCallHistory);
-                }
-
-                // 6. 执行所有工具调用
-                List<ToolCallResult> roundResults = executeToolCalls(toolCalls, context, sessionId, callback);
-                toolCallHistory.addAll(roundResults);
-
-                // 7. 将 assistant 的工具调用响应和工具结果添加到对话历史
-                //    这样下一轮 LLM 调用能看到之前的工具调用和结果
-                if (request.getChatContent() != null && request.getChatContent().getMessages() != null) {
-                    // 构建 assistant 消息，包含 tool_calls 数组（OpenAI API 要求）
-                    Message assistantToolCallMsg = new Message();
-                    assistantToolCallMsg.setRole("assistant");
-                    // 从原始响应中提取 content（可能为 null，OpenAI 工具调用时 content 常为 null）
-                    assistantToolCallMsg.setContent(textContent.isEmpty() ? null : textContent);
-                    // 从原始响应中提取 tool_calls 数组，设置到 assistant 消息上
-                    List<Object> rawToolCalls = extractToolCallsFromResponse(llmResponse, toolCalls);
-                    if (rawToolCalls != null && !rawToolCalls.isEmpty()) {
-                        assistantToolCallMsg.setToolCalls(rawToolCalls);
-                    }
-                    request.getChatContent().getMessages().add(assistantToolCallMsg);
-
-                    // Memory 集成：将 assistant 工具调用消息添加到 Memory (Req 11.3)
-                    if (memory != null) {
-                        memory.add(assistantToolCallMsg);
-                    }
-
-                    // 添加每个工具结果消息，确保 tool_call_id 正确设置
-                    for (ToolCallResult result : roundResults) {
-                        Message msg = protocolAdapter.formatToolResult(result);
-                        // 确保 tool_call_id 设置正确
-                        if (msg.getToolCallId() == null || msg.getToolCallId().isEmpty()) {
-                            msg.setToolCallId(result.getCallId());
-                        }
-                        toolResultMessages.add(msg);
-                        request.getChatContent().getMessages().add(msg);
-
-                        // Memory 集成：将工具结果消息添加到 Memory (Req 11.3)
-                        if (memory != null) {
-                            memory.add(msg);
-                        }
-                    }
-                } else {
-                    for (ToolCallResult result : roundResults) {
-                        Message msg = protocolAdapter.formatToolResult(result);
-                        toolResultMessages.add(msg);
-                    }
-                }
-
-                // 8. Memory 集成：每轮结束后记录 Memory 统计信息 (Req 12.4)
-                if (memory != null) {
-                    MemoryStats stats = memory.getStats();
-                    LOG.info("Memory stats after round " + round
-                            + ": messages=" + stats.getMessageCount()
-                            + ", realPromptTokens=" + stats.getRealPromptTokens()
-                            + ", trimCount=" + stats.getTrimCount()
-                            + ", summarizeCount=" + stats.getSummarizeCount());
-                }
-            }
-
-            // 超过最大轮次
-            return FunctionCallResult.maxRoundsExceeded(sessionId, toolCallHistory);
-
-        } catch (Exception e) {
-            observability.recordError(sessionId, e);
-            ErrorMessage errorMsg = errorHandler.handle(e);
-            LOG.warn("Function calling session " + sessionId + " failed: " + errorMsg.getMessage());
-            return FunctionCallResult.error(errorMsg.getMessage(), sessionId);
-        } finally {
-            observability.endSession(sessionId);
-        }
+        return strategy.execute(request, context, llmCaller, callback, strategyContext);
     }
 
     // ==================== 响应内容有序处理 ====================

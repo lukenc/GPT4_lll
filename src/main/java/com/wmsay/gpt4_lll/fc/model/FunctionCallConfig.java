@@ -25,6 +25,7 @@ public class FunctionCallConfig {
     private final int memorySummarizeThreshold;
     private final double memorySimilarityThreshold;
     private final int memoryHardLimitTokens;
+    private final String executionStrategy;
 
     private FunctionCallConfig(Builder builder) {
         this.defaultTimeout = builder.defaultTimeout;
@@ -39,6 +40,7 @@ public class FunctionCallConfig {
         this.memorySummarizeThreshold = builder.memorySummarizeThreshold;
         this.memorySimilarityThreshold = builder.memorySimilarityThreshold;
         this.memoryHardLimitTokens = builder.memoryHardLimitTokens;
+        this.executionStrategy = builder.executionStrategy;
     }
 
     public int getDefaultTimeout() {
@@ -89,6 +91,10 @@ public class FunctionCallConfig {
         return memoryHardLimitTokens;
     }
 
+    public String getExecutionStrategy() {
+        return executionStrategy;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -110,6 +116,7 @@ public class FunctionCallConfig {
         private int memorySummarizeThreshold = 100000;
         private double memorySimilarityThreshold = 0.6;
         private int memoryHardLimitTokens = -1;
+        private String executionStrategy = "react";
 
         public Builder defaultTimeout(int defaultTimeout) {
             this.defaultTimeout = defaultTimeout;
@@ -168,6 +175,11 @@ public class FunctionCallConfig {
 
         public Builder memoryHardLimitTokens(int memoryHardLimitTokens) {
             this.memoryHardLimitTokens = memoryHardLimitTokens;
+            return this;
+        }
+
+        public Builder executionStrategy(String executionStrategy) {
+            this.executionStrategy = executionStrategy;
             return this;
         }
 

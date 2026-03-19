@@ -54,6 +54,7 @@ public class ConfigLoader {
     static final String ENV_TRACE_EXPORT = "LLL_FC_TRACE_EXPORT";
     static final String ENV_MEMORY_STRATEGY = "LLL_FC_MEMORY_STRATEGY";
     static final String ENV_MEMORY_MAX_TOKENS = "LLL_FC_MEMORY_MAX_TOKENS";
+    static final String ENV_EXECUTION_STRATEGY = "LLL_FC_EXECUTION_STRATEGY";
 
     private final Function<String, String> envReader;
 
@@ -157,6 +158,11 @@ public class ConfigLoader {
             }
         }
 
+        String executionStrategy = envReader.apply(ENV_EXECUTION_STRATEGY);
+        if (executionStrategy != null && !executionStrategy.isBlank()) {
+            builder.executionStrategy(executionStrategy.trim());
+        }
+
         return builder.build();
     }
 
@@ -188,7 +194,8 @@ public class ConfigLoader {
                 .memoryMaxTokens(fileConfig.getMemoryMaxTokens())
                 .memorySummarizeThreshold(fileConfig.getMemorySummarizeThreshold())
                 .memorySimilarityThreshold(fileConfig.getMemorySimilarityThreshold())
-                .memoryHardLimitTokens(fileConfig.getMemoryHardLimitTokens());
+                .memoryHardLimitTokens(fileConfig.getMemoryHardLimitTokens())
+                .executionStrategy(fileConfig.getExecutionStrategy());
 
         String enabled = envReader.apply(ENV_ENABLED);
         if (enabled != null && !enabled.isBlank()) {
@@ -240,6 +247,11 @@ public class ConfigLoader {
             } catch (NumberFormatException e) {
                 LOG.warn("Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', keeping file value");
             }
+        }
+
+        String executionStrategy = envReader.apply(ENV_EXECUTION_STRATEGY);
+        if (executionStrategy != null && !executionStrategy.isBlank()) {
+            builder.executionStrategy(executionStrategy.trim());
         }
 
         return builder.build();
@@ -296,6 +308,12 @@ public class ConfigLoader {
         }
         if (json.containsKey("traceExportEnabled")) {
             builder.traceExportEnabled(json.getBooleanValue("traceExportEnabled"));
+        }
+        if (json.containsKey("executionStrategy")) {
+            String strategy = json.getString("executionStrategy");
+            if (strategy != null && !strategy.isBlank()) {
+                builder.executionStrategy(strategy.trim());
+            }
         }
 
         JSONObject memory = json.getJSONObject("memory");
