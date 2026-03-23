@@ -1,6 +1,6 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.model.Message;
 
 import java.util.*;
@@ -22,7 +22,7 @@ import java.util.*;
  */
 public class AdaptiveMemory implements ConversationMemory {
 
-    private static final Logger LOG = Logger.getInstance(AdaptiveMemory.class);
+    private static final Logger LOG = Logger.getLogger(AdaptiveMemory.class.getName());
 
     private final SlidingWindowMemory slidingWindow;
     private final SummarizingMemory summarizing;
