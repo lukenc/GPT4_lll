@@ -1,7 +1,8 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
 import com.alibaba.fastjson.JSONObject;
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.model.Message;
 
 import java.util.*;
@@ -21,7 +22,7 @@ import java.util.*;
  */
 public class SlidingWindowMemory implements ConversationMemory {
 
-    private static final Logger LOG = Logger.getInstance(SlidingWindowMemory.class);
+    private static final Logger LOG = Logger.getLogger(SlidingWindowMemory.class.getName());
 
     private final int maxTokens;
     private final int hardLimitTokens;
@@ -159,7 +160,7 @@ public class SlidingWindowMemory implements ConversationMemory {
             return allMessages;
         }
 
-        LOG.warn("Hard limit triggered: estimated " + estimatedTotal
+        LOG.log(Level.WARNING, "Hard limit triggered: estimated " + estimatedTotal
                 + " tokens exceeds hardLimit=" + hardLimitTokens);
 
         // Extract non-system messages from the combined list
@@ -197,7 +198,7 @@ public class SlidingWindowMemory implements ConversationMemory {
         }
 
         int afterEstimate = estimateTokens(result);
-        LOG.warn("Hard limit applied: " + estimatedTotal + " -> " + afterEstimate + " estimated tokens");
+        LOG.log(Level.WARNING, "Hard limit applied: " + estimatedTotal + " -> " + afterEstimate + " estimated tokens");
 
         return result;
     }

@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.model.Message;
 
 import java.util.List;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
  */
 public class SimilarityAnalyzer {
 
-    private static final Logger LOG = Logger.getInstance(SimilarityAnalyzer.class);
+    private static final Logger LOG = Logger.getLogger(SimilarityAnalyzer.class.getName());
 
     private static final double DEFAULT_SCORE = 0.5;
     private static final Pattern SCORE_PATTERN = Pattern.compile("(\\d+\\.\\d+|\\d+)");
@@ -77,7 +78,7 @@ public class SimilarityAnalyzer {
             String response = summarizer.apply(prompt);
             return parseScore(response);
         } catch (Exception e) {
-            LOG.warn("SimilarityAnalyzer: LLM call failed, returning default score 0.5", e);
+            LOG.log(Level.WARNING, "SimilarityAnalyzer: LLM call failed, returning default score 0.5", e);
             return DEFAULT_SCORE;
         }
     }
@@ -117,7 +118,7 @@ public class SimilarityAnalyzer {
      */
     private double parseScore(String response) {
         if (response == null || response.trim().isEmpty()) {
-            LOG.warn("SimilarityAnalyzer: LLM returned null or empty response, returning default score 0.5");
+            LOG.log(Level.WARNING, "SimilarityAnalyzer: LLM returned null or empty response, returning default score 0.5");
             return DEFAULT_SCORE;
         }
 
@@ -127,12 +128,12 @@ public class SimilarityAnalyzer {
                 double score = Double.parseDouble(matcher.group(1));
                 return clamp(score);
             } catch (NumberFormatException e) {
-                LOG.warn("SimilarityAnalyzer: Failed to parse score from LLM response: " + response);
+                LOG.log(Level.WARNING, "SimilarityAnalyzer: Failed to parse score from LLM response: " + response);
                 return DEFAULT_SCORE;
             }
         }
 
-        LOG.warn("SimilarityAnalyzer: No numeric score found in LLM response: " + response);
+        LOG.log(Level.WARNING, "SimilarityAnalyzer: No numeric score found in LLM response: " + response);
         return DEFAULT_SCORE;
     }
 

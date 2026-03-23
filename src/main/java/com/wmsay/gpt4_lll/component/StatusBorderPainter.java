@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.component;
 
 import com.intellij.ui.JBColor;
+import com.wmsay.gpt4_lll.model.AgentStatusContext;
 import com.wmsay.gpt4_lll.model.RuntimeStatus;
 import com.wmsay.gpt4_lll.utils.RuntimeStatusManager;
 
@@ -19,10 +20,11 @@ import java.awt.*;
  * Implements StatusListener to react to status changes from RuntimeStatusManager.
  */
 public class StatusBorderPainter extends AbstractBorder
-        implements RuntimeStatusManager.StatusListener {
+        implements RuntimeStatusManager.StatusListener, RuntimeStatusManager.AgentPhaseListener {
 
     static final JBColor GREEN = new JBColor(new Color(0x4CAF50), new Color(0x66BB6A));
     static final JBColor RED = new JBColor(new Color(0xF44336), new Color(0xEF5350));
+    static final JBColor GRAY = new JBColor(new Color(0x9E9E9E), new Color(0x757575));
 
     private static final int BORDER_THICKNESS = 2;
     private static final int ANIMATION_INTERVAL_MS = 40;
@@ -33,6 +35,7 @@ public class StatusBorderPainter extends AbstractBorder
     private Timer autoResetTimer;
     private float animationPhase;
     private RuntimeStatus currentStatus = RuntimeStatus.IDLE;
+    private boolean stoppedActive = false;
     private Component parentComponent;
 
     public StatusBorderPainter(Component parentComponent) {
@@ -41,7 +44,7 @@ public class StatusBorderPainter extends AbstractBorder
 
     @Override
     public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-        if (currentStatus == RuntimeStatus.IDLE) {
+        if (currentStatus == RuntimeStatus.IDLE && !stoppedActive) {
             return;
         }
 
@@ -49,7 +52,9 @@ public class StatusBorderPainter extends AbstractBorder
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            if (currentStatus == RuntimeStatus.RUNNING) {
+            if (stoppedActive) {
+                paintStaticBorder(g2, x, y, width, height, GRAY);
+            } else if (currentStatus == RuntimeStatus.RUNNING) {
                 paintAnimatedBorder(g2, x, y, width, height);
             } else if (currentStatus == RuntimeStatus.COMPLETED) {
                 paintStaticBorder(g2, x, y, width, height, GREEN);
@@ -96,7 +101,7 @@ public class StatusBorderPainter extends AbstractBorder
 
     @Override
     public Insets getBorderInsets(Component c) {
-        if (currentStatus == RuntimeStatus.IDLE) {
+        if (currentStatus == RuntimeStatus.IDLE && !stoppedActive) {
             return new Insets(0, 0, 0, 0);
         }
         return new Insets(BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS);
@@ -129,6 +134,37 @@ public class StatusBorderPainter extends AbstractBorder
         }
     }
 
+    @Override
+    public void onPhaseChanged(AgentStatusContext oldCtx, AgentStatusContext newCtx) {
+        stopAnimationTimer();
+        stopAutoResetTimer();
+        stoppedActive = false;
+
+        switch (newCtx.getPhase()) {
+            case IDLE -> currentStatus = RuntimeStatus.IDLE;
+            case RUNNING -> {
+                currentStatus = RuntimeStatus.RUNNING;
+                startAnimationTimer();
+            }
+            case COMPLETED -> {
+                currentStatus = RuntimeStatus.COMPLETED;
+                startAutoResetTimer();
+            }
+            case ERROR -> {
+                currentStatus = RuntimeStatus.ERROR;
+                startAutoResetTimer();
+            }
+            case STOPPED -> {
+                currentStatus = RuntimeStatus.IDLE;
+                stoppedActive = true;
+                startAutoResetTimer();
+            }
+        }
+        if (parentComponent != null) {
+            parentComponent.repaint();
+        }
+    }
+
     private void startAnimationTimer() {
         animationPhase = 0.0f;
         animationTimer = new Timer(ANIMATION_INTERVAL_MS, e -> {
@@ -153,6 +189,7 @@ public class StatusBorderPainter extends AbstractBorder
     private void startAutoResetTimer() {
         autoResetTimer = new Timer(AUTO_RESET_DELAY_MS, e -> {
             currentStatus = RuntimeStatus.IDLE;
+            stoppedActive = false;
             if (parentComponent != null) {
                 parentComponent.repaint();
             }
@@ -191,5 +228,9 @@ public class StatusBorderPainter extends AbstractBorder
 
     float getAnimationPhase() {
         return animationPhase;
+    }
+
+    boolean isStoppedActive() {
+        return stoppedActive;
     }
 }
