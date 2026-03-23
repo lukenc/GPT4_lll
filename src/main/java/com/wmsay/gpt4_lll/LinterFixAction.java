@@ -475,9 +475,26 @@ public class LinterFixAction extends AnAction {
         String responseText;
         try {
             responseText = LlmClient.streamChat(llmRequest, new LlmStreamCallback() {
+                private volatile boolean thinkingStarted = false;
+
+                @Override
+                public void onReasoningContent(String reasoningDelta) {
+                    if (textArea != null) {
+                        if (!thinkingStarted) {
+                            thinkingStarted = true;
+                            textArea.appendThingkingTitle();
+                        }
+                        textArea.appendContent(reasoningDelta);
+                    }
+                }
+
                 @Override
                 public void onContent(String contentDelta) {
                     if (textArea != null) {
+                        if (thinkingStarted) {
+                            thinkingStarted = false;
+                            textArea.appendThingkingEnd();
+                        }
                         textArea.appendContent(contentDelta);
                     }
                 }
