@@ -3,7 +3,8 @@ package com.wmsay.gpt4_lll.fc.config;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallConfig;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallConfig.LogLevel;
 
@@ -46,7 +47,7 @@ import java.util.function.Function;
  */
 public class ConfigLoader {
 
-    private static final Logger LOG = Logger.getInstance(ConfigLoader.class);
+    private static final Logger LOG = Logger.getLogger(ConfigLoader.class.getName());
 
     static final String ENV_ENABLED = "LLL_FC_ENABLED";
     static final String ENV_LOG_LEVEL = "LLL_FC_LOG_LEVEL";
@@ -81,7 +82,7 @@ public class ConfigLoader {
      */
     public FunctionCallConfig loadFromFile(Path path) {
         if (path == null || !Files.exists(path)) {
-            LOG.warn("Config file not found: " + path + ", using default config");
+            LOG.log(Level.WARNING, "Config file not found: " + path + ", using default config");
             return FunctionCallConfig.defaultConfig();
         }
 
@@ -89,7 +90,7 @@ public class ConfigLoader {
         try {
             content = Files.readString(path);
         } catch (IOException e) {
-            LOG.warn("Failed to read config file: " + path + ", using default config", e);
+            LOG.log(Level.WARNING, "Failed to read config file: " + path + ", using default config", e);
             return FunctionCallConfig.defaultConfig();
         }
 
@@ -116,7 +117,7 @@ public class ConfigLoader {
             try {
                 builder.logLevel(LogLevel.valueOf(logLevel.trim().toUpperCase()));
             } catch (IllegalArgumentException e) {
-                LOG.warn("Invalid env LLL_FC_LOG_LEVEL='" + logLevel + "', using default INFO");
+                LOG.log(Level.WARNING, "Invalid env LLL_FC_LOG_LEVEL='" + logLevel + "', using default INFO");
             }
         }
 
@@ -127,10 +128,10 @@ public class ConfigLoader {
                 if (rounds > 0) {
                     builder.maxRounds(rounds);
                 } else {
-                    LOG.warn("Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', must be positive");
+                    LOG.log(Level.WARNING, "Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', must be positive");
                 }
             } catch (NumberFormatException e) {
-                LOG.warn("Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', not a number");
+                LOG.log(Level.WARNING, "Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', not a number");
             }
         }
 
@@ -151,10 +152,10 @@ public class ConfigLoader {
                 if (tokens > 0) {
                     builder.memoryMaxTokens(tokens);
                 } else {
-                    LOG.warn("Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', must be positive");
+                    LOG.log(Level.WARNING, "Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', must be positive");
                 }
             } catch (NumberFormatException e) {
-                LOG.warn("Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', not a number");
+                LOG.log(Level.WARNING, "Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', not a number");
             }
         }
 
@@ -207,7 +208,7 @@ public class ConfigLoader {
             try {
                 builder.logLevel(LogLevel.valueOf(logLevel.trim().toUpperCase()));
             } catch (IllegalArgumentException e) {
-                LOG.warn("Invalid env LLL_FC_LOG_LEVEL='" + logLevel + "', keeping file value");
+                LOG.log(Level.WARNING, "Invalid env LLL_FC_LOG_LEVEL='" + logLevel + "', keeping file value");
             }
         }
 
@@ -218,10 +219,10 @@ public class ConfigLoader {
                 if (rounds > 0) {
                     builder.maxRounds(rounds);
                 } else {
-                    LOG.warn("Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', keeping file value");
+                    LOG.log(Level.WARNING, "Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', keeping file value");
                 }
             } catch (NumberFormatException e) {
-                LOG.warn("Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', keeping file value");
+                LOG.log(Level.WARNING, "Invalid env LLL_FC_MAX_ROUNDS='" + maxRounds + "', keeping file value");
             }
         }
 
@@ -242,10 +243,10 @@ public class ConfigLoader {
                 if (tokens > 0) {
                     builder.memoryMaxTokens(tokens);
                 } else {
-                    LOG.warn("Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', keeping file value");
+                    LOG.log(Level.WARNING, "Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', keeping file value");
                 }
             } catch (NumberFormatException e) {
-                LOG.warn("Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', keeping file value");
+                LOG.log(Level.WARNING, "Invalid env LLL_FC_MEMORY_MAX_TOKENS='" + memoryMaxTokens + "', keeping file value");
             }
         }
 
@@ -264,7 +265,7 @@ public class ConfigLoader {
      */
     FunctionCallConfig parseJson(String jsonContent) {
         if (jsonContent == null || jsonContent.isBlank()) {
-            LOG.warn("Empty config content, using default config");
+            LOG.log(Level.WARNING, "Empty config content, using default config");
             return FunctionCallConfig.defaultConfig();
         }
 
@@ -272,12 +273,12 @@ public class ConfigLoader {
         try {
             json = JSON.parseObject(jsonContent);
         } catch (JSONException e) {
-            LOG.warn("Invalid JSON in config: " + e.getMessage() + ", using default config");
+            LOG.log(Level.WARNING, "Invalid JSON in config: " + e.getMessage() + ", using default config");
             return FunctionCallConfig.defaultConfig();
         }
 
         if (json == null) {
-            LOG.warn("Parsed config is null, using default config");
+            LOG.log(Level.WARNING, "Parsed config is null, using default config");
             return FunctionCallConfig.defaultConfig();
         }
 
@@ -303,7 +304,7 @@ public class ConfigLoader {
             try {
                 builder.logLevel(LogLevel.valueOf(level.toUpperCase()));
             } catch (IllegalArgumentException e) {
-                LOG.warn("Invalid logLevel '" + level + "', using default INFO");
+                LOG.log(Level.WARNING, "Invalid logLevel '" + level + "', using default INFO");
             }
         }
         if (json.containsKey("traceExportEnabled")) {
@@ -323,7 +324,7 @@ public class ConfigLoader {
                 if (strategy != null && !strategy.isBlank()) {
                     builder.memoryStrategy(strategy.trim());
                 } else {
-                    LOG.warn("Invalid memory.strategy (empty), using default");
+                    LOG.log(Level.WARNING, "Invalid memory.strategy (empty), using default");
                 }
             }
             if (memory.containsKey("maxTokens")) {
@@ -331,7 +332,7 @@ public class ConfigLoader {
                 if (val > 0) {
                     builder.memoryMaxTokens(val);
                 } else {
-                    LOG.warn("Invalid memory.maxTokens '" + val + "', using default");
+                    LOG.log(Level.WARNING, "Invalid memory.maxTokens '" + val + "', using default");
                 }
             }
             if (memory.containsKey("summarizeThreshold")) {
@@ -339,7 +340,7 @@ public class ConfigLoader {
                 if (val > 0) {
                     builder.memorySummarizeThreshold(val);
                 } else {
-                    LOG.warn("Invalid memory.summarizeThreshold '" + val + "', using default");
+                    LOG.log(Level.WARNING, "Invalid memory.summarizeThreshold '" + val + "', using default");
                 }
             }
             if (memory.containsKey("similarityThreshold")) {
@@ -347,7 +348,7 @@ public class ConfigLoader {
                 if (val >= 0.0 && val <= 1.0) {
                     builder.memorySimilarityThreshold(val);
                 } else {
-                    LOG.warn("Invalid memory.similarityThreshold '" + val + "', using default");
+                    LOG.log(Level.WARNING, "Invalid memory.similarityThreshold '" + val + "', using default");
                 }
             }
             if (memory.containsKey("hardLimitTokens")) {
@@ -355,7 +356,7 @@ public class ConfigLoader {
                 if (val > 0) {
                     builder.memoryHardLimitTokens(val);
                 } else {
-                    LOG.warn("Invalid memory.hardLimitTokens '" + val + "', using default");
+                    LOG.log(Level.WARNING, "Invalid memory.hardLimitTokens '" + val + "', using default");
                 }
             }
         }
@@ -363,7 +364,7 @@ public class ConfigLoader {
         try {
             return builder.build();
         } catch (IllegalArgumentException e) {
-            LOG.warn("Config validation failed: " + e.getMessage() + ", using default config");
+            LOG.log(Level.WARNING, "Config validation failed: " + e.getMessage() + ", using default config");
             return FunctionCallConfig.defaultConfig();
         }
     }

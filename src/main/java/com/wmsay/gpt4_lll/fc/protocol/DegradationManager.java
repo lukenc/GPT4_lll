@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.protocol;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class DegradationManager {
 
-    private static final Logger LOG = Logger.getInstance(DegradationManager.class);
+    private static final Logger LOG = Logger.getLogger(DegradationManager.class.getName());
 
     /** 失败率阈值：超过此值则禁用 function calling */
     public static final double FAILURE_RATE_THRESHOLD = 0.50;
@@ -118,7 +119,7 @@ public class DegradationManager {
      * @param providerName 供应商名称
      */
     public void recordDegradationToPromptEngineering(String providerName) {
-        LOG.warn("Degradation: Provider '" + providerName
+        LOG.log(Level.WARNING, "Degradation: Provider '" + providerName
                 + "' does not support native function calling. "
                 + "Falling back to Prompt Engineering mode.");
     }
@@ -130,7 +131,7 @@ public class DegradationManager {
      * @param reason 禁用原因
      */
     public void recordDisabledEvent(String reason) {
-        LOG.warn("Degradation: Function calling disabled. Reason: " + reason
+        LOG.log(Level.WARNING, "Degradation: Function calling disabled. Reason: " + reason
                 + ". Falling back to traditional single-turn conversation mode.");
     }
 

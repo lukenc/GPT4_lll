@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.execution;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.intellij.openapi.project.Project;
 import com.wmsay.gpt4_lll.fc.error.ConcurrentExecutionException;
 import com.wmsay.gpt4_lll.fc.error.ToolNotFoundException;
@@ -29,7 +30,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ExecutionEngine {
 
-    private static final Logger LOG = Logger.getInstance(ExecutionEngine.class);
+    private static final Logger LOG = Logger.getLogger(ExecutionEngine.class.getName());
 
     /** 默认超时时间（秒） */
     private static final long DEFAULT_TIMEOUT_SECONDS = 30;
@@ -167,7 +168,7 @@ public class ExecutionEngine {
                 return result;
 
             } catch (TimeoutException e) {
-                LOG.warn("Tool '" + toolCall.getToolName()
+                LOG.log(Level.WARNING, "Tool '" + toolCall.getToolName()
                         + "' timed out (attempt " + (attempt + 1) + "/" + (maxRetries + 1)
                         + ", timeout=" + timeout + "s)");
 
@@ -184,7 +185,7 @@ public class ExecutionEngine {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
 
                 if (!retryStrategy.isRetryable(cause) || attempt == maxRetries) {
-                    LOG.warn("Tool '" + toolCall.getToolName()
+                    LOG.log(Level.WARNING, "Tool '" + toolCall.getToolName()
                             + "' execution failed (non-retryable or max retries reached): "
                             + cause.getMessage());
                     return McpToolResult.error("Tool execution failed: " + cause.getMessage());

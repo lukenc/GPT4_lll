@@ -1,6 +1,6 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.model.Message;
 
 import java.util.*;
@@ -20,7 +20,7 @@ import java.util.*;
  */
 public class CompositeMemory implements ConversationMemory {
 
-    private static final Logger LOG = Logger.getInstance(CompositeMemory.class);
+    private static final Logger LOG = Logger.getLogger(CompositeMemory.class.getName());
 
     private final ConversationMemory workingMemory;
     private final ConversationMemory shortTermMemory;

@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.strategy;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ExecutionStrategyFactory {
 
-    private static final Logger LOG = Logger.getInstance(ExecutionStrategyFactory.class);
+    private static final Logger LOG = Logger.getLogger(ExecutionStrategyFactory.class.getName());
 
     /** 默认策略名称 */
     public static final String DEFAULT_STRATEGY = "react";
@@ -52,7 +53,7 @@ public class ExecutionStrategyFactory {
         }
         ExecutionStrategy strategy = strategies.get(name);
         if (strategy == null) {
-            LOG.warn("Unknown execution strategy '" + name
+            LOG.log(Level.WARNING, "Unknown execution strategy '" + name
                     + "', falling back to '" + DEFAULT_STRATEGY + "'");
             return strategies.get(DEFAULT_STRATEGY);
         }
