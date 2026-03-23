@@ -11,7 +11,55 @@
 
     <change-notes>
         <![CDATA[
-        <h2>4.0.1 (2026-03-17)</h2>
+        <h2>4.0.3 (2026-03-20)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>新增 AgentRuntimeBridge 支持：实现 IDE 集成桥接层，支持 AI Agent 在 IDE 环境中运行，提供完整的 Agent 生命周期管理。</li>
+            <li>Added AgentRuntimeBridge support: Implemented IDE integration bridge layer to enable AI Agents to run in IDE environment with full lifecycle management.</li>
+            <li>新增悬浮状态指示条组件：动态可视化展示 Agent 运行状态（空闲、运行中、完成、错误），提升用户操作反馈体验。</li>
+            <li>Added floating status indicator component: Dynamically visualize Agent runtime status (idle, running, completed, error) to enhance user feedback experience.</li>
+            <li>新增 AgentPhase 枚举扩展：定义 AI Agent 执行阶段，支持 UI 状态可视化展示。</li>
+            <li>Extended AgentPhase enum: Defined AI Agent execution phases to support UI state visualization.</li>
+            <li>新增 Token 预算分配器：实现智能 Token 分配策略，优化 Agent 对话成本控制。</li>
+            <li>Added Token budget allocator: Implemented intelligent Token allocation strategy to optimize Agent conversation cost control.</li>
+            <li>新增 Agent 会话状态枚举：定义会话状态生命周期，支持复杂 Agent 交互场景。</li>
+            <li>Added Agent session state enum: Defined session state lifecycle to support complex Agent interaction scenarios.</li>
+            <li>新增任务管理和持久化功能：支持 Agent 任务的状态保存和恢复，提升长时间任务处理能力。</li>
+            <li>Added task management and persistence: Supported Agent task state saving and restoration to improve long-term task processing capabilities.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>日志系统重构：将日志记录器从 IntelliJ 平台诊断日志切换到 Java 标准库 Logger，提高代码可移植性，减少对 IntelliJ 平台 API 的依赖。</li>
+            <li>Logging system refactored: Switched from IntelliJ platform diagnostic logging to Java standard library Logger, improving code portability and reducing dependency on IntelliJ platform APIs.</li>
+            <li>新增工具过滤器功能：增强 Agent 工具调用的安全性，支持按需过滤和管理可用工具。</li>
+            <li>Added tool filter functionality: Enhanced Agent tool call security with on-demand filtering and management of available tools.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>4.0.2 (2026-03-19)</h2>
+<ul>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>日志系统重构：将日志记录器从 IntelliJ 平台诊断日志切换到 Java 标准库 Logger，提高代码可移植性，减少对 IntelliJ 平台 API 的依赖。</li>
+            <li>Logging system refactored: Switched from IntelliJ platform diagnostic logging to Java standard library Logger, improving code portability and reducing dependency on IntelliJ platform APIs.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/修复:</h3>
+        <ul>
+            <li>修复空指针异常问题：改进日志记录实现，解决在某些条件下可能出现的空指针异常。</li>
+            <li>Fixed null pointer exception: Improved logging implementation to resolve potential null pointer exceptions under certain conditions.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>4.0.1 (2026-03-17)</h2>
 <ul>
     <li>
         <h3>FEATURE/新功能:</h3>
