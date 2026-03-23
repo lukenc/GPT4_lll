@@ -2,7 +2,8 @@ package com.wmsay.gpt4_lll.fc.memory;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * 从 LLM API 原始 JSON 响应中提取 usage 字段的工具类。
@@ -12,7 +13,7 @@ import com.intellij.openapi.diagnostic.Logger;
  */
 public class UsageTracker {
 
-    private static final Logger LOG = Logger.getInstance(UsageTracker.class);
+    private static final Logger LOG = Logger.getLogger(UsageTracker.class.getName());
 
     /** 最近一次成功提取的 prompt_tokens，-1 表示尚无数据 */
     private volatile int lastKnownPromptTokens = -1;
@@ -36,7 +37,7 @@ public class UsageTracker {
 
             JSONObject usage = root.getJSONObject("usage");
             if (usage == null) {
-                LOG.warn("No 'usage' field in LLM response");
+                LOG.log(Level.WARNING, "No 'usage' field in LLM response");
                 return null;
             }
 
@@ -57,7 +58,7 @@ public class UsageTracker {
             String snippet = rawJsonResponse.length() > 200
                     ? rawJsonResponse.substring(0, 200) + "..."
                     : rawJsonResponse;
-            LOG.warn("Failed to parse usage from LLM response: " + e.getMessage()
+            LOG.log(Level.WARNING, "Failed to parse usage from LLM response: " + e.getMessage()
                     + ", response snippet: " + snippet);
             return null;
         }

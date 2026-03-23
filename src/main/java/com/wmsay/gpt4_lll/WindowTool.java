@@ -21,7 +21,9 @@ import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllComboxKey;
 import com.wmsay.gpt4_lll.component.Gpt4lllPlaceholderTextArea;
 import com.wmsay.gpt4_lll.component.AgentChatView;
+import com.wmsay.gpt4_lll.component.AgentRuntimeBridge;
 import com.wmsay.gpt4_lll.component.StatusBorderPainter;
+import com.wmsay.gpt4_lll.component.StatusIndicatorPanel;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllHistoryButtonKey;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.model.ChatContent;
@@ -48,6 +50,8 @@ import com.wmsay.gpt4_lll.llm.StreamingFcCollector;
 import com.wmsay.gpt4_lll.mcp.McpContext;
 import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
 import com.wmsay.gpt4_lll.model.RuntimeStatus;
+import com.wmsay.gpt4_lll.model.AgentPhase;
+import com.wmsay.gpt4_lll.model.AgentStatusContext;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
@@ -89,10 +93,16 @@ public class WindowTool implements ToolWindowFactory {
 
     // ---- Function Calling 框架组件 ----
     private FunctionCallOrchestrator functionCallOrchestrator;
+    private AgentRuntimeBridge agentRuntimeBridge;
     private FunctionCallConfig functionCallConfig;
     private ValidationEngine validationEngine;
     private ErrorHandler errorHandler;
     private ObservabilityManager observabilityManager;
+
+    // ---- Agent Status Visualization ----
+    private StatusIndicatorPanel statusIndicatorPanel;
+    private StatusBorderPainter statusBorderPainterRef;
+    private RuntimeStatusManager.AgentPhaseListener stopButtonPhaseListener;
 
     public WindowTool() {
         providerModels = new HashMap<>(ModelUtils.provider2ModelList);
@@ -132,16 +142,40 @@ public class WindowTool implements ToolWindowFactory {
         JScrollPane scrollPane = new JBScrollPane(readOnlyTextArea);
         readOnlyTextArea.setScrollPane(scrollPane);
         StatusBorderPainter statusBorderPainter = new StatusBorderPainter(scrollPane);
+        statusBorderPainterRef = statusBorderPainter;
         RuntimeStatusManager.addListener(project, statusBorderPainter);
         scrollPane.setBorder(statusBorderPainter);
-        Insets insets = JBUI.insets(0, 5, 15, 5); // 设置上下左右各10像素的边距
+
+        // Create StatusIndicatorPanel overlay
+        statusIndicatorPanel = new StatusIndicatorPanel();
+
+        // Use JLayeredPane to overlay StatusIndicatorPanel on scrollPane
+        JLayeredPane layeredPane = new JLayeredPane();
+        layeredPane.setLayout(null); // manual layout for overlay positioning
+        layeredPane.add(scrollPane, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(statusIndicatorPanel, JLayeredPane.PALETTE_LAYER);
+
+        // Resize children when layeredPane resizes
+        layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                scrollPane.setBounds(0, 0, layeredPane.getWidth(), layeredPane.getHeight());
+                // Position StatusIndicatorPanel at bottom center
+                Dimension pref = statusIndicatorPanel.getPreferredSize();
+                int x = (layeredPane.getWidth() - pref.width) / 2;
+                int y = layeredPane.getHeight() - pref.height - 10;
+                statusIndicatorPanel.setBounds(x, Math.max(0, y), pref.width, pref.height);
+            }
+        });
+
+        Insets insets = JBUI.insets(0, 5, 15, 5);
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
         c.gridy = 2;
         c.weightx = 0.9;
-        c.weighty = 0.75;  // 75% of the vertical space
+        c.weighty = 0.75;
         c.insets = insets;
-        panel.add(scrollPane, c);
+        panel.add(layeredPane, c);
         //对话框
 
         Gpt4lllPlaceholderTextArea textField = new Gpt4lllPlaceholderTextArea("请输入内容/input here");
@@ -189,10 +223,20 @@ public class WindowTool implements ToolWindowFactory {
                 if (isFunctionCallingEnabled()) {
                     new Thread(() -> {
                         currentRequestThread = Thread.currentThread();
+                        if (agentRuntimeBridge != null) {
+                            agentRuntimeBridge.setCurrentRequestThread(Thread.currentThread());
+                        }
                         try {
-                            executeFunctionCallingChat(chatContent, project, area);
+                            if (agentRuntimeBridge != null && agentRuntimeBridge.isInitialized()) {
+                                executeViaAgentRuntime(input, chatContent, project, area);
+                            } else {
+                                executeFunctionCallingChat(chatContent, project, area);
+                            }
                         } finally {
                             currentRequestThread = null;
+                            if (agentRuntimeBridge != null) {
+                                agentRuntimeBridge.setCurrentRequestThread(null);
+                            }
                         }
                     }).start();
                 } else {
@@ -213,7 +257,13 @@ public class WindowTool implements ToolWindowFactory {
         // Stop button — initially hidden, visible only when RUNNING
         stopButton = new JButton("停止/Stop");
         stopButton.setVisible(false);
-        stopButton.addActionListener(e -> cancelCurrentRequest(project));
+        stopButton.addActionListener(e -> {
+            if (agentRuntimeBridge != null && agentRuntimeBridge.isInitialized()) {
+                agentRuntimeBridge.requestStop(project);
+            } else {
+                cancelCurrentRequest(project);
+            }
+        });
 
         // Wrap send + stop buttons in a horizontal panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
@@ -227,7 +277,13 @@ public class WindowTool implements ToolWindowFactory {
         c.weightx = 1;
         panel.add(buttonPanel, c);
 
-        // Register StatusListener to toggle stop button visibility
+        // Register AgentPhaseListener to toggle stop button visibility
+        stopButtonPhaseListener = (oldCtx, newCtx) -> {
+            SwingUtilities.invokeLater(() -> {
+                stopButton.setVisible(newCtx.getPhase() == AgentPhase.RUNNING);
+            });
+        };
+        // Also keep the old StatusListener as fallback for non-AgentRuntime paths
         RuntimeStatusManager.addListener(project, (oldStatus, newStatus) -> {
             SwingUtilities.invokeLater(() -> {
                 stopButton.setVisible(newStatus == RuntimeStatus.RUNNING);
@@ -248,7 +304,10 @@ public class WindowTool implements ToolWindowFactory {
             if (project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA)!=null) {
                 project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA).clearShowWindow();
             }
-
+            // 重置 AgentRuntime 会话
+            if (agentRuntimeBridge != null) {
+                agentRuntimeBridge.resetSession();
+            }
         });
         newAndHistoryPanel.add(newSessionButton);
 
@@ -287,8 +346,23 @@ public class WindowTool implements ToolWindowFactory {
         project.getMessageBus().connect().subscribe(ProjectManager.TOPIC, new ProjectManagerListener() {
             @Override
             public void projectClosing(@NotNull Project project) {
+                // Remove AgentPhaseListeners
+                if (statusIndicatorPanel != null) {
+                    RuntimeStatusManager.removePhaseListener(project, statusIndicatorPanel);
+                    statusIndicatorPanel.dispose();
+                }
+                if (statusBorderPainterRef != null) {
+                    RuntimeStatusManager.removePhaseListener(project, statusBorderPainterRef);
+                }
+                if (stopButtonPhaseListener != null) {
+                    RuntimeStatusManager.removePhaseListener(project, stopButtonPhaseListener);
+                }
                 statusBorderPainter.dispose();
                 projectInstances.remove(project.getName());
+                // 关闭 AgentRuntime 并释放资源
+                if (agentRuntimeBridge != null) {
+                    agentRuntimeBridge.shutdown();
+                }
             }
         });
     }
@@ -666,6 +740,26 @@ public class WindowTool implements ToolWindowFactory {
                 }
             }
 
+            // 5. 初始化 AgentRuntimeBridge
+            agentRuntimeBridge = new AgentRuntimeBridge(project);
+            if (agentRuntimeBridge.initialize()) {
+                agentRuntimeBridge.setOrchestrator(functionCallOrchestrator);
+                System.out.println("[Agent] AgentRuntime initialized successfully");
+            } else {
+                System.err.println("[Agent] AgentRuntime initialization failed, will use fallback path");
+            }
+
+            // 6. Register AgentPhaseListeners for status visualization
+            if (statusIndicatorPanel != null) {
+                RuntimeStatusManager.addPhaseListener(project, statusIndicatorPanel);
+            }
+            if (statusBorderPainterRef != null) {
+                RuntimeStatusManager.addPhaseListener(project, statusBorderPainterRef);
+            }
+            if (stopButtonPhaseListener != null) {
+                RuntimeStatusManager.addPhaseListener(project, stopButtonPhaseListener);
+            }
+
             System.out.println("[FC] Function calling framework initialized. Enabled="
                     + functionCallConfig.isEnableFunctionCalling()
                     + ", Strategy=" + functionCallOrchestrator.getExecutionStrategyName());
@@ -685,6 +779,281 @@ public class WindowTool implements ToolWindowFactory {
         return functionCallOrchestrator != null
                 && functionCallConfig != null
                 && functionCallConfig.isEnableFunctionCalling();
+    }
+
+    /**
+     * 通过 AgentRuntimeBridge 执行聊天，利用完整的 Agent 流程
+     * （意图识别 → 工具过滤 → 上下文组装 → 策略选择 → 执行）。
+     * 复用与 executeFunctionCallingChat 相同的 LlmCaller、StreamingLlmCaller、
+     * ProgressCallback、结果处理和历史保存逻辑。
+     * 异常时回退到 GenerateAction.chat() 并在 UI 显示警告。
+     */
+    private void executeViaAgentRuntime(String userMessage, ChatContent chatContent, Project project, AgentChatView area) {
+        try {
+            // 创建 LlmCaller 回调（非流式回退用），桥接到现有 LlmClient
+            FunctionCallOrchestrator.LlmCaller llmCaller = (req) -> {
+                MyPluginSettings settings = MyPluginSettings.getInstance();
+                String url = ChatUtils.getUrl(settings, project);
+                String apiKey = ChatUtils.getApiKey(settings, project);
+                String proxy = settings.getProxyAddress();
+                String currentProvider = ModelUtils.getSelectedProvider(project);
+
+                LlmRequest llmRequest = LlmRequest.builder()
+                        .url(url)
+                        .chatContent(req.getChatContent())
+                        .apiKey(apiKey)
+                        .proxy(proxy)
+                        .provider(currentProvider)
+                        .build();
+
+                return LlmClient.syncChatRaw(llmRequest);
+            };
+
+            // 创建流式 LlmCaller：reasoning/content 实时展示，tool_calls 流式收集
+            FunctionCallOrchestrator.StreamingLlmCaller streamingLlmCaller = (req, displayCb) -> {
+                MyPluginSettings settings = MyPluginSettings.getInstance();
+                String url = ChatUtils.getUrl(settings, project);
+                String apiKey = ChatUtils.getApiKey(settings, project);
+                String proxy = settings.getProxyAddress();
+                String currentProvider = ModelUtils.getSelectedProvider(project);
+
+                LlmRequest llmRequest = LlmRequest.builder()
+                        .url(url)
+                        .chatContent(req.getChatContent())
+                        .apiKey(apiKey)
+                        .proxy(proxy)
+                        .provider(currentProvider)
+                        .build();
+
+                StreamingFcCollector collector = new StreamingFcCollector(displayCb);
+                LlmClient.streamChat(llmRequest, collector);
+                return collector.reconstructResponse();
+            };
+
+            // 注入 streamingLlmCaller 到 agentRuntimeBridge
+            agentRuntimeBridge.setStreamingLlmCaller(streamingLlmCaller);
+
+            // 按时间顺序收集内容块，用于历史加载时还原正确的交错顺序
+            final List<Message.ContentBlockRecord> orderedBlocks =
+                    Collections.synchronizedList(new ArrayList<>());
+            // 兼容旧字段（仍填充以保证旧逻辑可用）
+            final StringBuilder collectedThinking = new StringBuilder();
+            final StringBuilder collectedAllText = new StringBuilder();
+            final List<Message.ToolCallSummary> collectedToolSummaries = new ArrayList<>();
+
+            // 创建进度回调，实时更新 UI（使用结构化块）— 与 executeFunctionCallingChat 完全相同
+            FunctionCallOrchestrator.ProgressCallback progressCallback =
+                    new FunctionCallOrchestrator.ProgressCallback() {
+                private final java.util.concurrent.atomic.AtomicReference<com.wmsay.gpt4_lll.component.block.ToolUseBlock>
+                        currentToolBlock = new java.util.concurrent.atomic.AtomicReference<>();
+                private final java.util.concurrent.atomic.AtomicReference<String> currentToolName =
+                        new java.util.concurrent.atomic.AtomicReference<>();
+                private final java.util.concurrent.atomic.AtomicReference<Map<String, Object>> currentToolParams =
+                        new java.util.concurrent.atomic.AtomicReference<>();
+                private final java.util.concurrent.atomic.AtomicBoolean hasReasoning =
+                        new java.util.concurrent.atomic.AtomicBoolean(false);
+                private final java.util.concurrent.atomic.AtomicBoolean streamingMode =
+                        new java.util.concurrent.atomic.AtomicBoolean(false);
+
+                @Override
+                public void onLlmCallStarting(int round) {
+                    hasReasoning.set(false);
+                    streamingMode.set(false);
+                    collectedAllText.setLength(0);
+                }
+
+                // ---- 非流式路径回调 ----
+                @Override
+                public void onReasoningContent(int round, String reasoningContent) {
+                    hasReasoning.set(true);
+                    collectedThinking.setLength(0);
+                    collectedThinking.append(reasoningContent);
+                    orderedBlocks.add(Message.ContentBlockRecord.thinking(reasoningContent));
+                    SwingUtilities.invokeLater(() -> {
+                        area.appendThingkingTitle();
+                        area.appendContent(reasoningContent);
+                        area.appendThingkingEnd();
+                    });
+                }
+
+                @Override
+                public void onTextContent(int round, String content) {
+                    if (collectedAllText.length() > 0) {
+                        collectedAllText.append("\n\n");
+                    }
+                    collectedAllText.append(content);
+                    orderedBlocks.add(Message.ContentBlockRecord.text(content));
+                    SwingUtilities.invokeLater(() -> area.appendContent(content));
+                }
+
+                // ---- 流式路径回调：reasoning/content 实时增量展示 ----
+                @Override
+                public void onReasoningStarted(int round) {
+                    streamingMode.set(true);
+                    hasReasoning.set(true);
+                    collectedThinking.setLength(0);
+                    SwingUtilities.invokeLater(() -> area.appendThingkingTitle());
+                }
+
+                @Override
+                public void onReasoningDelta(int round, String delta) {
+                    collectedThinking.append(delta);
+                    SwingUtilities.invokeLater(() -> area.appendContent(delta));
+                }
+
+                @Override
+                public void onReasoningComplete(int round) {
+                    orderedBlocks.add(Message.ContentBlockRecord.thinking(collectedThinking.toString()));
+                    SwingUtilities.invokeLater(() -> area.appendThingkingEnd());
+                }
+
+                @Override
+                public void onTextDelta(int round, String delta) {
+                    streamingMode.set(true);
+                    collectedAllText.append(delta);
+                    SwingUtilities.invokeLater(() -> area.appendContent(delta));
+                }
+
+                @Override
+                public void onLlmCallCompleted(int round, int toolCallCount) {
+                    if (streamingMode.get() && collectedAllText.length() > 0) {
+                        orderedBlocks.add(Message.ContentBlockRecord.text(collectedAllText.toString()));
+                    }
+                }
+
+                @Override
+                public void onToolExecutionStarting(String toolName, java.util.Map<String, Object> params) {
+                    currentToolName.set(toolName);
+                    currentToolParams.set(params);
+                    SwingUtilities.invokeLater(() -> {
+                        var block = area.addToolUseBlock(toolName, params);
+                        currentToolBlock.set(block);
+                    });
+                }
+
+                @Override
+                public void onToolExecutionCompleted(ToolCallResult result) {
+                    String toolName = result.getToolName();
+                    String resultText;
+                    if (result.isSuccess()) {
+                        resultText = result.getResult() != null
+                                ? result.getResult().getDisplayText() : "(no output)";
+                        if (resultText == null || resultText.isEmpty()) {
+                            resultText = "(no output)";
+                        }
+                    } else {
+                        resultText = result.getError() != null
+                                ? result.getError().getMessage()
+                                + (result.getError().getSuggestion() != null
+                                    ? "\n" + result.getError().getSuggestion() : "")
+                                : "Unknown error";
+                    }
+                    Map<String, Object> toolParams = currentToolParams.get();
+                    collectedToolSummaries.add(new Message.ToolCallSummary(
+                            toolName, toolParams,
+                            result.isSuccess(), result.getDurationMs(), resultText));
+                    orderedBlocks.add(Message.ContentBlockRecord.toolUse(
+                            toolName, toolParams, result.isSuccess(), result.getDurationMs()));
+                    orderedBlocks.add(Message.ContentBlockRecord.toolResult(toolName, resultText));
+
+                    final String displayResultText = resultText;
+                    SwingUtilities.invokeLater(() -> {
+                        var block = currentToolBlock.getAndSet(null);
+                        if (block != null) {
+                            block.markCompleted(result.isSuccess(), result.getDurationMs());
+                        }
+                        if (result.isSuccess()) {
+                            area.addToolResultBlock(toolName, displayResultText);
+                        } else {
+                            area.addToolResultBlock(toolName + " (ERROR)", displayResultText);
+                        }
+                    });
+                }
+
+                // ---- Plan-and-Execute 策略回调 ----
+                @Override
+                public void onStrategyPhase(String phase, String description) {
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n📋 " + description + "\n"));
+                }
+
+                @Override
+                public void onPlanGenerated(List<PlanStep> steps) {
+                    StringBuilder planText = new StringBuilder("\n📋 **执行计划** (" + steps.size() + " 步):\n");
+                    for (PlanStep step : steps) {
+                        planText.append("  ").append(step.getIndex() + 1)
+                                .append(". ").append(step.getDescription()).append("\n");
+                    }
+                    orderedBlocks.add(Message.ContentBlockRecord.plan(planText.toString()));
+                    SwingUtilities.invokeLater(() -> area.appendContent(planText.toString()));
+                }
+
+                @Override
+                public void onPlanStepStarting(int stepIndex, String stepDescription) {
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n▶ **Step " + (stepIndex + 1) + "**: "
+                                    + stepDescription + "\n"));
+                }
+
+                @Override
+                public void onPlanStepCompleted(int stepIndex, boolean success, String resultSummary) {
+                    orderedBlocks.add(Message.ContentBlockRecord.planStep(
+                            stepIndex, success, resultSummary));
+                    String icon = success ? "✅" : "❌";
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n" + icon + " Step " + (stepIndex + 1)
+                                    + (success ? " 完成" : " 失败") + "\n"));
+                }
+
+                @Override
+                public void onPlanRevised(List<PlanStep> revisedSteps) {
+                    long remaining = revisedSteps.stream()
+                            .filter(s -> s.getStatus() == PlanStep.Status.PENDING)
+                            .count();
+                    SwingUtilities.invokeLater(() ->
+                            area.appendContent("\n🔄 计划已修订，剩余 " + remaining + " 步\n"));
+                }
+            };
+
+            // 通过 AgentRuntimeBridge 发送消息（透传原始 chatContent）
+            FunctionCallResult result = agentRuntimeBridge.sendMessage(
+                    userMessage, chatContent, llmCaller, progressCallback);
+
+            // 处理非成功结果
+            if (!result.isSuccess() && result.getType() != FunctionCallResult.ResultType.SUCCESS) {
+                handleFunctionCallResult(result, project, area);
+            }
+
+            // 保存到对话历史（含所有轮次的文本、思考内容和工具调用摘要）
+            String allText = collectedAllText.length() > 0
+                    ? collectedAllText.toString()
+                    : (result.getContent() != null ? result.getContent() : "");
+            Message assistantMessage = new Message();
+            assistantMessage.setRole("assistant");
+            assistantMessage.setContent(allText);
+            if (collectedThinking.length() > 0) {
+                assistantMessage.setThinkingContent(collectedThinking.toString());
+            }
+            if (!collectedToolSummaries.isEmpty()) {
+                assistantMessage.setToolCallSummaries(collectedToolSummaries);
+            }
+            if (!orderedBlocks.isEmpty()) {
+                assistantMessage.setContentBlocks(new ArrayList<>(orderedBlocks));
+            }
+            ChatUtils.getProjectChatHistory(project).add(assistantMessage);
+            JsonStorage.saveConservation(
+                    project.getUserData(GPT_4_LLL_NOW_TOPIC),
+                    ChatUtils.getProjectChatHistory(project));
+
+        } catch (Exception e) {
+            // 错误回退：显示警告并使用传统对话
+            SwingUtilities.invokeLater(() -> {
+                area.appendContent("\n⚠️ AgentRuntime error: " + e.getMessage()
+                        + "\nFalling back to traditional chat...\n");
+            });
+            // 回退到传统对话
+            GenerateAction.chat(chatContent, project, false, true, "");
+        }
     }
 
     /**
