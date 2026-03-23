@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
 import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
 import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
@@ -56,7 +57,7 @@ import java.util.regex.Pattern;
  */
 public class FunctionCallOrchestrator {
 
-    private static final Logger LOG = Logger.getInstance(FunctionCallOrchestrator.class);
+    private static final Logger LOG = Logger.getLogger(FunctionCallOrchestrator.class.getName());
 
     /** 默认最大对话轮次 */
     static final int DEFAULT_MAX_ROUNDS = 20;
@@ -291,7 +292,7 @@ public class FunctionCallOrchestrator {
             this.executionStrategyName = strategyName;
             LOG.info("Execution strategy switched to: " + strategyName);
         } else {
-            LOG.warn("Unknown strategy '" + strategyName + "', keeping current: " + executionStrategyName);
+            LOG.log(Level.WARNING, "Unknown strategy '" + strategyName + "', keeping current: " + executionStrategyName);
         }
     }
 
@@ -560,7 +561,7 @@ public class FunctionCallOrchestrator {
                     request.getChatContent().setTools(toolsList);
                 }
             } catch (Exception e) {
-                LOG.warn("Failed to parse tool descriptions as JSON array: " + e.getMessage());
+                LOG.log(Level.WARNING, "Failed to parse tool descriptions as JSON array: " + e.getMessage());
             }
         } else {
             // Prompt Engineering 模式：将工具描述作为 system 消息注入到对话历史开头
@@ -772,7 +773,7 @@ public class FunctionCallOrchestrator {
                     try {
                         com.alibaba.fastjson.JSON.parse(argsStr);
                     } catch (Exception e) {
-                        LOG.warn("tool_call arguments is not valid JSON, wrapping: " + argsStr);
+                        LOG.log(Level.WARNING, "tool_call arguments is not valid JSON, wrapping: " + argsStr);
                         com.alibaba.fastjson.JSONObject wrapper = new com.alibaba.fastjson.JSONObject();
                         wrapper.put("raw_arguments", argsStr);
                         funcObj.put("arguments", wrapper.toJSONString());

@@ -135,7 +135,7 @@ public class GenerateVersionControlCommitMessage extends AnAction {
 
             // System message
             Message systemMessage = new Message();
-            systemMessage.setRole(ChatUtils.getSystemRole(ModelUtils.getSelectedProvider(project)));
+            systemMessage.setRole(ChatUtils.getSystemRole(ModelUtils.getAvailableProvider(project)));
             systemMessage.setContent("You are an expert Git commit message writer. You follow conventional commit practices and generate clear, concise messages that adhere to best practices.");
 
             // User message
@@ -145,7 +145,7 @@ public class GenerateVersionControlCommitMessage extends AnAction {
 
             // Chat content
             ChatContent chatContent = new ChatContent();
-            chatContent.setMessages(new ArrayList<>(List.of(systemMessage, userMessage)), ModelUtils.getSelectedProvider(project));
+            chatContent.setMessages(new ArrayList<>(List.of(systemMessage, userMessage)), ModelUtils.getAvailableProvider(project));
             chatContent.setModel(ChatUtils.getModelName(project));
             chatContent.setTemperature(0.2);
 
