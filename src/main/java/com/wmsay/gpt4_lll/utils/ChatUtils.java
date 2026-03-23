@@ -96,8 +96,8 @@ public class ChatUtils {
      * @return API URL
      */
     public static String getUrl(MyPluginSettings settings, Project project) {
-        String provider = ModelUtils.getSelectedProvider(project);
-        String modelName = ModelUtils.getModelNameByDisplay(ModelUtils.getSelectedModel(project).getDisplayName());
+        String provider = ModelUtils.getAvailableProvider(project);
+        String modelName = ModelUtils.getAvailableModelName(project);
         return getUrlByProvider(settings, provider, modelName);
     }
 
@@ -110,7 +110,7 @@ public class ChatUtils {
      * @return API Key
      */
     public static String getApiKey(MyPluginSettings settings, Project project) {
-        String provider = ModelUtils.getSelectedProvider(project);
+        String provider = ModelUtils.getAvailableProvider(project);
         ProviderAdapter adapter = ProviderAdapterRegistry.getAdapter(provider);
         return adapter.getApiKey(settings);
     }
