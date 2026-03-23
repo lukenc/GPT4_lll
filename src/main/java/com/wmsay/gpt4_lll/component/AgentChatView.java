@@ -38,6 +38,13 @@ public class AgentChatView extends JPanel implements Scrollable {
     /** 标记是否由程序触发的滚动（避免误判为用户操作） */
     private volatile boolean programmaticScroll = false;
 
+    /**
+     * 滚动防抖 Timer：合并高频 scrollToBottom 请求，避免 EDT 队列洪泛。
+     * 窗口失焦期间积累的多次请求只会触发一次实际滚动。
+     */
+    private final Timer scrollCoalesceTimer;
+    private static final int SCROLL_COALESCE_MS = 100;
+
     public AgentChatView() {
         super(new BorderLayout());
 
@@ -49,6 +56,11 @@ public class AgentChatView extends JPanel implements Scrollable {
         topAligned.add(turnContainer, BorderLayout.NORTH);
 
         add(topAligned, BorderLayout.CENTER);
+
+        // 滚动防抖：无论多少次 scrollToBottomIfNeeded 被调用，
+        // 实际滚动操作最多每 SCROLL_COALESCE_MS 毫秒执行一次
+        scrollCoalesceTimer = new Timer(SCROLL_COALESCE_MS, e -> doScrollToBottom());
+        scrollCoalesceTimer.setRepeats(false);
     }
 
     // ==================== Scrollable 实现（让 JScrollPane 正确布局） ====================
@@ -292,7 +304,7 @@ public class AgentChatView extends JPanel implements Scrollable {
         ToolCallBlock block = new ToolCallBlock(toolCallId, toolName, params);
         activeTurn.addBlock(block);
         activeTurn.setActiveBlock(null);
-        scrollToBottomLater();
+        scrollToBottomIfNeeded();
         return block.awaitDecision();
     }
 
@@ -305,7 +317,7 @@ public class AgentChatView extends JPanel implements Scrollable {
         ToolUseBlock block = new ToolUseBlock(toolName, params);
         activeTurn.addBlock(block);
         activeTurn.setActiveBlock(null);
-        scrollToBottomLater();
+        scrollToBottomIfNeeded();
         return block;
     }
 
@@ -317,7 +329,7 @@ public class AgentChatView extends JPanel implements Scrollable {
         ToolResultBlock block = new ToolResultBlock(toolName, resultText);
         activeTurn.addBlock(block);
         activeTurn.setActiveBlock(null);
-        scrollToBottomLater();
+        scrollToBottomIfNeeded();
     }
 
     // ==================== 轮次管理 ====================
@@ -650,25 +662,29 @@ public class AgentChatView extends JPanel implements Scrollable {
         if (scrollPane == null || userScrolledAway) {
             return;
         }
-        scrollToBottomLater();
+        // 防抖：重置 timer，合并高频调用为一次实际滚动
+        if (!scrollCoalesceTimer.isRunning()) {
+            scrollCoalesceTimer.restart();
+        }
     }
 
-    private void scrollToBottomLater() {
-        if (scrollPane == null) {
+    /**
+     * 实际执行滚动到底部的操作。由 scrollCoalesceTimer 触发，
+     * 已在 EDT 上执行（Swing Timer 回调天然在 EDT）。
+     * 不再使用嵌套 invokeLater，避免 EDT 队列积压。
+     */
+    private void doScrollToBottom() {
+        if (scrollPane == null || userScrolledAway) {
             return;
         }
-        SwingUtilities.invokeLater(() -> {
-            revalidate();
-            SwingUtilities.invokeLater(() -> {
-                programmaticScroll = true;
-                try {
-                    JScrollBar vertical = scrollPane.getVerticalScrollBar();
-                    vertical.setValue(vertical.getMaximum());
-                } finally {
-                    // 延迟重置标志，让事件处理完成
-                    SwingUtilities.invokeLater(() -> programmaticScroll = false);
-                }
-            });
-        });
+        revalidate();
+        programmaticScroll = true;
+        try {
+            JScrollBar vertical = scrollPane.getVerticalScrollBar();
+            vertical.setValue(vertical.getMaximum());
+        } finally {
+            // 使用单次 invokeLater 重置标志（让当前事件处理完成后再重置）
+            SwingUtilities.invokeLater(() -> programmaticScroll = false);
+        }
     }
 }
