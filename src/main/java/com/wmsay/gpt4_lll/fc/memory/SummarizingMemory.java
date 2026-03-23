@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
 import com.wmsay.gpt4_lll.model.Message;
 
@@ -28,7 +29,7 @@ import java.util.function.Function;
  */
 public class SummarizingMemory implements ConversationMemory {
 
-    private static final Logger LOG = Logger.getInstance(SummarizingMemory.class);
+    private static final Logger LOG = Logger.getLogger(SummarizingMemory.class.getName());
 
     /** 保留最近至少 3 轮对话不参与摘要 */
     private static final int MIN_PRESERVED_ROUNDS = 3;
@@ -225,7 +226,7 @@ public class SummarizingMemory implements ConversationMemory {
             String summaryText = summarizer.apply(textToSummarize);
 
             if (summaryText == null || summaryText.trim().isEmpty()) {
-                LOG.warn("SummarizingMemory: summarizer returned empty result, skipping");
+                LOG.log(Level.WARNING, "SummarizingMemory: summarizer returned empty result, skipping");
                 progressCallback.onMemorySummarizingFailed("摘要结果为空");
                 return;
             }
@@ -246,7 +247,7 @@ public class SummarizingMemory implements ConversationMemory {
             progressCallback.onMemorySummarizingCompleted(originalTokensEstimate, compressedTokensEstimate);
 
         } catch (Exception e) {
-            LOG.warn("SummarizingMemory: summarizer failed, falling back to delegate behavior", e);
+            LOG.log(Level.WARNING, "SummarizingMemory: summarizer failed, falling back to delegate behavior", e);
             progressCallback.onMemorySummarizingFailed(e.getMessage());
         }
     }
