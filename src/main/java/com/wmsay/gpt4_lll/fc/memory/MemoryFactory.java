@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallConfig;
 
 import java.util.ServiceLoader;
@@ -17,7 +18,7 @@ import java.util.function.Function;
  */
 public class MemoryFactory {
 
-    private static final Logger LOG = Logger.getInstance(MemoryFactory.class);
+    private static final Logger LOG = Logger.getLogger(MemoryFactory.class.getName());
 
     private MemoryFactory() {
         // utility class
@@ -112,12 +113,12 @@ public class MemoryFactory {
                 }
             }
         } catch (Exception e) {
-            LOG.warn("Failed to load ConversationMemory via SPI for strategy '"
+            LOG.log(Level.WARNING, "Failed to load ConversationMemory via SPI for strategy '"
                     + strategy + "'", e);
         }
 
         // Fallback to sliding_window
-        LOG.warn("Unknown memory strategy '" + strategy
+        LOG.log(Level.WARNING, "Unknown memory strategy '" + strategy
                 + "', falling back to 'sliding_window'");
         return new SlidingWindowMemory(maxTokens, hardLimitTokens);
     }

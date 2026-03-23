@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.observability;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallConfig.LogLevel;
 import com.wmsay.gpt4_lll.fc.model.PerformanceMetrics;
 import com.wmsay.gpt4_lll.fc.model.SessionTrace;
@@ -64,7 +65,7 @@ public class ObservabilityManager {
         TEXT
     }
 
-    private static final Logger LOG = Logger.getInstance(ObservabilityManager.class);
+    private static final Logger LOG = Logger.getLogger(ObservabilityManager.class.getName());
 
     /**
      * 生成唯一的会话 ID (UUID)。
@@ -445,7 +446,7 @@ public class ObservabilityManager {
 
     private void logDebug(String event, Map<String, Object> fields) {
         if (isLevelEnabled(LogLevel.DEBUG)) {
-            LOG.debug(formatJsonLog(event, "DEBUG", fields));
+            LOG.fine(formatJsonLog(event, "DEBUG", fields));
         }
     }
 
@@ -457,15 +458,13 @@ public class ObservabilityManager {
 
     private void logWarn(String event, Map<String, Object> fields) {
         if (isLevelEnabled(LogLevel.WARN)) {
-            LOG.warn(formatJsonLog(event, "WARN", fields));
+            LOG.log(Level.WARNING, formatJsonLog(event, "WARN", fields));
         }
     }
 
     private void logError(String event, Map<String, Object> fields, Throwable error) {
         if (isLevelEnabled(LogLevel.ERROR)) {
-            // Use LOG.warn to avoid IntelliJ TestLoggerFactory treating logged errors as test failures.
-            // The structured JSON payload already contains level=ERROR for downstream consumers.
-            LOG.warn(formatJsonLog(event, "ERROR", fields) + " | " + error.getMessage());
+            LOG.log(Level.SEVERE, formatJsonLog(event, "ERROR", fields) + " | " + error.getMessage());
         }
     }
 

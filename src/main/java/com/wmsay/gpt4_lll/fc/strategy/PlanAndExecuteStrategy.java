@@ -3,7 +3,8 @@ package com.wmsay.gpt4_lll.fc.strategy;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
 import com.wmsay.gpt4_lll.fc.model.*;
 import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
@@ -38,7 +39,7 @@ import java.util.stream.Collectors;
  */
 public class PlanAndExecuteStrategy implements ExecutionStrategy {
 
-    private static final Logger LOG = Logger.getInstance(PlanAndExecuteStrategy.class);
+    private static final Logger LOG = Logger.getLogger(PlanAndExecuteStrategy.class.getName());
 
     /** 单个步骤内 ReAct 循环的最大轮次 */
     private static final int STEP_MAX_ROUNDS = 35;
@@ -185,7 +186,7 @@ public class PlanAndExecuteStrategy implements ExecutionStrategy {
                     long duration = System.currentTimeMillis() - stepStart;
                     step.markFailed(e.getMessage(), duration);
                     callback.onPlanStepCompleted(step.getIndex(), false, e.getMessage());
-                    LOG.warn("Step " + (step.getIndex() + 1) + " threw exception: " + e.getMessage());
+                    LOG.log(Level.WARNING, "Step " + (step.getIndex() + 1) + " threw exception: " + e.getMessage());
 
                     // ExecutionHook: onError
                     if (hook != null) {
@@ -279,16 +280,16 @@ public class PlanAndExecuteStrategy implements ExecutionStrategy {
         try {
             String planResponse = callLlmWithTimeout(llmCaller, planRequest, PLANNING_TIMEOUT_SECONDS);
             if (planResponse == null || planResponse.isEmpty()) {
-                LOG.warn("Planning LLM call returned empty response");
+                LOG.log(Level.WARNING, "Planning LLM call returned empty response");
                 return Collections.emptyList();
             }
             return parsePlan(planResponse);
         } catch (TimeoutException e) {
-            LOG.warn("Planning LLM call timed out after " + PLANNING_TIMEOUT_SECONDS + "s");
+            LOG.log(Level.WARNING, "Planning LLM call timed out after " + PLANNING_TIMEOUT_SECONDS + "s");
             callback.onStrategyPhase("planning_timeout", "计划生成超时，切换到 ReAct 模式...");
             return Collections.emptyList();
         } catch (Exception e) {
-            LOG.warn("Planning LLM call failed: " + e.getMessage());
+            LOG.log(Level.WARNING, "Planning LLM call failed: " + e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -336,7 +337,7 @@ public class PlanAndExecuteStrategy implements ExecutionStrategy {
 
         String jsonContent = extractJsonContent(response);
         if (jsonContent == null) {
-            LOG.warn("Failed to extract JSON from plan response");
+            LOG.log(Level.WARNING, "Failed to extract JSON from plan response");
             return parsePlanFromText(response);
         }
 
@@ -358,7 +359,7 @@ public class PlanAndExecuteStrategy implements ExecutionStrategy {
             }
             return steps;
         } catch (Exception e) {
-            LOG.warn("Failed to parse plan JSON: " + e.getMessage());
+            LOG.log(Level.WARNING, "Failed to parse plan JSON: " + e.getMessage());
             return parsePlanFromText(response);
         }
     }
@@ -577,7 +578,7 @@ public class PlanAndExecuteStrategy implements ExecutionStrategy {
                 return reindexed;
             }
         } catch (Exception e) {
-            LOG.warn("Replan attempt failed: " + e.getMessage());
+            LOG.log(Level.WARNING, "Replan attempt failed: " + e.getMessage());
         }
         return null;
     }
@@ -662,14 +663,14 @@ public class PlanAndExecuteStrategy implements ExecutionStrategy {
             if (content != null && !content.isEmpty()) {
                 return content;
             }
-            LOG.warn("Synthesis LLM returned empty content, using fallback");
+            LOG.log(Level.WARNING, "Synthesis LLM returned empty content, using fallback");
             return fallbackResult;
         } catch (TimeoutException e) {
-            LOG.warn("Synthesis LLM call timed out after " + SYNTHESIS_TIMEOUT_SECONDS + "s, using fallback");
+            LOG.log(Level.WARNING, "Synthesis LLM call timed out after " + SYNTHESIS_TIMEOUT_SECONDS + "s, using fallback");
             callback.onStrategyPhase("synthesis_timeout", "结果汇总超时，使用步骤结果...");
             return fallbackResult;
         } catch (Exception e) {
-            LOG.warn("Synthesis LLM call failed: " + e.getMessage() + ", using fallback");
+            LOG.log(Level.WARNING, "Synthesis LLM call failed: " + e.getMessage() + ", using fallback");
             return fallbackResult;
         }
     }

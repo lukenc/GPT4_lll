@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.strategy;
 
-import com.intellij.openapi.diagnostic.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
 import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
 import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
@@ -40,7 +41,7 @@ import java.util.regex.Pattern;
  */
 public class ReActStrategy implements ExecutionStrategy {
 
-    private static final Logger LOG = Logger.getInstance(ReActStrategy.class);
+    private static final Logger LOG = Logger.getLogger(ReActStrategy.class.getName());
     static final int DEFAULT_MAX_ROUNDS = 20;
     private static final Pattern THINK_PATTERN = Pattern.compile(
             "<think>(.*?)</think>", Pattern.DOTALL);
@@ -154,7 +155,7 @@ public class ReActStrategy implements ExecutionStrategy {
                         List<Message> mutableLlmMessages = new ArrayList<>(llmMessages);
                         request.getChatContent().setDirectMessages(mutableLlmMessages);
                     } catch (Exception e) {
-                        LOG.warn("Memory getMessages() failed, falling back to original messages", e);
+                        LOG.log(Level.WARNING, "Memory getMessages() failed, falling back to original messages", e);
                     }
                 }
 
@@ -194,7 +195,7 @@ public class ReActStrategy implements ExecutionStrategy {
                         llmResponse = streamingLlmCaller.call(request, displayCb);
                         streamedThisRound = true;
                     } catch (Exception e) {
-                        LOG.warn("Streaming LLM call failed, falling back to sync: " + e.getMessage());
+                        LOG.log(Level.WARNING, "Streaming LLM call failed, falling back to sync: " + e.getMessage());
                         request.getChatContent().setStream(false);
                         llmResponse = llmCaller.call(request);
                     }
@@ -321,7 +322,7 @@ public class ReActStrategy implements ExecutionStrategy {
                     request.getChatContent().setTools(toolsList);
                 }
             } catch (Exception e) {
-                LOG.warn("Failed to parse tool descriptions as JSON array: " + e.getMessage());
+                LOG.log(Level.WARNING, "Failed to parse tool descriptions as JSON array: " + e.getMessage());
             }
         } else {
             List<Message> messages = request.getChatContent().getMessages();
