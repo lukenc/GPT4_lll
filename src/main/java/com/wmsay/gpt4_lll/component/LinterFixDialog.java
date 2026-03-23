@@ -10,10 +10,12 @@ import com.intellij.openapi.editor.EditorSettings;
 import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.highlighter.EditorHighlighterFactory;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBScrollPane;
@@ -74,8 +76,9 @@ public class LinterFixDialog extends DialogWrapper {
         setOKButtonText("应用修复 (Enter) / Apply Fixes");
         setCancelButtonText("取消 / Cancel");
 
-        this.previewFileType = editor.getVirtualFile() != null
-                ? editor.getVirtualFile().getFileType()
+        VirtualFile vFile = FileDocumentManager.getInstance().getFile(editor.getDocument());
+        this.previewFileType = vFile != null
+                ? vFile.getFileType()
                 : FileTypeManager.getInstance().getFileTypeByExtension("txt");
 
         init();
@@ -339,21 +342,27 @@ public class LinterFixDialog extends DialogWrapper {
                 sortedChanges.add(changes.get(i));
             }
         }
+        if (sortedChanges.isEmpty()) {
+            super.doOKAction();
+            return;
+        }
         // 按行号升序排列，配合偏移量正确处理连续操作
         sortedChanges.sort(Comparator.comparingInt(CodeChange::getLineNumber));
+
+        // 在关闭对话框前捕获 document 引用，避免 dispose 后 editor 失效
+        final Document document = editor.getDocument();
+        final Project proj = this.project;
 
         // 先关闭对话框，退出对话框模态状态
         super.doOKAction();
 
-        // 对话框关闭后，在 NON_MODAL 下执行写操作，确保 write-safe
-        Project proj = editor.getProject();
-        if (proj == null || proj.isDisposed()) {
+        if (proj.isDisposed()) {
             return;
         }
 
+        // 对话框关闭后，在 NON_MODAL 下执行写操作，确保 write-safe
         ApplicationManager.getApplication().invokeLater(() -> {
             WriteCommandAction.runWriteCommandAction(proj, () -> {
-                Document document = editor.getDocument();
                 // 维护两类偏移量：
                 // - nonInsertOffset: DELETE/MODIFY 造成的行数变化，影响所有后续操作
                 // - insertOffset: INSERT 造成的行数变化，只影响后续非 INSERT 操作
@@ -382,7 +391,7 @@ public class LinterFixDialog extends DialogWrapper {
                     }
                 }
             });
-        }, ModalityState.nonModal());
+        }, ModalityState.NON_MODAL);
     }
 
     /**
