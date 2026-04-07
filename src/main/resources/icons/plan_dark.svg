@@ -1,0 +1,16 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="15.9%" stop-color="#90EA90"/>
+      <stop offset="54.0%" stop-color="#3Ca0CC"/>
+      <stop offset="93.7%" stop-color="#0f97FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Three-line list with dots on left -->
+  <circle cx="3.5" cy="4" r="1" stroke="url(#brandGradient)" stroke-width="1.5" fill="none"/>
+  <line x1="6.5" y1="4" x2="13.5" y2="4" stroke="url(#brandGradient)" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="3.5" cy="8" r="1" stroke="url(#brandGradient)" stroke-width="1.5" fill="none"/>
+  <line x1="6.5" y1="8" x2="13.5" y2="8" stroke="url(#brandGradient)" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="3.5" cy="12" r="1" stroke="url(#brandGradient)" stroke-width="1.5" fill="none"/>
+  <line x1="6.5" y1="12" x2="13.5" y2="12" stroke="url(#brandGradient)" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
