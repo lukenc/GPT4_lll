@@ -1,18 +1,29 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.runtime.AgentRuntime;
+import com.wmsay.gpt4_lll.fc.runtime.IntentRecognizer;
+import com.wmsay.gpt4_lll.fc.runtime.IntentResult;
+import com.wmsay.gpt4_lll.fc.runtime.KnowledgeBase;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.events.ProgressCallback;
+import com.wmsay.gpt4_lll.fc.llm.LlmCaller;
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.state.AgentSession;
+import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallRequest;
-import com.wmsay.gpt4_lll.fc.model.FunctionCallResult;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.protocol.MarkdownProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
 import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.AfterTry;
@@ -79,7 +90,7 @@ class AgentRuntimeSendPropertyTest {
 
         // 2. Register a default agent with known system prompt and tool names
         List<String> toolNames = McpToolRegistry.getAllTools().stream()
-                .map(McpTool::name)
+                .map(Tool::name)
                 .collect(Collectors.toList());
 
         AgentDefinition definition = AgentDefinition.builder()
@@ -161,7 +172,7 @@ class AgentRuntimeSendPropertyTest {
 
         // 2. Register a default agent
         List<String> toolNames = McpToolRegistry.getAllTools().stream()
-                .map(McpTool::name)
+                .map(Tool::name)
                 .collect(Collectors.toList());
 
         AgentDefinition definition = AgentDefinition.builder()
@@ -186,14 +197,14 @@ class AgentRuntimeSendPropertyTest {
         FunctionCallOrchestrator throwingOrchestrator = new FunctionCallOrchestrator(
                 new MarkdownProtocolAdapter(),
                 new ValidationEngine(),
-                new ExecutionEngine(new RetryStrategy(), new UserApprovalManager()),
+                new ExecutionEngine(new ToolRegistry(), new DefaultApprovalProvider(), new RetryStrategy()),
                 new ErrorHandler(),
                 new ObservabilityManager()
         ) {
             @Override
             public FunctionCallResult execute(FunctionCallRequest request,
-                                              McpContext ctx,
-                                              LlmCaller caller,
+                                              com.wmsay.gpt4_lll.fc.tools.ToolContext ctx,
+                                              com.wmsay.gpt4_lll.fc.llm.LlmCaller caller,
                                               ProgressCallback progressCallback) {
                 throw new RuntimeException(exceptionMessage);
             }
@@ -260,7 +271,7 @@ class AgentRuntimeSendPropertyTest {
 
         // 2. Register a default agent
         List<String> toolNames = McpToolRegistry.getAllTools().stream()
-                .map(McpTool::name)
+                .map(Tool::name)
                 .collect(Collectors.toList());
 
         AgentDefinition definition = AgentDefinition.builder()
@@ -281,7 +292,7 @@ class AgentRuntimeSendPropertyTest {
         IntentRecognizer throwingRecognizer = new IntentRecognizer(new ObservabilityManager()) {
             @Override
             public IntentResult analyze(String userMessage, List<String> availableToolNames,
-                                        FunctionCallOrchestrator.LlmCaller llmCaller) {
+                                        LlmCaller llmCaller, String modelName) {
                 if (intentException instanceof RuntimeException) {
                     throw (RuntimeException) intentException;
                 }
@@ -431,7 +442,7 @@ class AgentRuntimeSendPropertyTest {
      * IntentRecognizer.analyze() will call this for sidecar analysis — that's expected.
      * The key point is that orchestrator.execute() is NOT called (since orchestrator is null).
      */
-    private static com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator.LlmCaller mockLlmCaller() {
+    private static com.wmsay.gpt4_lll.fc.llm.LlmCaller mockLlmCaller() {
         return request -> "{\"clarity\":\"CLEAR\",\"complexity\":\"SIMPLE\","
                 + "\"recommendedStrategy\":\"react\",\"reasoning\":\"test\","
                 + "\"filteredToolNames\":[]}";

@@ -1,13 +1,22 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.runtime.AgentRuntime;
+import com.wmsay.gpt4_lll.fc.state.AgentSession;
+import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
+import com.wmsay.gpt4_lll.fc.core.AgentMessage;
 import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
 import com.wmsay.gpt4_lll.fc.memory.MemoryStats;
 import com.wmsay.gpt4_lll.fc.memory.SummaryMetadata;
 import com.wmsay.gpt4_lll.fc.memory.TokenUsageInfo;
-import com.wmsay.gpt4_lll.fc.model.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.AgentRuntimeConfig;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.AgentMessage;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
+
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
@@ -113,7 +122,7 @@ class AgentRuntimeIntegrationTest {
      * Mock LlmCaller that returns a valid IntentRecognizer JSON response
      * for the first call, and a simple text response for subsequent calls.
      */
-    private static com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator.LlmCaller mockLlmCaller() {
+    private static com.wmsay.gpt4_lll.fc.llm.LlmCaller mockLlmCaller() {
         return request -> {
             // IntentRecognizer expects JSON with clarity/complexity/recommendedStrategy
             return "{\"clarity\":\"CLEAR\",\"complexity\":\"SIMPLE\"," +
@@ -390,36 +399,53 @@ class AgentRuntimeIntegrationTest {
     // ---------------------------------------------------------------
 
     @Test
-    @DisplayName("FunctionCallOrchestrator.LlmCaller interface should still be a functional interface")
+    @DisplayName("LlmCaller interface should still be a functional interface")
     void testLlmCallerFunctionalInterface() {
-        // Verify LlmCaller can be used as a lambda — this is a compile-time check
-        // that also runs at runtime to confirm the interface hasn't changed
-        com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator.LlmCaller caller = request -> "response";
+        // Verify standalone LlmCaller can be used as a lambda
+        com.wmsay.gpt4_lll.fc.llm.LlmCaller caller = request -> "response";
         assertNotNull(caller);
         // Verify it's callable
         assertNotNull(caller.getClass());
+
+        // Verify backward-compat inner interface still works as lambda
+        com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator.LlmCaller innerCaller = request -> "response";
+        assertNotNull(innerCaller);
     }
 
     @Test
     @DisplayName("AgentRuntime should not modify FunctionCallOrchestrator public API")
     void testFunctionCallOrchestratorApiUnchanged() {
         // Verify key methods still exist on FunctionCallOrchestrator via reflection
-        Class<?> fcoClass = com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator.class;
+        Class<?> fcoClass = com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator.class;
 
-        // execute(FunctionCallRequest, McpContext, LlmCaller) should exist
+        // execute(FunctionCallRequest, McpContext, LlmCaller) should exist (deprecated backward compat)
         assertDoesNotThrow(() -> fcoClass.getMethod("execute",
                 com.wmsay.gpt4_lll.fc.model.FunctionCallRequest.class,
                 McpContext.class,
-                com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator.LlmCaller.class),
-                "FunctionCallOrchestrator.execute(request, context, llmCaller) should still exist");
+                com.wmsay.gpt4_lll.fc.llm.LlmCaller.class),
+                "FunctionCallOrchestrator.execute(request, McpContext, llmCaller) should still exist (deprecated)");
 
-        // execute with ProgressCallback should exist
+        // execute with McpContext + ProgressCallback should exist (deprecated backward compat)
         assertDoesNotThrow(() -> fcoClass.getMethod("execute",
                 com.wmsay.gpt4_lll.fc.model.FunctionCallRequest.class,
                 McpContext.class,
-                com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator.LlmCaller.class,
-                com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator.ProgressCallback.class),
-                "FunctionCallOrchestrator.execute(request, context, llmCaller, callback) should still exist");
+                com.wmsay.gpt4_lll.fc.llm.LlmCaller.class,
+                com.wmsay.gpt4_lll.fc.events.ProgressCallback.class),
+                "FunctionCallOrchestrator.execute(request, McpContext, llmCaller, callback) should still exist (deprecated)");
+
+        // New ToolContext-based execute methods should exist
+        assertDoesNotThrow(() -> fcoClass.getMethod("execute",
+                com.wmsay.gpt4_lll.fc.model.FunctionCallRequest.class,
+                com.wmsay.gpt4_lll.fc.tools.ToolContext.class,
+                com.wmsay.gpt4_lll.fc.llm.LlmCaller.class),
+                "FunctionCallOrchestrator.execute(request, ToolContext, llmCaller) should exist");
+
+        assertDoesNotThrow(() -> fcoClass.getMethod("execute",
+                com.wmsay.gpt4_lll.fc.model.FunctionCallRequest.class,
+                com.wmsay.gpt4_lll.fc.tools.ToolContext.class,
+                com.wmsay.gpt4_lll.fc.llm.LlmCaller.class,
+                com.wmsay.gpt4_lll.fc.events.ProgressCallback.class),
+                "FunctionCallOrchestrator.execute(request, ToolContext, llmCaller, callback) should exist");
     }
 
     // ---------------------------------------------------------------

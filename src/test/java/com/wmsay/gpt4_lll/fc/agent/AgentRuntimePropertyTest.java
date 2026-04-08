@@ -1,14 +1,21 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
 import com.intellij.openapi.project.Project;
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.runtime.AgentRuntime;
+import com.wmsay.gpt4_lll.fc.state.AgentSession;
+import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
 import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
 import com.wmsay.gpt4_lll.fc.memory.MemoryStats;
 import com.wmsay.gpt4_lll.fc.memory.SummaryMetadata;
 import com.wmsay.gpt4_lll.fc.memory.TokenUsageInfo;
-import com.wmsay.gpt4_lll.fc.model.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.AgentRuntimeConfig;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
+
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.lifecycle.AfterProperty;

@@ -1,6 +1,9 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
 import org.junit.jupiter.api.Test;
+
+import com.wmsay.gpt4_lll.fc.core.AgentRuntimeConfig;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class AgentRuntimeConfigTest {
