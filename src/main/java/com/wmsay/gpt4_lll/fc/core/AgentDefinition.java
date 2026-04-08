@@ -1,4 +1,4 @@
-package com.wmsay.gpt4_lll.fc.agent;
+package com.wmsay.gpt4_lll.fc.core;
 
 import java.util.ArrayList;
 import java.util.Collections;
