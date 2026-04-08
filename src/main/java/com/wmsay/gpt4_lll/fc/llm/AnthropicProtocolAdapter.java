@@ -1,4 +1,4 @@
-package com.wmsay.gpt4_lll.fc.protocol;
+package com.wmsay.gpt4_lll.fc.llm;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
@@ -6,8 +6,8 @@ import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
 import com.wmsay.gpt4_lll.fc.model.ToolCall;
 import com.wmsay.gpt4_lll.fc.model.ToolCallResult;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.core.Message;
 
 import java.util.*;
 
@@ -50,10 +50,10 @@ public class AnthropicProtocolAdapter implements ProtocolAdapter {
     }
 
     @Override
-    public Object formatToolDescriptions(List<McpTool> tools) {
+    public Object formatToolDescriptions(List<Tool> tools) {
         JSONArray toolsArray = new JSONArray();
 
-        for (McpTool tool : tools) {
+        for (Tool tool : tools) {
             JSONObject toolObj = new JSONObject(true);
             toolObj.put("name", tool.name());
             toolObj.put("description", tool.description());
