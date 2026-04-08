@@ -1,13 +1,18 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
 import com.intellij.openapi.project.Project;
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.state.AgentSession;
+import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
 import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
 import com.wmsay.gpt4_lll.fc.memory.MemoryStats;
 import com.wmsay.gpt4_lll.fc.memory.SummaryMetadata;
 import com.wmsay.gpt4_lll.fc.memory.TokenUsageInfo;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
+
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 
@@ -87,7 +92,7 @@ class AgentSessionPropertyTest {
                 "agent-session-" + UUID.randomUUID(),
                 defaultDefinition("test-agent"),
                 stubMemory(),
-                ctx);
+                ctx.getToolContext());
     }
 
 
@@ -150,33 +155,30 @@ class AgentSessionPropertyTest {
     // ---------------------------------------------------------------
 
     /**
-     * Property 4: CREATED→RUNNING 时，若 ExecutionContext 不完整（project 为 null），
-     * 应抛出 IllegalStateException。
+     * Property 4: CREATED→RUNNING 是合法转换，使用 ToolContext 时不再验证 ExecutionContext 完整性。
+     * 验证 CREATED→RUNNING 转换在任何 ToolContext 下均成功。
      */
     @Property(tries = 20)
-    @Label("Feature: agent-runtime, Property 4: AgentSession CREATED→RUNNING 需要完整 ExecutionContext")
-    void createdToRunningRequiresCompleteContext(
+    @Label("Feature: agent-runtime, Property 4: AgentSession CREATED→RUNNING 合法转换")
+    void createdToRunningShouldSucceed(
             @ForAll("sessionIds") String sessionId) {
 
-        // 不完整上下文：project 为 null
-        AgentSession incomplete = new AgentSession(
-                sessionId, defaultDefinition("agent-incomplete"),
-                stubMemory(), incompleteContext());
+        // 不完整上下文（project 为 null）— 使用 ToolContext 后仍可转换
+        ToolContext minimalContext = ToolContext.builder()
+                .workspaceRoot(TEST_ROOT)
+                .build();
+        AgentSession session = new AgentSession(
+                sessionId, defaultDefinition("agent-minimal"),
+                stubMemory(), minimalContext);
 
-        try {
-            incomplete.transitionTo(SessionState.RUNNING);
-            assert false : "Expected IllegalStateException for incomplete ExecutionContext";
-        } catch (IllegalStateException e) {
-            assert e.getMessage().contains("ExecutionContext incomplete") :
-                    "Error message should mention ExecutionContext, got: " + e.getMessage();
-        }
-        assert incomplete.getState() == SessionState.CREATED :
-                "State should remain CREATED after failed transition";
+        session.transitionTo(SessionState.RUNNING);
+        assert session.getState() == SessionState.RUNNING :
+                "State should be RUNNING with minimal ToolContext";
 
-        // 完整上下文：应成功转换
+        // 完整上下文：也应成功转换
         AgentSession complete = new AgentSession(
                 sessionId + "-ok", defaultDefinition("agent-complete"),
-                stubMemory(), completeContext());
+                stubMemory(), completeContext().getToolContext());
 
         complete.transitionTo(SessionState.RUNNING);
         assert complete.getState() == SessionState.RUNNING :
