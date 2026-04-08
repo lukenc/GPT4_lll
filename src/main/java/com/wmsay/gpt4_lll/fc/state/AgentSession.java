@@ -1,7 +1,9 @@
-package com.wmsay.gpt4_lll.fc.agent;
+package com.wmsay.gpt4_lll.fc.state;
 
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
 import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -13,9 +15,13 @@ import java.util.concurrent.locks.ReentrantLock;
  * Agent 会话 — 封装单个 Agent 实例的完整运行状态。
  * <p>
  * 线程安全，使用 ReentrantLock 保护状态转换。
- * 持有独立的 ContextManager、FileChangeTracker 和 TaskManager（每个会话隔离）。
+ * 持有 {@link ToolContext}（平台无关的工具上下文）以及独立的
+ * ContextManager、FileChangeTracker 和 TaskManager（每个会话隔离）。
  * <p>
  * 纯 Java 实现，不依赖任何 com.intellij.* API。
+ *
+ * @see ToolContext
+ * @see SessionState
  */
 public class AgentSession {
 
@@ -41,7 +47,7 @@ public class AgentSession {
     private final String sessionId;
     private final AgentDefinition definition;
     private final ConversationMemory memory;
-    private final ExecutionContext executionContext;
+    private final ToolContext toolContext;
     private final long createdAtMs;
     private final ReentrantLock stateLock = new ReentrantLock();
     private final FileChangeTracker fileChangeTracker;
@@ -52,12 +58,20 @@ public class AgentSession {
     private volatile int delegationDepth = 0;
     private volatile Throwable lastError;
 
+    /**
+     * 创建新的 AgentSession。
+     *
+     * @param sessionId   会话唯一标识
+     * @param definition  Agent 定义
+     * @param memory      对话记忆
+     * @param toolContext 工具上下文（平台无关）
+     */
     public AgentSession(String sessionId, AgentDefinition definition,
-                        ConversationMemory memory, ExecutionContext executionContext) {
+                        ConversationMemory memory, ToolContext toolContext) {
         this.sessionId = sessionId;
         this.definition = definition;
         this.memory = memory;
-        this.executionContext = executionContext;
+        this.toolContext = toolContext;
         this.createdAtMs = System.currentTimeMillis();
         this.fileChangeTracker = new FileChangeTracker();
         this.taskManager = new TaskManager();
@@ -67,8 +81,8 @@ public class AgentSession {
     /**
      * 将会话状态转换到目标状态。
      * <p>
-     * 检查顺序：DESTROYED 拒绝 → 合法转换验证 → CREATED→RUNNING 时验证 ExecutionContext →
-     * DESTROYED 时释放 ConversationMemory。
+     * 使用 {@link ReentrantLock} 保证线程安全。
+     * 检查顺序：DESTROYED 拒绝 → 合法转换验证 → DESTROYED 时释放 ConversationMemory。
      *
      * @param newState 目标状态
      * @throws IllegalStateException 非法转换或会话已销毁
@@ -86,16 +100,6 @@ public class AgentSession {
             if (!allowed.contains(newState)) {
                 throw new IllegalStateException(
                         "Illegal state transition: " + state + " → " + newState);
-            }
-
-            // CREATED→RUNNING 时验证 ExecutionContext 完整性
-            if (state == SessionState.CREATED && newState == SessionState.RUNNING) {
-                ExecutionContext.ValidationResult vr =
-                        executionContext.validateRequired("project", "projectRoot");
-                if (!vr.isValid()) {
-                    throw new IllegalStateException(
-                            "ExecutionContext incomplete: " + vr.getErrorMessage());
-                }
             }
 
             // DESTROYED 时释放记忆资源
@@ -130,7 +134,7 @@ public class AgentSession {
     public String getSessionId() { return sessionId; }
     public AgentDefinition getDefinition() { return definition; }
     public ConversationMemory getMemory() { return memory; }
-    public ExecutionContext getExecutionContext() { return executionContext; }
+    public ToolContext getToolContext() { return toolContext; }
     public SessionState getState() { return state; }
     public Throwable getLastError() { return lastError; }
     public FileChangeTracker getFileChangeTracker() { return fileChangeTracker; }
@@ -142,7 +146,4 @@ public class AgentSession {
 
     /** 返回从会话创建到当前时刻的经过时间（毫秒）。 */
     public long getElapsedTimeMs() { return System.currentTimeMillis() - createdAtMs; }
-
-    /** 创建当前会话状态的快照（复用 ExecutionContext.Snapshot 机制）。 */
-    public ExecutionContext.Snapshot createSnapshot() { return executionContext.createSnapshot(); }
 }
