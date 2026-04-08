@@ -1,8 +1,10 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
-import com.wmsay.gpt4_lll.fc.model.ErrorMessage;
+import com.wmsay.gpt4_lll.fc.core.ErrorMessage;
 import com.wmsay.gpt4_lll.fc.model.ToolCallResult;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.runtime.AgentFileChangeHook;
+import com.wmsay.gpt4_lll.fc.state.FileChangeTracker;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.AfterTry;
 
@@ -65,7 +67,7 @@ class AgentFileChangeHookPropertyTest {
         ToolCallResult result = ToolCallResult.success(
                 UUID.randomUUID().toString(),
                 toolName,
-                McpToolResult.text("some output"),
+                ToolResult.text("some output"),
                 100L);
 
         hook.afterRound(0, Collections.singletonList(result));
@@ -102,7 +104,7 @@ class AgentFileChangeHookPropertyTest {
         ToolCallResult result = ToolCallResult.success(
                 UUID.randomUUID().toString(),
                 "write_file",
-                McpToolResult.structured(Map.of("path", fileName)),
+                ToolResult.structured(Map.of("path", fileName)),
                 100L);
 
         hook.afterRound(0, Collections.singletonList(result));
@@ -175,7 +177,7 @@ class AgentFileChangeHookPropertyTest {
                 ToolCallResult.success(
                         UUID.randomUUID().toString(),
                         otherTool,
-                        McpToolResult.text("output"),
+                        ToolResult.text("output"),
                         50L),
                 // write_file failure — should be ignored
                 ToolCallResult.executionError(
@@ -190,7 +192,7 @@ class AgentFileChangeHookPropertyTest {
                 ToolCallResult.success(
                         UUID.randomUUID().toString(),
                         "write_file",
-                        McpToolResult.structured(Map.of("path", fileName)),
+                        ToolResult.structured(Map.of("path", fileName)),
                         120L)
         );
 
