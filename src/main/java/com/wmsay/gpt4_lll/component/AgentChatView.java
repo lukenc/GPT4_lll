@@ -1,18 +1,23 @@
 package com.wmsay.gpt4_lll.component;
 
+import com.intellij.openapi.project.Project;
 import com.intellij.util.ui.JBUI;
 import com.wmsay.gpt4_lll.CommentAction;
 import com.wmsay.gpt4_lll.component.block.*;
-import com.wmsay.gpt4_lll.model.Message;
-import com.wmsay.gpt4_lll.model.Message.ContentBlockRecord;
-import com.wmsay.gpt4_lll.model.Message.ToolCallSummary;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.core.Message.ContentBlockRecord;
+import com.wmsay.gpt4_lll.fc.core.Message.ToolCallSummary;
+import com.wmsay.gpt4_lll.fc.state.FileSnapshot;
+import com.wmsay.gpt4_lll.fc.state.PlanStepInfo;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.HierarchyEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,6 +38,16 @@ public class AgentChatView extends JPanel implements Scrollable {
     private final List<TurnPanel> turns = new ArrayList<>();
     private TurnPanel activeTurn;
 
+    /** 当前活跃的 StepBlock（步骤执行期间，内容路由到此 StepBlock 内部） */
+    private StepBlock activeStepBlock;
+
+    /** 当前活跃的计划进度面板 */
+    private PlanProgressPanel activePlanPanel;
+    /** 粘性进度横条（PlanProgressPanel 滚出可视区时显示） */
+    private StickyProgressBar stickyProgressBar;
+    /** AgentRuntimeBridge 引用，用于注册/移除计划进度监听器 */
+    private AgentRuntimeBridge bridge;
+
     /** 用户是否主动向上滚动，接管了滚动位置 */
     private volatile boolean userScrolledAway = false;
     /** 标记是否由程序触发的滚动（避免误判为用户操作） */
@@ -44,6 +59,27 @@ public class AgentChatView extends JPanel implements Scrollable {
      */
     private final Timer scrollCoalesceTimer;
     private static final int SCROLL_COALESCE_MS = 100;
+
+    /**
+     * 不可见期间积压的 UI 操作缓冲区（类型化）。
+     * 后台线程在窗口不可见时将操作写入此队列（无锁），
+     * 恢复可见时由 HierarchyListener 在 EDT 上一次性 flush。
+     * <p>
+     * 使用类型化的 BufferedOp 而非 Runnable，使 flush 时能够
+     * 将连续的 APPEND 操作合并为一个大字符串，只触发一次
+     * StreamContentSplitter 解析和 flexmark 渲染，避免逐条渲染导致假死。
+     */
+    private final ConcurrentLinkedQueue<BufferedOp> offscreenBuffer = new ConcurrentLinkedQueue<>();
+
+    /** 离屏缓冲操作类型 */
+    private enum OpType { APPEND, START_THINKING, END_THINKING }
+
+    /** 离屏缓冲操作记录 */
+    private record BufferedOp(OpType type, String content) {
+        static BufferedOp append(String content) { return new BufferedOp(OpType.APPEND, content); }
+        static BufferedOp startThinking() { return new BufferedOp(OpType.START_THINKING, null); }
+        static BufferedOp endThinking() { return new BufferedOp(OpType.END_THINKING, null); }
+    }
 
     public AgentChatView() {
         super(new BorderLayout());
@@ -61,6 +97,18 @@ public class AgentChatView extends JPanel implements Scrollable {
         // 实际滚动操作最多每 SCROLL_COALESCE_MS 毫秒执行一次
         scrollCoalesceTimer = new Timer(SCROLL_COALESCE_MS, e -> doScrollToBottom());
         scrollCoalesceTimer.setRepeats(false);
+
+        // 窗口可见性变化监听：恢复可见时 flush 积压的流式内容
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                if (isShowing()) {
+                    flushOffscreenBuffer();
+                }
+            }
+        });
+
+        // 创建 StickyProgressBar 实例（初始隐藏）
+        stickyProgressBar = new StickyProgressBar();
     }
 
     // ==================== Scrollable 实现（让 JScrollPane 正确布局） ====================
@@ -119,6 +167,15 @@ public class AgentChatView extends JPanel implements Scrollable {
                 userScrolledAway = false;
             }
         });
+
+        // StickyProgressBar 可见性检测：PlanProgressPanel 滚出可视区时显示横条
+        // 使用 viewport ChangeListener 比 AdjustmentListener 更可靠
+        scrollPane.getViewport().addChangeListener(e2 -> {
+            if (stickyProgressBar != null && activePlanPanel != null) {
+                boolean panelVisible = isPanelInViewport(activePlanPanel.getComponent());
+                stickyProgressBar.updateVisibility(panelVisible);
+            }
+        });
     }
 
     // ==================== 兼容旧 API：流式内容追加 ====================
@@ -130,19 +187,133 @@ public class AgentChatView extends JPanel implements Scrollable {
         return activeTurn;
     }
 
+    // ==================== Bridge 注入与计划进度集成 ====================
+
+    /**
+     * 注入 AgentRuntimeBridge 引用，用于注册/移除计划进度监听器。
+     */
+    public void setBridge(AgentRuntimeBridge bridge) {
+        this.bridge = bridge;
+    }
+
+    /**
+     * 在当前 assistant TurnPanel 中创建 PlanProgressPanel 并注册为监听器。
+     * 参数使用 PlanStepInfo DTO，不使用 PlanStep，确保与策略层解耦。
+     *
+     * @param steps 计划步骤信息列表（DTO）
+     * @return 创建的 PlanProgressPanel 实例
+     */
+    public PlanProgressPanel addPlanProgressBlock(List<PlanStepInfo> steps) {
+        ensureActiveTurn("assistant");
+        PlanProgressPanel panel = new PlanProgressPanel(steps);
+        activeTurn.addBlock(panel);
+        activePlanPanel = panel;
+        // 通过 Bridge 注册监听器（不直接接触 Provider）
+        if (bridge != null) {
+            bridge.addPlanProgressListener(panel);
+        }
+        // 配置 StickyProgressBar 跟踪此面板
+        if (stickyProgressBar != null) {
+            stickyProgressBar.setTrackedPanel(panel);
+            if (bridge != null) {
+                bridge.addPlanProgressListener(stickyProgressBar);
+            }
+            // 手动初始化 StickyProgressBar 状态：因为 onPlanGenerated 事件在注册监听器之前已经触发，
+            // stickyBar 错过了该事件，需要手动通知它有活跃计划
+            stickyProgressBar.onPlanGenerated(steps);
+        }
+        scrollToBottomIfNeeded();
+        return panel;
+    }
+
+    // ==================== StepBlock 管理 ====================
+
+    /**
+     * 创建一个新的 StepBlock 并添加到当前 assistant TurnPanel。
+     * 设置为当前活跃的 StepBlock，后续内容将路由到此 StepBlock 内部。
+     */
+    public StepBlock addStepBlock(int stepIndex, String description) {
+        ensureActiveTurn("assistant");
+        StepBlock block = new StepBlock(stepIndex, description);
+        block.setOnContentChanged(() -> scrollToBottomIfNeeded());
+        activeTurn.addBlock(block);
+        activeTurn.setActiveBlock(null); // Reset active block so new content goes through StepBlock
+        activeStepBlock = block;
+        scrollToBottomIfNeeded();
+        return block;
+    }
+
+    /**
+     * 获取当前活跃的 StepBlock。
+     */
+    public StepBlock getActiveStepBlock() {
+        return activeStepBlock;
+    }
+
+    /**
+     * 清除当前活跃的 StepBlock，使后续内容恢复到 TurnPanel 顶层渲染。
+     */
+    public void clearActiveStepBlock() {
+        activeStepBlock = null;
+    }
+
+    /**
+     * 获取 StickyProgressBar 实例（供 WindowTool 添加到 JLayeredPane）。
+     */
+    public StickyProgressBar getStickyProgressBar() {
+        return stickyProgressBar;
+    }
+
+    /**
+     * 检查指定面板是否在 scrollPane 的可视区域内。
+     *
+     * @param panel 要检查的组件
+     * @return true 如果面板的任何部分在可视区域内
+     */
+    private boolean isPanelInViewport(JComponent panel) {
+        if (scrollPane == null || panel == null || panel.getParent() == null) return false;
+        try {
+            Rectangle viewRect = scrollPane.getViewport().getViewRect();
+            Rectangle panelBounds = SwingUtilities.convertRectangle(
+                    panel.getParent(), panel.getBounds(), scrollPane.getViewport().getView());
+            return viewRect.intersects(panelBounds);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /**
      * 追加流式内容到当前活跃 Turn 的活跃 Block。
      * 如果没有 activeTurn，自动创建 assistant TurnPanel。
-     * 确保在 EDT 上执行以避免 Swing 线程安全问题。
+     * <p>
+     * 可见性感知：窗口不可见时将 delta 缓存到 offscreenBuffer，
+     * 不投递 invokeLater，避免 EDT 队列积压。
+     * 恢复可见时由 HierarchyListener 一次性 flush 所有积压内容，
+     * 只触发一次 flexmark 渲染，消除切回时的假死。
      */
     public void appendContent(String content) {
         if (SwingUtilities.isEventDispatchThread()) {
+            // 已在 EDT 上：直接追加（历史加载等场景）
             ensureActiveTurn("assistant");
-            activeTurn.appendContent(content);
+            if (activeStepBlock != null) {
+                activeStepBlock.appendContent(content);
+            } else {
+                activeTurn.appendContent(content);
+            }
         } else {
+            // 后台线程：检查可见性
+            if (!isShowing()) {
+                // 不可见：缓存到类型化 offscreenBuffer，不投递 invokeLater
+                offscreenBuffer.add(BufferedOp.append(content));
+                return;
+            }
             SwingUtilities.invokeLater(() -> {
                 ensureActiveTurn("assistant");
-                activeTurn.appendContent(content);
+                if (activeStepBlock != null) {
+                    activeStepBlock.appendContent(content);
+                } else {
+                    activeTurn.appendContent(content);
+                }
             });
         }
     }
@@ -156,11 +327,23 @@ public class AgentChatView extends JPanel implements Scrollable {
     public void appendThingkingTitle() {
         if (SwingUtilities.isEventDispatchThread()) {
             ensureActiveTurn("assistant");
-            activeTurn.startThinking();
+            if (activeStepBlock != null) {
+                activeStepBlock.startThinking();
+            } else {
+                activeTurn.startThinking();
+            }
         } else {
+            if (!isShowing()) {
+                offscreenBuffer.add(BufferedOp.startThinking());
+                return;
+            }
             SwingUtilities.invokeLater(() -> {
                 ensureActiveTurn("assistant");
-                activeTurn.startThinking();
+                if (activeStepBlock != null) {
+                    activeStepBlock.startThinking();
+                } else {
+                    activeTurn.startThinking();
+                }
             });
         }
     }
@@ -171,12 +354,20 @@ public class AgentChatView extends JPanel implements Scrollable {
      */
     public void appendThingkingEnd() {
         if (SwingUtilities.isEventDispatchThread()) {
-            if (activeTurn != null) {
+            if (activeStepBlock != null) {
+                activeStepBlock.endThinking();
+            } else if (activeTurn != null) {
                 activeTurn.endThinking();
             }
         } else {
+            if (!isShowing()) {
+                offscreenBuffer.add(BufferedOp.endThinking());
+                return;
+            }
             SwingUtilities.invokeLater(() -> {
-                if (activeTurn != null) {
+                if (activeStepBlock != null) {
+                    activeStepBlock.endThinking();
+                } else if (activeTurn != null) {
                     activeTurn.endThinking();
                 }
             });
@@ -197,6 +388,16 @@ public class AgentChatView extends JPanel implements Scrollable {
     }
 
     private void doClearShowWindow() {
+        // 清理计划进度监听器
+        if (bridge != null && activePlanPanel != null) {
+            bridge.removePlanProgressListener(activePlanPanel);
+        }
+        if (bridge != null && stickyProgressBar != null) {
+            bridge.removePlanProgressListener(stickyProgressBar);
+        }
+        activePlanPanel = null;
+        activeStepBlock = null;
+
         for (TurnPanel turn : turns) {
             turn.clear();
         }
@@ -315,7 +516,11 @@ public class AgentChatView extends JPanel implements Scrollable {
     public ToolUseBlock addToolUseBlock(String toolName, Map<String, Object> params) {
         ensureActiveTurn("assistant");
         ToolUseBlock block = new ToolUseBlock(toolName, params);
-        activeTurn.addBlock(block);
+        if (activeStepBlock != null) {
+            activeStepBlock.addChildBlock(block);
+        } else {
+            activeTurn.addBlock(block);
+        }
         activeTurn.setActiveBlock(null);
         scrollToBottomIfNeeded();
         return block;
@@ -327,6 +532,23 @@ public class AgentChatView extends JPanel implements Scrollable {
     public void addToolResultBlock(String toolName, String resultText) {
         ensureActiveTurn("assistant");
         ToolResultBlock block = new ToolResultBlock(toolName, resultText);
+        if (activeStepBlock != null) {
+            activeStepBlock.addChildBlock(block);
+        } else {
+            activeTurn.addBlock(block);
+        }
+        activeTurn.setActiveBlock(null);
+        scrollToBottomIfNeeded();
+    }
+
+    /**
+     * 添加文件变更摘要块，展示 Agent 本轮修改的文件列表。
+     * 空列表时跳过，不创建 UI 组件。
+     */
+    public void addFileChangesBlock(List<FileSnapshot> snapshots, Project project) {
+        if (snapshots == null || snapshots.isEmpty()) return;
+        ensureActiveTurn("assistant");
+        FileChangesBlock block = new FileChangesBlock(snapshots, project);
         activeTurn.addBlock(block);
         activeTurn.setActiveBlock(null);
         scrollToBottomIfNeeded();
@@ -403,63 +625,204 @@ public class AgentChatView extends JPanel implements Scrollable {
      * 按保存顺序渲染内容块，保持思考/文本/工具调用的交错顺序。
      */
     private void renderOrderedBlocks(TurnPanel turn, List<ContentBlockRecord> blocks) {
-        for (ContentBlockRecord block : blocks) {
-            String type = block.getType();
-            if (type == null) continue;
-            switch (type) {
-                case "thinking":
-                    if (block.getContent() != null && !block.getContent().isEmpty()) {
+        // Pre-process: identify plan_step boundaries to group content into StepBlocks.
+        // In the orderedBlocks list, a step's content (thinking, tool_use, tool_result, text)
+        // appears BEFORE its corresponding plan_step record.
+        // We need to find each plan_step and retroactively group the preceding blocks into it.
+
+        // First pass: find indices of plan_step blocks and the first plan_step's start boundary
+        List<Integer> planStepIndices = new ArrayList<>();
+        int firstPlanStepContentStart = -1; // index where the first step's content begins
+        for (int i = 0; i < blocks.size(); i++) {
+            String type = blocks.get(i).getType();
+            if ("plan_step".equals(type)) {
+                planStepIndices.add(i);
+                if (firstPlanStepContentStart < 0) {
+                    // The first step's content starts right after the last "plan" block before this plan_step,
+                    // or at the beginning if there's no plan block
+                    firstPlanStepContentStart = 0;
+                    for (int j = i - 1; j >= 0; j--) {
+                        String prevType = blocks.get(j).getType();
+                        if ("plan".equals(prevType)) {
+                            firstPlanStepContentStart = j + 1;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (planStepIndices.isEmpty()) {
+            // No plan steps — render everything flat (original behavior)
+            for (ContentBlockRecord block : blocks) {
+                renderSingleBlock(turn, block, null);
+            }
+            return;
+        }
+
+        // Render blocks before the first step's content (plan text, etc.) directly to turn
+        // Special handling for "plan" blocks: create PlanProgressPanel with step statuses
+        for (int i = 0; i < firstPlanStepContentStart; i++) {
+            ContentBlockRecord blk = blocks.get(i);
+            if ("plan".equals(blk.getType()) && blk.getContent() != null && !blk.getContent().isEmpty()) {
+                // Parse plan text to extract step descriptions, then build PlanProgressPanel
+                // with statuses from the plan_step records
+                List<PlanStepInfo> stepInfos = buildHistoryPlanStepInfos(blk.getContent(), blocks, planStepIndices);
+                if (!stepInfos.isEmpty()) {
+                    PlanProgressPanel panel = new PlanProgressPanel(stepInfos);
+                    // Mark plan as completed since this is history
+                    panel.onPlanCompleted();
+                    turn.addBlock(panel);
+                } else {
+                    // Fallback: render as text if parsing fails
+                    renderSingleBlock(turn, blk, null);
+                }
+            } else {
+                renderSingleBlock(turn, blk, null);
+            }
+        }
+
+        // Render each step group: content blocks + plan_step
+        // First, parse step descriptions from the plan text (if available)
+        List<String> stepDescriptions = new ArrayList<>();
+        for (int i = 0; i < firstPlanStepContentStart; i++) {
+            ContentBlockRecord blk = blocks.get(i);
+            if ("plan".equals(blk.getType()) && blk.getContent() != null) {
+                for (String line : blk.getContent().split("\n")) {
+                    String trimmed = line.trim();
+                    if (trimmed.matches("\\d+\\.\\s+.+")) {
+                        stepDescriptions.add(trimmed.replaceFirst("\\d+\\.\\s+", ""));
+                    }
+                }
+            }
+        }
+
+        int contentStart = firstPlanStepContentStart;
+        for (int planStepIdx : planStepIndices) {
+            ContentBlockRecord stepRecord = blocks.get(planStepIdx);
+            Integer idx = stepRecord.getStepIndex();
+            boolean ok = Boolean.TRUE.equals(stepRecord.getStepSuccess());
+            String res = stepRecord.getStepResult() != null ? stepRecord.getStepResult() : "";
+            int stepIdx = idx != null ? idx : 0;
+
+            // Use the parsed step description if available
+            String stepDesc = stepIdx < stepDescriptions.size()
+                    ? stepDescriptions.get(stepIdx)
+                    : "Step " + (stepIdx + 1);
+
+            StepBlock historyStep = new StepBlock(stepIdx, stepDesc);
+
+            // Add child content blocks (thinking, tool_use, tool_result, text) into the StepBlock
+            for (int i = contentStart; i < planStepIdx; i++) {
+                renderSingleBlock(turn, blocks.get(i), historyStep);
+            }
+
+            // Set terminal state directly (skip animation for history)
+            if (ok) {
+                historyStep.markCompleted(res);
+            } else {
+                historyStep.markFailed(res);
+            }
+            historyStep.setCollapsed(true);
+            turn.addBlock(historyStep);
+
+            // Next step's content starts after this plan_step
+            contentStart = planStepIdx + 1;
+        }
+
+        // Render any remaining blocks after the last plan_step (e.g., final text response)
+        for (int i = contentStart; i < blocks.size(); i++) {
+            renderSingleBlock(turn, blocks.get(i), null);
+        }
+    }
+
+    /**
+     * Render a single ContentBlockRecord. If targetStep is non-null, content is added
+     * as a child of that StepBlock; otherwise it's added directly to the TurnPanel.
+     */
+    private void renderSingleBlock(TurnPanel turn, ContentBlockRecord block, StepBlock targetStep) {
+        String type = block.getType();
+        if (type == null) return;
+        switch (type) {
+            case "thinking":
+                if (block.getContent() != null && !block.getContent().isEmpty()) {
+                    if (targetStep != null) {
+                        ThinkingBlock tb = targetStep.startThinking();
+                        tb.appendContent(block.getContent());
+                        targetStep.endThinking();
+                    } else {
                         ThinkingBlock tb = turn.startThinking();
                         tb.appendContent(block.getContent());
                         turn.endThinking();
                     }
-                    break;
-                case "text":
-                    if (block.getContent() != null && !block.getContent().isEmpty()) {
-                        // 强制创建新的 MarkdownBlock，避免内容追加到之前的块
+                }
+                break;
+            case "text":
+                if (block.getContent() != null && !block.getContent().isEmpty()) {
+                    if (targetStep != null) {
+                        targetStep.appendContent(block.getContent());
+                    } else {
                         turn.setActiveBlock(null);
                         turn.appendContent(block.getContent());
                         turn.flushContent();
                         turn.setActiveBlock(null);
                     }
-                    break;
-                case "tool_use":
-                    turn.setActiveBlock(null);
-                    ToolUseBlock useBlock = new ToolUseBlock(block.getToolName(), block.getParams());
+                }
+                break;
+            case "tool_use":
+                turn.setActiveBlock(null);
+                ToolUseBlock useBlock = new ToolUseBlock(block.getToolName(), block.getParams());
+                if (targetStep != null) {
+                    targetStep.addChildBlock(useBlock);
+                } else {
                     turn.addBlock(useBlock);
-                    useBlock.markCompleted(block.isSuccess(), block.getDurationMs());
-                    break;
-                case "tool_result":
-                    turn.setActiveBlock(null);
-                    String label = block.getToolName() != null ? block.getToolName() : "tool";
-                    String resultText = block.getResultText() != null ? block.getResultText() : "(no output)";
-                    ToolResultBlock resultBlock = new ToolResultBlock(label, resultText);
+                }
+                useBlock.markCompleted(block.isSuccess(), block.getDurationMs());
+                break;
+            case "tool_result":
+                turn.setActiveBlock(null);
+                String label = block.getToolName() != null ? block.getToolName() : "tool";
+                String resultText = block.getResultText() != null ? block.getResultText() : "(no output)";
+                ToolResultBlock resultBlock = new ToolResultBlock(label, resultText);
+                if (targetStep != null) {
+                    targetStep.addChildBlock(resultBlock);
+                } else {
                     turn.addBlock(resultBlock);
-                    break;
-                case "plan":
-                    if (block.getContent() != null && !block.getContent().isEmpty()) {
-                        turn.setActiveBlock(null);
-                        turn.appendContent(block.getContent());
-                        turn.flushContent();
-                        turn.setActiveBlock(null);
-                    }
-                    break;
-                case "plan_step":
+                }
+                break;
+            case "plan":
+                if (block.getContent() != null && !block.getContent().isEmpty()) {
                     turn.setActiveBlock(null);
-                    Integer idx = block.getStepIndex();
-                    boolean ok = Boolean.TRUE.equals(block.getStepSuccess());
-                    String res = block.getStepResult() != null ? block.getStepResult() : "";
-                    int stepNum = idx != null ? idx + 1 : 0;
-                    String stepText = (ok ? "✅" : "❌") + " Step " + stepNum
-                            + (ok ? " 完成" : " 失败")
-                            + (res.isEmpty() ? "" : "\n   " + truncateForDisplay(res, 300));
-                    turn.appendContent("\n" + stepText + "\n");
+                    turn.appendContent(block.getContent());
                     turn.flushContent();
                     turn.setActiveBlock(null);
-                    break;
-                default:
-                    break;
-            }
+                }
+                break;
+            case "plan_step":
+                // Handled by the grouping logic in renderOrderedBlocks; if we get here
+                // it means this plan_step wasn't grouped (shouldn't happen normally)
+                turn.setActiveBlock(null);
+                Integer idx = block.getStepIndex();
+                boolean ok = Boolean.TRUE.equals(block.getStepSuccess());
+                String res = block.getStepResult() != null ? block.getStepResult() : "";
+                int stepIdx = idx != null ? idx : 0;
+                String stepDesc = "Step " + (stepIdx + 1) + (ok ? " 完成" : " 失败");
+                StepBlock historyStep = new StepBlock(stepIdx, stepDesc);
+                if (ok) historyStep.markCompleted(res);
+                else historyStep.markFailed(res);
+                historyStep.setCollapsed(true);
+                turn.addBlock(historyStep);
+                break;
+            case "file_changes":
+                turn.setActiveBlock(null);
+                List<ContentBlockRecord.FileSnapshotRecord> records = block.getFileSnapshots();
+                if (records != null && !records.isEmpty()) {
+                    FileChangesBlock fcb = new FileChangesBlock(records);
+                    turn.addBlock(fcb);
+                }
+                break;
+            default:
+                break;
         }
     }
 
@@ -516,6 +879,60 @@ public class AgentChatView extends JPanel implements Scrollable {
     private static String truncateForDisplay(String text, int maxLen) {
         if (text == null) return "";
         return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
+    }
+
+    /**
+     * 从 plan 文本中解析步骤描述，结合 plan_step 记录的成功/失败状态，
+     * 构建 PlanStepInfo 列表用于历史模式的 PlanProgressPanel。
+     *
+     * plan 文本格式：
+     *   **执行计划** (N 步):
+     *     1. 步骤描述
+     *     2. 步骤描述
+     */
+    private static List<PlanStepInfo> buildHistoryPlanStepInfos(
+            String planText, List<ContentBlockRecord> allBlocks, List<Integer> planStepIndices) {
+        // Parse step descriptions from plan text
+        List<String> descriptions = new ArrayList<>();
+        if (planText != null) {
+            for (String line : planText.split("\n")) {
+                String trimmed = line.trim();
+                // Match lines like "1. description" or "  1. description"
+                if (trimmed.matches("\\d+\\.\\s+.+")) {
+                    String desc = trimmed.replaceFirst("\\d+\\.\\s+", "");
+                    descriptions.add(desc);
+                }
+            }
+        }
+
+        // Build a map of stepIndex -> (success, result) from plan_step records
+        java.util.Map<Integer, boolean[]> stepResults = new java.util.HashMap<>();
+        java.util.Map<Integer, String> stepResultTexts = new java.util.HashMap<>();
+        for (int idx : planStepIndices) {
+            ContentBlockRecord rec = allBlocks.get(idx);
+            Integer si = rec.getStepIndex();
+            if (si != null) {
+                stepResults.put(si, new boolean[]{Boolean.TRUE.equals(rec.getStepSuccess())});
+                stepResultTexts.put(si, rec.getStepResult() != null ? rec.getStepResult() : "");
+            }
+        }
+
+        // Build PlanStepInfo list
+        List<PlanStepInfo> infos = new ArrayList<>();
+        int stepCount = Math.max(descriptions.size(), stepResults.size());
+        for (int i = 0; i < stepCount; i++) {
+            String desc = i < descriptions.size() ? descriptions.get(i) : "Step " + (i + 1);
+            PlanStepInfo.Status status;
+            String result = "";
+            if (stepResults.containsKey(i)) {
+                status = stepResults.get(i)[0] ? PlanStepInfo.Status.COMPLETED : PlanStepInfo.Status.FAILED;
+                result = stepResultTexts.getOrDefault(i, "");
+            } else {
+                status = PlanStepInfo.Status.SKIPPED;
+            }
+            infos.add(new PlanStepInfo(i, desc, status, result));
+        }
+        return infos;
     }
 
     /**
@@ -686,5 +1103,65 @@ public class AgentChatView extends JPanel implements Scrollable {
             // 使用单次 invokeLater 重置标志（让当前事件处理完成后再重置）
             SwingUtilities.invokeLater(() -> programmaticScroll = false);
         }
+    }
+
+    /**
+     * 将不可见期间积压的流式内容一次性 flush 到 activeTurn。
+     * <p>
+     * 核心优化：将连续的 APPEND 操作合并为一个大字符串，
+     * 只调用一次 activeTurn.appendContent()，从而只触发一次
+     * StreamContentSplitter 解析。遇到 START_THINKING / END_THINKING
+     * 时先 flush 已合并的文本，再执行非文本操作，再继续合并。
+     * <p>
+     * 由 HierarchyListener 在恢复可见时调用，保证在 EDT 上执行。
+     */
+    private void flushOffscreenBuffer() {
+        if (offscreenBuffer.isEmpty()) {
+            return;
+        }
+        // drain 到本地列表
+        List<BufferedOp> pending = new ArrayList<>();
+        BufferedOp op;
+        while ((op = offscreenBuffer.poll()) != null) {
+            pending.add(op);
+        }
+
+        StringBuilder merged = new StringBuilder();
+        for (BufferedOp p : pending) {
+            switch (p.type()) {
+                case APPEND -> merged.append(p.content());
+                case START_THINKING -> {
+                    // 先 flush 已合并的文本
+                    if (merged.length() > 0) {
+                        ensureActiveTurn("assistant");
+                        activeTurn.appendContent(merged.toString());
+                        merged.setLength(0);
+                    }
+                    ensureActiveTurn("assistant");
+                    activeTurn.startThinking();
+                }
+                case END_THINKING -> {
+                    // 先 flush 已合并的文本（思考内容）
+                    if (merged.length() > 0) {
+                        ensureActiveTurn("assistant");
+                        activeTurn.appendContent(merged.toString());
+                        merged.setLength(0);
+                    }
+                    if (activeTurn != null) {
+                        activeTurn.endThinking();
+                    }
+                }
+            }
+        }
+        // flush 剩余的合并文本
+        if (merged.length() > 0) {
+            ensureActiveTurn("assistant");
+            activeTurn.appendContent(merged.toString());
+        }
+        // 强制 flush splitter 缓冲
+        if (activeTurn != null) {
+            activeTurn.flushContent();
+        }
+        scrollToBottomIfNeeded();
     }
 }
