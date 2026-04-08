@@ -1,20 +1,39 @@
 package com.wmsay.gpt4_lll.component;
 
 import com.intellij.openapi.project.Project;
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
-import com.wmsay.gpt4_lll.fc.agent.*;
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
-import com.wmsay.gpt4_lll.fc.model.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.events.PlanProgressListener;
+import com.wmsay.gpt4_lll.fc.events.ProgressCallback;
+import com.wmsay.gpt4_lll.fc.llm.LlmCaller;
+import com.wmsay.gpt4_lll.fc.llm.StreamingLlmCaller;
+import com.wmsay.gpt4_lll.fc.planning.PlanProgressProvider;
+import com.wmsay.gpt4_lll.fc.state.PlanProgressSnapshot;
+import com.wmsay.gpt4_lll.fc.runtime.AgentFileChangeHook;
+import com.wmsay.gpt4_lll.fc.runtime.AgentRuntime;
+import com.wmsay.gpt4_lll.fc.runtime.KnowledgeBase;
+import com.wmsay.gpt4_lll.fc.state.AgentSession;
+import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.state.FileChangeTracker;
+import com.wmsay.gpt4_lll.fc.state.TaskManager;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
 import com.wmsay.gpt4_lll.fc.model.ToolCallResult;
-import com.wmsay.gpt4_lll.fc.strategy.PlanStep;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.planning.PlanStep;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
 import com.wmsay.gpt4_lll.model.AgentPhase;
 import com.wmsay.gpt4_lll.model.AgentStatusContext;
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
 import com.wmsay.gpt4_lll.utils.RuntimeStatusManager;
 
+import com.wmsay.gpt4_lll.fc.skill.SkillCommandHandler;
+import com.wmsay.gpt4_lll.fc.state.PlanStepInfo;
+
+import javax.swing.SwingUtilities;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,8 +62,10 @@ public class AgentRuntimeBridge {
     private AgentSession currentSession;
     private boolean initialized = false;
     private FunctionCallOrchestrator orchestrator;
-    private FunctionCallOrchestrator.StreamingLlmCaller streamingLlmCaller;
+    private StreamingLlmCaller streamingLlmCaller;
     private volatile Thread currentRequestThread;
+    private PlanProgressProvider planProgressProvider;
+    private AgentChatView chatView;
 
     public AgentRuntimeBridge(Project project) {
         this.project = project;
@@ -78,7 +99,7 @@ public class AgentRuntimeBridge {
             // 3. 注册默认聊天 Agent（如果尚未注册，保证幂等性）
             if (!runtime.isRegistered(DEFAULT_AGENT_ID)) {
                 List<String> toolNames = McpToolRegistry.getAllTools().stream()
-                        .map(McpTool::name)
+                        .map(Tool::name)
                         .collect(Collectors.toList());
 
                 AgentDefinition definition = AgentDefinition.builder()
@@ -94,6 +115,7 @@ public class AgentRuntimeBridge {
             }
 
             initialized = true;
+
             return true;
         } catch (Exception e) {
             LOG.log(Level.WARNING, "AgentRuntime initialization failed", e);
@@ -120,9 +142,9 @@ public class AgentRuntimeBridge {
             return currentSession;
         }
 
-        // 构建包含 project 和 projectRoot 的 ExecutionContext
-        McpContext mcpContext = McpContext.fromIdeState(project, null);
-        ExecutionContext context = ExecutionContext.fromMcpContext(mcpContext);
+        // 使用 IntelliJToolContext 构建 ToolContext，再创建 ExecutionContext
+        ToolContext toolContext = new IntelliJToolContext(project, null);
+        ExecutionContext context = ExecutionContext.fromToolContext(toolContext);
 
         try {
             currentSession = runtime.createSession(DEFAULT_AGENT_ID, context);
@@ -137,11 +159,76 @@ public class AgentRuntimeBridge {
         return currentSession;
     }
 
+    // ── 计划进度转发（UI 层通过这些 public 方法获取进度，不直接接触 PlanProgressProvider） ──
+
+    /**
+     * 获取当前计划进度快照（pull 模式）。
+     * 委托 PlanProgressProvider 返回 PlanProgressSnapshot DTO。
+     * Provider 为 null 时（非 PlanAndExecute 策略或无活跃计划）返回空快照。
+     *
+     * @return 当前计划进度快照，永不为 null
+     */
+    public PlanProgressSnapshot getPlanProgress() {
+        PlanProgressProvider provider = this.planProgressProvider;
+        return provider != null ? provider.getProgressSnapshot() : PlanProgressSnapshot.empty();
+    }
+
+    /**
+     * 注册计划进度监听器（push 模式）。
+     * UI 层通过此方法注册监听器，不直接接触 PlanProgressProvider。
+     *
+     * @param listener 要注册的监听器
+     */
+    public void addPlanProgressListener(PlanProgressListener listener) {
+        PlanProgressProvider provider = this.planProgressProvider;
+        if (provider != null) {
+            provider.addListener(listener);
+        }
+    }
+
+    /**
+     * 移除计划进度监听器。
+     *
+     * @param listener 要移除的监听器
+     */
+    public void removePlanProgressListener(PlanProgressListener listener) {
+        PlanProgressProvider provider = this.planProgressProvider;
+        if (provider != null) {
+            provider.removeListener(listener);
+        }
+    }
+
+    /**
+     * 设置 PlanProgressProvider（package-private）。
+     * 仅由 wrapCallback 内部调用，不暴露给 UI 层。
+     *
+     * @param provider 计划进度提供者
+     */
+    void setPlanProgressProvider(PlanProgressProvider provider) {
+        this.planProgressProvider = provider;
+    }
+
+    /**
+     * 注入 AgentChatView 引用，供 wrapCallback 在 onPlanGenerated 时创建 PlanProgressPanel。
+     *
+     * @param chatView AgentChatView 实例
+     */
+    public void setChatView(AgentChatView chatView) {
+        this.chatView = chatView;
+    }
+
     /**
      * 重置会话（新建对话时调用）。
      * 通过 AgentRuntime.destroySession() 销毁旧会话，将 currentSession 置为 null。
+     * 同时清空 PlanProgressProvider 并通知监听器计划已清空。
      */
     public void resetSession() {
+        // 清空 PlanProgressProvider
+        if (planProgressProvider != null) {
+            planProgressProvider.clear();
+            planProgressProvider = null;
+        }
+
         if (currentSession != null && runtime != null) {
             runtime.destroySession(currentSession.getSessionId());
             currentSession = null;
@@ -198,7 +285,7 @@ public class AgentRuntimeBridge {
      *
      * @param caller 流式 LLM 调用器
      */
-    public void setStreamingLlmCaller(FunctionCallOrchestrator.StreamingLlmCaller caller) {
+    public void setStreamingLlmCaller(StreamingLlmCaller caller) {
         this.streamingLlmCaller = caller;
     }
 
@@ -210,11 +297,29 @@ public class AgentRuntimeBridge {
     }
 
     /**
+     * 获取当前请求线程引用（供 WindowTool 检查是否有请求正在进行）。
+     */
+    public Thread getCurrentRequestThread() {
+        return currentRequestThread;
+    }
+
+    /**
      * 请求停止当前执行。
-     * 中断当前请求线程并设置 AgentPhase 为 STOPPED。
+     * 先将 AgentSession 转换到 PAUSED 状态（作为结构化取消信号），
+     * 然后中断当前请求线程，最后设置 AgentPhase 为 STOPPED。
      * 即使 interrupt 抛出异常，仍保证 phase 被设置为 STOPPED。
      */
     public void requestStop(Project project) {
+        // 1. Transition session to PAUSED (best-effort, don't let failure block interrupt)
+        try {
+            if (currentSession != null && currentSession.getState() == SessionState.RUNNING) {
+                currentSession.transitionTo(SessionState.PAUSED);
+            }
+        } catch (IllegalStateException e) {
+            LOG.log(Level.FINE, "Session state transition to PAUSED failed (non-critical)", e);
+        }
+
+        // 2. Interrupt the request thread — MUST always execute regardless of session state
         try {
             Thread thread = currentRequestThread;
             if (thread != null && thread.isAlive()) {
@@ -231,10 +336,10 @@ public class AgentRuntimeBridge {
     /**
      * 包装 ProgressCallback，将执行进度映射为 AgentPhase 变化。
      */
-    FunctionCallOrchestrator.ProgressCallback wrapCallback(
+    ProgressCallback wrapCallback(
             Project project,
-            FunctionCallOrchestrator.ProgressCallback original) {
-        return new FunctionCallOrchestrator.ProgressCallback() {
+            ProgressCallback original) {
+        return new ProgressCallback() {
             @Override
             public void onLlmCallStarting(int round) {
                 RuntimeStatusManager.setAgentPhase(project,
@@ -313,21 +418,49 @@ public class AgentRuntimeBridge {
 
             @Override
             public void onPlanGenerated(java.util.List<PlanStep> steps) {
+                // 创建 PlanProgressProvider 并设置到 Bridge
+                PlanProgressProvider provider = new PlanProgressProvider();
+                setPlanProgressProvider(provider);
+                provider.setPlan(steps);
+
+                // 将 PlanStep 转换为 PlanStepInfo DTO，通过 chatView 创建 UI 面板
+                if (chatView != null) {
+                    List<PlanStepInfo> stepInfos = new ArrayList<>(steps.size());
+                    for (PlanStep step : steps) {
+                        stepInfos.add(new PlanStepInfo(
+                                step.getIndex(),
+                                step.getDescription(),
+                                PlanStepInfo.Status.PENDING,
+                                null));
+                    }
+                    SwingUtilities.invokeLater(() -> chatView.addPlanProgressBlock(stepInfos));
+                }
+
                 if (original != null) original.onPlanGenerated(steps);
             }
 
             @Override
             public void onPlanStepStarting(int stepIndex, String stepDescription) {
+                if (planProgressProvider != null) {
+                    planProgressProvider.updateStepStatus(stepIndex, PlanStep.Status.IN_PROGRESS, null);
+                }
                 if (original != null) original.onPlanStepStarting(stepIndex, stepDescription);
             }
 
             @Override
             public void onPlanStepCompleted(int stepIndex, boolean success, String resultSummary) {
+                if (planProgressProvider != null) {
+                    PlanStep.Status status = success ? PlanStep.Status.COMPLETED : PlanStep.Status.FAILED;
+                    planProgressProvider.updateStepStatus(stepIndex, status, resultSummary);
+                }
                 if (original != null) original.onPlanStepCompleted(stepIndex, success, resultSummary);
             }
 
             @Override
             public void onPlanRevised(java.util.List<PlanStep> revisedSteps) {
+                if (planProgressProvider != null) {
+                    planProgressProvider.revisePlan(revisedSteps);
+                }
                 if (original != null) original.onPlanRevised(revisedSteps);
             }
         };
@@ -351,9 +484,21 @@ public class AgentRuntimeBridge {
      */
     public FunctionCallResult sendMessage(
             String message,
-            com.wmsay.gpt4_lll.model.ChatContent originalChatContent,
-            FunctionCallOrchestrator.LlmCaller llmCaller,
-            FunctionCallOrchestrator.ProgressCallback callback) {
+            com.wmsay.gpt4_lll.fc.core.ChatContent originalChatContent,
+            LlmCaller llmCaller,
+            ProgressCallback callback) {
+
+        // /skill 命令拦截：从 AgentRuntime 获取 Skill 组件
+        if (runtime != null && runtime.getSkillRegistry() != null && runtime.getSkillLoader() != null) {
+            SkillCommandHandler cmdHandler = new SkillCommandHandler(
+                    runtime.getSkillRegistry(), runtime.getSkillLoader());
+            if (cmdHandler.isSkillCommand(message)) {
+                String response = cmdHandler.handleCommand(message);
+                return FunctionCallResult.success(response,
+                        currentSession != null ? currentSession.getSessionId() : "skill-command",
+                        Collections.emptyList());
+            }
+        }
 
         // Set RUNNING phase at start
         RuntimeStatusManager.setAgentPhase(project,
@@ -378,12 +523,20 @@ public class AgentRuntimeBridge {
         }
 
         // 4. Wrap callback to map progress events to AgentPhase changes
-        FunctionCallOrchestrator.ProgressCallback wrappedCallback = wrapCallback(project, callback);
+        ProgressCallback wrappedCallback = wrapCallback(project, callback);
 
         try {
             // 5. 委托 runtime.send() 执行完整流程（透传原始 ChatContent）
             FunctionCallResult result = runtime.send(session.getSessionId(), message,
                     originalChatContent, llmCaller, wrappedCallback);
+
+            // Check if user stopped during execution (session transitioned to PAUSED)
+            if (currentSession != null && currentSession.getState() == SessionState.PAUSED) {
+                // requestStop() already set AgentPhase.STOPPED — don't overwrite
+                currentSession.transitionTo(SessionState.RUNNING); // PAUSED → RUNNING
+                currentSession.transitionTo(SessionState.COMPLETED); // RUNNING → COMPLETED
+                return result;
+            }
 
             // Set COMPLETED phase on success
             RuntimeStatusManager.setAgentPhase(project,
@@ -391,6 +544,13 @@ public class AgentRuntimeBridge {
 
             return result;
         } catch (Exception e) {
+            // Check if user stopped during execution (session transitioned to PAUSED)
+            if (currentSession != null && currentSession.getState() == SessionState.PAUSED) {
+                // User-initiated stop — don't set ERROR phase
+                currentSession.transitionTo(SessionState.RUNNING);
+                currentSession.transitionTo(SessionState.COMPLETED);
+                return FunctionCallResult.success(null, currentSession.getSessionId(), Collections.emptyList());
+            }
             // Set ERROR phase with error summary
             String errorDetail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             RuntimeStatusManager.setAgentPhase(project,

@@ -1,16 +1,26 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.protocol.MarkdownProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.strategy.ExecutionHook;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
+import com.wmsay.gpt4_lll.fc.runtime.AgentFileChangeHook;
+import com.wmsay.gpt4_lll.fc.runtime.AgentRuntime;
+import com.wmsay.gpt4_lll.fc.runtime.KnowledgeBase;
+import com.wmsay.gpt4_lll.fc.state.AgentSession;
+import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.state.FileChangeTracker;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.planning.ExecutionHook;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
 import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
@@ -199,7 +209,7 @@ class AgentRuntimeBridgePropertyTest {
         FunctionCallOrchestrator orchestrator = new FunctionCallOrchestrator(
                 new MarkdownProtocolAdapter(),
                 new ValidationEngine(),
-                new ExecutionEngine(new RetryStrategy(), null),
+                new ExecutionEngine(new ToolRegistry(), new DefaultApprovalProvider(), new RetryStrategy()),
                 new ErrorHandler(),
                 new ObservabilityManager());
 
@@ -270,7 +280,7 @@ class AgentRuntimeBridgePropertyTest {
             // 3. 注册默认聊天 Agent（如果尚未注册，保证幂等性）
             if (!runtime.isRegistered(DEFAULT_AGENT_ID)) {
                 List<String> toolNames = McpToolRegistry.getAllTools().stream()
-                        .map(McpTool::name)
+                        .map(Tool::name)
                         .collect(Collectors.toList());
 
                 AgentDefinition definition = AgentDefinition.builder()

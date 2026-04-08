@@ -1,4 +1,4 @@
-package com.wmsay.gpt4_lll.fc.agent;
+package com.wmsay.gpt4_lll.fc.core;
 
 /**
  * AgentRuntime 运行时配置 — 不可变对象。

@@ -1,4 +1,4 @@
-package com.wmsay.gpt4_lll.fc.agent;
+package com.wmsay.gpt4_lll.fc.core;
 
 /**
  * Agent 间通信的标准消息格式 — 不可变对象。

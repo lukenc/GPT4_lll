@@ -1,26 +1,44 @@
-package com.wmsay.gpt4_lll.fc.agent;
+package com.wmsay.gpt4_lll.fc.runtime;
 
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
-import com.wmsay.gpt4_lll.fc.context.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.core.AgentDefinition;
+import com.wmsay.gpt4_lll.fc.core.AgentMessage;
+import com.wmsay.gpt4_lll.fc.core.AgentRuntimeConfig;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallConfig;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.core.SessionState;
+import com.wmsay.gpt4_lll.fc.events.AgentLifecycleListener;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.events.ProgressCallback;
+import com.wmsay.gpt4_lll.fc.llm.LlmCaller;
+import com.wmsay.gpt4_lll.fc.llm.StreamingLlmCaller;
 import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
 import com.wmsay.gpt4_lll.fc.memory.MemoryFactory;
-import com.wmsay.gpt4_lll.fc.model.FunctionCallConfig;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallRequest;
-import com.wmsay.gpt4_lll.fc.model.FunctionCallResult;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.skill.SkillDefinition;
+import com.wmsay.gpt4_lll.fc.skill.SkillFileWatcher;
+import com.wmsay.gpt4_lll.fc.skill.SkillLoader;
+import com.wmsay.gpt4_lll.fc.skill.SkillMatchResult;
+import com.wmsay.gpt4_lll.fc.skill.SkillMatcher;
+import com.wmsay.gpt4_lll.fc.skill.SkillParser;
+import com.wmsay.gpt4_lll.fc.skill.SkillRegistry;
+import com.wmsay.gpt4_lll.fc.skill.SkillValidator;
+import com.wmsay.gpt4_lll.fc.state.AgentSession;
+import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.state.TaskManager;
+import com.wmsay.gpt4_lll.fc.state.TaskPersistence;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
 import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -61,7 +79,7 @@ public class AgentRuntime {
     /**
      * 移除指定 projectId 的实例（仅用于测试清理）。
      */
-    static void removeInstance(String projectId) {
+    public static void removeInstance(String projectId) {
         INSTANCES.remove(projectId);
     }
 
@@ -76,9 +94,20 @@ public class AgentRuntime {
     private ToolFilter toolFilter;
     private KnowledgeBase knowledgeBase;
 
+    // ToolRegistry 注入（需求 4.2, 13.2）— 用于 resolveTools()，McpToolRegistry 作为后备
+    private volatile ToolRegistry toolRegistry;
+
+    // Skill 体系 — AgentRuntime 自包含初始化（不依赖外部注入）
+    private volatile SkillRegistry skillRegistry;
+    private volatile SkillMatcher skillMatcher;
+    private volatile SkillLoader skillLoader;
+
+    // AgentLifecycleListener 支持（需求 19.1, 19.2）
+    private final List<AgentLifecycleListener> lifecycleListeners = new CopyOnWriteArrayList<>();
+
     // FunctionCallOrchestrator 注入（需求 4.1, 4.2）— UI 集成时由 AgentRuntimeBridge 注入
     private volatile FunctionCallOrchestrator orchestrator;
-    private volatile FunctionCallOrchestrator.StreamingLlmCaller streamingLlmCaller;
+    private volatile StreamingLlmCaller streamingLlmCaller;
 
     private AgentRuntime(AgentRuntimeConfig config) {
         this.config = config;
@@ -93,6 +122,41 @@ public class AgentRuntime {
         this.threadPool = pool;
         this.intentRecognizer = new IntentRecognizer(observability);
         this.toolFilter = new ToolFilter(observability);
+
+        // Skill 体系自包含初始化（异常不影响 AgentRuntime 正常启动）
+        initializeSkillSystem();
+    }
+
+    /**
+     * 初始化 Skill 体系：加载、验证、注册、启动热加载监听。
+     * 全部在 agent 核心层完成，不依赖外部注入。
+     * 异常时静默降级，不影响主流程。
+     */
+    private void initializeSkillSystem() {
+        try {
+            System.out.println("[Skill] Initializing skill system in AgentRuntime...");
+            SkillRegistry registry = new SkillRegistry();
+            SkillParser parser = new SkillParser();
+            SkillValidator validator = new SkillValidator();
+            SkillFileWatcher watcher = new SkillFileWatcher();
+            SkillMatcher matcher = new SkillMatcher();
+
+            SkillLoader loader = new SkillLoader(registry, parser, validator, watcher);
+            SkillLoader.LoadResult loadResult = loader.loadAll();
+
+            this.skillRegistry = registry;
+            this.skillMatcher = matcher;
+            this.skillLoader = loader;
+
+            loader.startWatching();
+
+            System.out.println("[Skill] Skill system initialized: " + loadResult
+                    + ", registry count=" + registry.getSkillCount()
+                    + ", directory=" + loader.getSkillDirectory());
+        } catch (Exception e) {
+            System.err.println("[Skill] Skill system initialization FAILED: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     // ---- 可替换组件注入（需求 21.5）----
@@ -104,12 +168,69 @@ public class AgentRuntime {
     public ToolFilter getToolFilter() { return toolFilter; }
     public KnowledgeBase getKnowledgeBase() { return knowledgeBase; }
 
+    // ---- ToolRegistry 注入（需求 4.2, 13.2）----
+
+    public void setToolRegistry(ToolRegistry toolRegistry) { this.toolRegistry = toolRegistry; }
+    public ToolRegistry getToolRegistry() { return toolRegistry; }
+
+    // ---- Skill 体系（自包含初始化，setter 仅用于测试或外部覆盖）----
+
+    public void setSkillRegistry(SkillRegistry sr) { this.skillRegistry = sr; }
+    public void setSkillMatcher(SkillMatcher sm) { this.skillMatcher = sm; }
+    public SkillRegistry getSkillRegistry() { return skillRegistry; }
+    public SkillMatcher getSkillMatcher() { return skillMatcher; }
+    public SkillLoader getSkillLoader() { return skillLoader; }
+
+    // ---- AgentLifecycleListener 支持（需求 19.1, 19.2）----
+
+    /**
+     * 注册生命周期监听器。
+     *
+     * @param listener 监听器实例，不能为 null
+     * @throws IllegalArgumentException 如果 listener 为 null
+     */
+    public void addLifecycleListener(AgentLifecycleListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("Listener must not be null");
+        }
+        lifecycleListeners.add(listener);
+    }
+
+    /**
+     * 移除生命周期监听器。
+     *
+     * @param listener 要移除的监听器
+     */
+    public void removeLifecycleListener(AgentLifecycleListener listener) {
+        lifecycleListeners.remove(listener);
+    }
+
+    private void notifySessionCreated(AgentSession session) {
+        for (AgentLifecycleListener l : lifecycleListeners) {
+            try {
+                l.onSessionCreated(session);
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "Lifecycle listener error on session created", e);
+            }
+        }
+    }
+
+    private void notifySessionDestroyed(AgentSession session) {
+        for (AgentLifecycleListener l : lifecycleListeners) {
+            try {
+                l.onSessionDestroyed(session);
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "Lifecycle listener error on session destroyed", e);
+            }
+        }
+    }
+
     // ---- Orchestrator 注入（需求 4.1, 4.2）----
 
     public void setOrchestrator(FunctionCallOrchestrator orchestrator) { this.orchestrator = orchestrator; }
-    public void setStreamingLlmCaller(FunctionCallOrchestrator.StreamingLlmCaller caller) { this.streamingLlmCaller = caller; }
+    public void setStreamingLlmCaller(StreamingLlmCaller caller) { this.streamingLlmCaller = caller; }
     public FunctionCallOrchestrator getOrchestrator() { return orchestrator; }
-    public FunctionCallOrchestrator.StreamingLlmCaller getStreamingLlmCaller() { return streamingLlmCaller; }
+    public StreamingLlmCaller getStreamingLlmCaller() { return streamingLlmCaller; }
 
     // ---- 配置与可观测性 ----
 
@@ -125,6 +246,9 @@ public class AgentRuntime {
      * @throws IllegalArgumentException 如果 id 已注册
      */
     public void register(AgentDefinition definition) {
+        if (definition == null) {
+            throw new IllegalArgumentException("AgentDefinition must not be null");
+        }
         if (registry.putIfAbsent(definition.getId(), definition) != null) {
             throw new IllegalArgumentException("Agent already registered: " + definition.getId());
         }
@@ -136,6 +260,9 @@ public class AgentRuntime {
      * @param agentId Agent ID
      */
     public void unregister(String agentId) {
+        if (agentId == null) {
+            throw new IllegalArgumentException("agentId must not be null");
+        }
         registry.remove(agentId);
     }
 
@@ -181,7 +308,7 @@ public class AgentRuntime {
         ConversationMemory memory = MemoryFactory.create(fcConfig, null);
 
         String sessionId = "agent-session-" + UUID.randomUUID();
-        AgentSession session = new AgentSession(sessionId, def, memory, context);
+        AgentSession session = new AgentSession(sessionId, def, memory, context.getToolContext());
 
         // 注入 TaskPersistence（需求 18.2, 18.4）
         java.nio.file.Path projectRoot = context.getProjectRoot();
@@ -199,6 +326,7 @@ public class AgentRuntime {
 
         activeSessions.put(sessionId, session);
         observability.startSession(sessionId);
+        notifySessionCreated(session);
         return session;
     }
 
@@ -216,6 +344,7 @@ public class AgentRuntime {
                 // 状态转换失败时静默忽略（可能已经是 DESTROYED）
             }
             observability.endSession(sessionId);
+            notifySessionDestroyed(session);
         }
     }
 
@@ -262,8 +391,8 @@ public class AgentRuntime {
      */
     public FunctionCallResult send(String sessionId, String message,
                                    ChatContent originalChatContent,
-                                   FunctionCallOrchestrator.LlmCaller llmCaller,
-                                   FunctionCallOrchestrator.ProgressCallback callback) {
+                                   LlmCaller llmCaller,
+                                   ProgressCallback callback) {
         AgentSession session = activeSessions.get(sessionId);
         if (session == null) {
             throw new IllegalArgumentException("Session not found: " + sessionId);
@@ -280,7 +409,8 @@ public class AgentRuntime {
             System.out.println("[AgentRuntime] Starting intent recognition for: "
                     + (message.length() > 80 ? message.substring(0, 80) + "..." : message));
             try {
-                intent = intentRecognizer.analyze(message, availableToolNames, llmCaller);
+                intent = intentRecognizer.analyze(message, availableToolNames, llmCaller,
+                        originalChatContent != null ? originalChatContent.getModel() : null);
                 System.out.println("[AgentRuntime] Intent recognition result: "
                         + intent.getClarity() + "/" + intent.getComplexity()
                         + ", filteredTools=" + (intent.getFilteredToolNames() != null ? intent.getFilteredToolNames().size() : 0));
@@ -290,13 +420,77 @@ public class AgentRuntime {
                 intent = IntentResult.defaultResult();
             }
 
-            // 2. 工具过滤
-            List<McpTool> allTools = resolveTools(session.getDefinition());
-            List<McpTool> filteredTools = toolFilter.filter(intent, allTools);
+            // 2. Skill 匹配（SkillRegistry 为 null 或空时跳过）
+            List<String> skillToolNames = null; // null 表示使用默认工具列表
+            if (skillRegistry != null && skillRegistry.getSkillCount() > 0 && skillMatcher != null) {
+                System.out.println("[Skill] Starting skill matching, registry has "
+                        + skillRegistry.getSkillCount() + " skill(s)");
+                try {
+                    SkillMatchResult skillResult = skillMatcher.match(message, skillRegistry.getAllSkills(),
+                            llmCaller, originalChatContent != null ? originalChatContent.getModel() : null);
+                    if (skillResult.isMatched()) {
+                        SkillDefinition skill = skillRegistry.getSkill(skillResult.getSkillName());
+                        if (skill != null) {
+                            // 构建 effective system prompt（含 additionalNotes）
+                            String effectiveSystemPrompt = skill.getSystemPrompt();
+                            if (skill.getAdditionalNotes() != null && !skill.getAdditionalNotes().isEmpty()) {
+                                effectiveSystemPrompt += "\n\n" + skill.getAdditionalNotes();
+                            }
+                            // 替换 user message（prompt template + user_input）
+                            String effectiveUserMessage = skill.getPromptTemplate().replace("{{user_input}}", message);
+
+                            // 更新 originalChatContent 中的 system 和 user 消息
+                            if (originalChatContent != null && originalChatContent.getMessages() != null) {
+                                for (Message msg : originalChatContent.getMessages()) {
+                                    if ("system".equals(msg.getRole())) {
+                                        msg.setContent(effectiveSystemPrompt);
+                                    }
+                                }
+                                // 替换最后一条 user 消息
+                                List<Message> msgs = originalChatContent.getMessages();
+                                for (int i = msgs.size() - 1; i >= 0; i--) {
+                                    if ("user".equals(msgs.get(i).getRole())) {
+                                        msgs.get(i).setContent(effectiveUserMessage);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Skill 声明的工具列表（非空时替代默认工具列表）
+                            if (skill.getTools() != null && !skill.getTools().isEmpty()) {
+                                skillToolNames = skill.getTools();
+                            }
+
+                            System.out.println("[Skill] ✓ Matched skill '" + skillResult.getSkillName()
+                                    + "' with confidence " + skillResult.getConfidence());
+                        }
+                    } else {
+                        System.out.println("[Skill] No skill matched: " + skillResult.getReasoning());
+                    }
+                } catch (Exception skillEx) {
+                    System.err.println("[Skill] Skill matching FAILED: " + skillEx.getMessage());
+                    skillEx.printStackTrace();
+                }
+            } else {
+                System.out.println("[Skill] Skipping skill matching — registry="
+                        + (skillRegistry != null ? skillRegistry.getSkillCount() + " skills" : "null")
+                        + ", matcher=" + (skillMatcher != null ? "set" : "null"));
+            }
+
+            // 3. 工具过滤
+            List<Tool> allTools = resolveTools(session.getDefinition());
+            // 如果 Skill 匹配成功且声明了工具列表，则仅保留 Skill 声明的工具
+            if (skillToolNames != null) {
+                final List<String> finalSkillToolNames = skillToolNames;
+                allTools = allTools.stream()
+                        .filter(t -> finalSkillToolNames.contains(t.name()))
+                        .collect(Collectors.toList());
+            }
+            List<Tool> filteredTools = toolFilter.filter(intent, allTools);
             System.out.println("[AgentRuntime] Tool filtering: " + allTools.size()
                     + " total → " + filteredTools.size() + " filtered");
 
-            // 3. 委托 FunctionCallOrchestrator 执行（需求 4.3, 4.4, 4.5, 4.6）
+            // 4. 委托 FunctionCallOrchestrator 执行（需求 4.3, 4.4, 4.5, 4.6）
             if (orchestrator != null) {
                 // 不覆盖 orchestrator 的执行策略 — 尊重用户在 UI 上的选择
                 // IntentRecognizer 的推荐策略仅作为日志参考
@@ -316,11 +510,11 @@ public class AgentRuntime {
                         .config(FunctionCallConfig.builder().build())
                         .build();
 
-                // 使用 session 中保存的完整 McpContext（包含 project 引用，确保审批弹窗等功能正常）
-                McpContext mcpContext = session.getExecutionContext().getMcpContext();
+                // 使用 session 中保存的 ToolContext（orchestrator 已迁移到 ToolContext）
+                com.wmsay.gpt4_lll.fc.tools.ToolContext toolContext = session.getToolContext();
 
                 // 委托执行
-                FunctionCallResult result = orchestrator.execute(request, mcpContext, llmCaller, callback);
+                FunctionCallResult result = orchestrator.execute(request, toolContext, llmCaller, callback);
                 session.transitionTo(SessionState.COMPLETED);
                 return result;
             }
@@ -341,8 +535,8 @@ public class AgentRuntime {
      * 内部构建简单的 ChatContent 并委托到主 send() 方法。
      */
     public FunctionCallResult send(String sessionId, String message,
-                                   FunctionCallOrchestrator.LlmCaller llmCaller,
-                                   FunctionCallOrchestrator.ProgressCallback callback) {
+                                   LlmCaller llmCaller,
+                                   ProgressCallback callback) {
         // 构建最小 ChatContent（用于 inter-agent 通信等不需要完整历史的场景）
         ChatContent chatContent = new ChatContent();
         Message userMsg = new Message();
@@ -355,14 +549,23 @@ public class AgentRuntime {
     }
 
     /**
-     * 根据 AgentDefinition 的 availableToolNames 从 McpToolRegistry 过滤可用工具。
+     * 根据 AgentDefinition 的 availableToolNames 解析可用工具。
+     * 优先使用注入的 ToolRegistry，McpToolRegistry 作为后备（Phase 8 将移除后备）。
      */
-    private List<McpTool> resolveTools(AgentDefinition def) {
+    private List<Tool> resolveTools(AgentDefinition def) {
+        List<Tool> allTools;
+        if (toolRegistry != null) {
+            allTools = toolRegistry.getAllTools();
+        } else {
+            // 后备：使用 McpToolRegistry（将在 Phase 8 移除）
+            allTools = McpToolRegistry.getAllTools();
+        }
+
         List<String> names = def.getAvailableToolNames();
         if (names == null || names.isEmpty()) {
-            return McpToolRegistry.getAllTools();
+            return allTools;
         }
-        return McpToolRegistry.getAllTools().stream()
+        return allTools.stream()
                 .filter(t -> names.contains(t.name()))
                 .collect(Collectors.toList());
     }
@@ -375,7 +578,7 @@ public class AgentRuntime {
      */
     public FunctionCallResult delegate(String fromSessionId, String targetAgentId,
                                        String message,
-                                       FunctionCallOrchestrator.LlmCaller llmCaller) {
+                                       LlmCaller llmCaller) {
         AgentSession sourceSession = activeSessions.get(fromSessionId);
         if (sourceSession == null) {
             return FunctionCallResult.error("Source session not found: " + fromSessionId, fromSessionId);
@@ -399,7 +602,7 @@ public class AgentRuntime {
             ConversationMemory memory = MemoryFactory.create(fcConfig, null);
             String targetSessionId = "agent-session-" + UUID.randomUUID();
             targetSession = new AgentSession(targetSessionId, targetDef, memory,
-                    sourceSession.getExecutionContext());
+                    sourceSession.getToolContext());
             targetSession.setDelegationDepth(newDepth);
             activeSessions.put(targetSessionId, targetSession);
             observability.startSession(targetSessionId);
@@ -431,7 +634,7 @@ public class AgentRuntime {
      * 目标不存在或已 DESTROYED 时返回错误 RESPONSE，不抛异常。
      */
     public AgentMessage sendMessage(AgentMessage message,
-                                    FunctionCallOrchestrator.LlmCaller llmCaller) {
+                                    LlmCaller llmCaller) {
         String targetId = message.getTargetAgentId();
 
         // 查找目标会话（按 agentId 匹配）
@@ -501,8 +704,8 @@ public class AgentRuntime {
      */
     public FunctionCallResult executeOneShot(AgentDefinition definition, ExecutionContext context,
                                              String message,
-                                             FunctionCallOrchestrator.LlmCaller llmCaller,
-                                             FunctionCallOrchestrator.ProgressCallback callback) {
+                                             LlmCaller llmCaller,
+                                             ProgressCallback callback) {
         // 自动注册（如果尚未注册）
         if (!isRegistered(definition.getId())) {
             register(definition);
@@ -527,6 +730,15 @@ public class AgentRuntime {
      * 销毁所有活跃会话并关闭线程池。等待最多 5 秒后强制终止。
      */
     public void shutdown() {
+        // 停止 Skill 文件监听
+        if (skillLoader != null) {
+            try {
+                skillLoader.stopWatching();
+            } catch (Exception e) {
+                System.err.println("[Skill] Error stopping skill watcher: " + e.getMessage());
+            }
+            skillLoader = null;
+        }
         // 销毁所有活跃会话
         for (String sessionId : new ArrayList<>(activeSessions.keySet())) {
             destroySession(sessionId);
