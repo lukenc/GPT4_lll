@@ -1,8 +1,9 @@
-package com.wmsay.gpt4_lll.fc.agent;
+package com.wmsay.gpt4_lll.fc.runtime;
 
 import com.wmsay.gpt4_lll.fc.model.ToolCallResult;
-import com.wmsay.gpt4_lll.fc.strategy.ExecutionHook;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.planning.ExecutionHook;
+import com.wmsay.gpt4_lll.fc.state.FileChangeTracker;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -19,7 +20,7 @@ import java.util.logging.Logger;
  * 文件变更追踪钩子 — 在每轮工具执行完成后拦截 write_file 操作，
  * 将文件变更记录到 FileChangeTracker。
  * <p>
- * 位于 fc.agent 包，纯 Java 实现，不依赖任何 com.intellij.* API。
+ * 位于 fc.runtime 包，纯 Java 实现，不依赖任何 com.intellij.* API。
  * <p>
  * 实现策略：
  * <ul>
@@ -73,12 +74,13 @@ public class AgentFileChangeHook implements ExecutionHook {
         String absolutePath = resolved.toString();
 
         try {
-            // 捕获原始内容（仅首次遇到时）
+            // 从 write_file 结果中提取原始内容（写入前由 FileWriteTool 捕获）
+            String originalFromResult = extractOriginalContent(result);
+
+            // 首次遇到该文件时，使用 write_file 提供的原始内容
             if (!originalContents.containsKey(absolutePath)) {
-                // afterRound 在写入之后调用，所以如果这是首次遇到该文件，
-                // 我们无法获取真正的原始内容。对于新文件记录为空字符串。
-                // 对于已存在的文件，也记录为空字符串（因为原始内容已被覆盖）。
-                originalContents.put(absolutePath, "");
+                originalContents.put(absolutePath,
+                        originalFromResult != null ? originalFromResult : "");
             }
 
             // 读取文件当前内容（写入后的新内容）
@@ -97,17 +99,32 @@ public class AgentFileChangeHook implements ExecutionHook {
     }
 
     /**
-     * 从 ToolCallResult 的 McpToolResult 中提取文件路径。
+     * 从 ToolCallResult 的 structured data 中提取 original_content 字段。
+     * FileWriteTool 在写入前捕获原始内容并放入结果中。
+     */
+    private String extractOriginalContent(ToolCallResult result) {
+        ToolResult toolResult = result.getResult();
+        if (toolResult == null) return null;
+        Map<String, Object> data = toolResult.getStructuredData();
+        if (data != null && data.containsKey("original_content")) {
+            Object obj = data.get("original_content");
+            return obj != null ? obj.toString() : null;
+        }
+        return null;
+    }
+
+    /**
+     * 从 ToolCallResult 的 ToolResult 中提取文件路径。
      * write_file 工具返回 structured 结果，包含 "path" 字段。
      */
     String extractFilePath(ToolCallResult result) {
-        McpToolResult mcpResult = result.getResult();
-        if (mcpResult == null) {
+        ToolResult toolResult = result.getResult();
+        if (toolResult == null) {
             return null;
         }
 
         // write_file 返回 structured data，包含 "path" 键
-        Map<String, Object> data = mcpResult.getStructuredData();
+        Map<String, Object> data = toolResult.getStructuredData();
         if (data != null && data.containsKey("path")) {
             Object pathObj = data.get("path");
             if (pathObj != null) {
@@ -116,7 +133,7 @@ public class AgentFileChangeHook implements ExecutionHook {
         }
 
         // 回退：尝试从 display text 中解析路径
-        String displayText = mcpResult.getDisplayText();
+        String displayText = toolResult.getDisplayText();
         if (displayText != null) {
             return parsePathFromDisplayText(displayText);
         }
