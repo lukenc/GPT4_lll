@@ -11,6 +11,79 @@
 
     <change-notes>
         <![CDATA[
+
+<h2>4.1.5 (2026-04-09)</h2>
+<ul>
+    <li>
+        <h3>UI 优化/UI Enhancement:</h3>
+        <ul>
+            <li>引入 Liquid Glass 设计语言，全面重构聊天界面视觉风格：新增磨砂玻璃材质面板（GlassPanel）、玻璃质感按钮（GlassButton）、玻璃进度条（GlassProgressBar）等主题组件，支持多层渲染管线（柔和阴影 → 半透明背景 → 圆角裁剪 → 高斯模糊 → 高光反射条 → 边框描边）。</li>
+            <li>Introduced Liquid Glass design language with a complete visual overhaul of the chat interface: added frosted glass panel (GlassPanel), glass-style button (GlassButton), glass progress bar (GlassProgressBar) and other themed components, supporting multi-layer rendering pipeline (soft shadow → translucent background → rounded clipping → Gaussian blur → highlight reflection → border stroke).</li>
+            <li>新增 LiquidGlassTheme 主题常量系统，统一管理颜色、圆角、阴影、间距等设计参数，全面适配 IntelliJ 浅色/深色模式（所有主题色使用 JBColor 封装自动切换）。</li>
+            <li>Added LiquidGlassTheme constant system for centralized management of colors, corner radius, shadows, spacing and other design tokens, fully adapting to IntelliJ light/dark themes (all colors wrapped with JBColor for automatic switching).</li>
+            <li>新增 SpringAnimator 弹簧动画引擎，支持 Fast / Standard / Slow 三档预设，为 UI 交互提供流畅自然的动画效果。</li>
+            <li>Added SpringAnimator spring animation engine with Fast / Standard / Slow presets, providing smooth and natural animation effects for UI interactions.</li>
+            <li>新增悬浮状态指示条（StatusIndicatorPanel）：支持运行中旋转动画、完成/错误/停止状态自动淡出，不占用对话内容布局空间。</li>
+            <li>Added floating status indicator (StatusIndicatorPanel): supports spinning animation during execution, auto-fade for completed/error/stopped states, without occupying conversation layout space.</li>
+            <li>新增动态边框绘制器（StatusBorderPainter）：根据 Agent 运行状态显示动画边框，组件不可见时自动暂停动画以节省资源。</li>
+            <li>Added dynamic border painter (StatusBorderPainter): displays animated border based on Agent runtime status, automatically pausing animation when component is invisible to save resources.</li>
+            <li>对话气泡区分 user / assistant 角色 tint 颜色，提升视觉辨识度。</li>
+            <li>Differentiated user/assistant bubble tint colors for improved visual distinction.</li>
+            <li>优化阴影与高光参数：深色模式下降低阴影 alpha 避免过重，高光反射条深色模式下降低亮度避免刺眼。</li>
+            <li>Optimized shadow and highlight parameters: reduced shadow alpha in dark mode to avoid heaviness, lowered highlight brightness in dark mode to prevent glare.</li>
+            <li>新增内容块类型：ThinkingBlock、ToolCallBlock、ToolUseBlock、ToolResultBlock、StepBlock、FileChangesBlock、MermaidBlock（流程图渲染）、ZoomableImagePanel（可缩放图片面板）。</li>
+            <li>Added new content block types: ThinkingBlock, ToolCallBlock, ToolUseBlock, ToolResultBlock, StepBlock, FileChangesBlock, MermaidBlock (flowchart rendering), ZoomableImagePanel (zoomable image panel).</li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/修复:</h3>
+        <ul>
+            <li>修复滚动到底部时模型选择面板溢出容器边界的问题（GridBagLayout weighty 分配修正）。</li>
+            <li>Fixed model selection panel overflowing container boundary when scrolled to bottom (GridBagLayout weighty distribution fix).</li>
+            <li>修复 Markdown 列表、引用块等结构化元素丢失缩进的问题（补充 SafeHTMLEditorKit 默认 CSS 规则）。</li>
+            <li>Fixed missing indentation for Markdown lists, blockquotes and other structured elements (added default CSS rules to SafeHTMLEditorKit).</li>
+            <li>修复滚动到顶部时聊天内容溢出到底部输入区域的问题（布局权重归一化）。</li>
+            <li>Fixed chat content overflowing into bottom input area when scrolled to top (layout weight normalization).</li>
+            <li>修复 macOS 窗口切换时输入框导致的 UI 冻结问题（getInputMethodRequests() 窗口失焦时返回 null，阻止 TSM/CoreText 死锁）。</li>
+            <li>Fixed UI freeze caused by input field during macOS window switching (getInputMethodRequests() returns null when window loses focus, preventing TSM/CoreText deadlock).</li>
+            <li>新增 SafeHtmlPane 安全 HTML 渲染面板，解决 macOS 上 HTMLEditorKit 与 CoreText 原生层死锁问题。</li>
+            <li>Added SafeHtmlPane for safe HTML rendering, resolving HTMLEditorKit and CoreText native layer deadlock on macOS.</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>4.1.1 (2026-03-21)</h2>
+<ul>
+    <li>
+        <h3>ARCHITECTURE/架构重构:</h3>
+        <ul>
+            <li>全面重构AI Agent架构：将原有功能模块迁移至新的架构体系，采用更清晰的分层设计，包括核心运行时(Core Runtime)、事件系统(Events)、LLM集成(LLM Integration)、规划系统(Planning)、运行时(Runtime)和状态管理(State Management)等模块。</li>
+            <li>Completely refactored AI Agent architecture: Migrated existing functional modules to a new architectural system with clearer layered design, including Core Runtime, Events system, LLM Integration, Planning system, Runtime, and State Management modules.</li>
+            <li>重构Function Calling系统：将原有的函数调用编排器及相关协议适配器、执行引擎、记忆管理等功能迁移到新的架构中，提供了更强的扩展性和可维护性。</li>
+            <li>Refactored Function Calling system: Migrated the original function calling orchestrator and related protocol adapters, execution engines, memory management functions to the new architecture, providing stronger extensibility and maintainability.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>新增 MCP 工具适配器：实现 MCP (Model Context Protocol) 规范的标准化适配层，支持统一的工具注册和管理机制。</li>
+            <li>Added MCP Tool Adapter: Implemented standardized adapter layer for MCP (Model Context Protocol) specification, supporting unified tool registration and management mechanisms.</li>
+            <li>新增诊断工具(DiagnosticsTool)和打开文件工具(OpenFilesTool)：扩展了MCP工具集，提供更多IDE集成能力。</li>
+            <li>Added Diagnostics Tool and Open Files Tool: Extended MCP toolkit with more IDE integration capabilities.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>增强 ShellExecTool 安全性：通过多层次验证和策略引擎，强化命令执行的安全性控制，防止恶意命令执行。</li>
+            <li>Enhanced ShellExecTool security: Strengthened command execution security controls through multi-layered validation and policy engines to prevent malicious command execution.</li>
+            <li>改进文件工具支持：增强 McpFileToolSupport 的路径安全校验，提高文件操作的安全性和可靠性。</li>
+            <li>Improved file tool support: Enhanced path security validation in McpFileToolSupport to improve the security and reliability of file operations.</li>
+        </ul>
+    </li>
+</ul>
+
+
         <h2>4.0.3 (2026-03-20)</h2>
 <ul>
     <li>
@@ -796,11 +869,7 @@
     <li>添加支持MD语法的展示框</li>
 </ul>
 
-<h3>next version</h2>
-  <ul>
-    <li>pre Feature modify the code where you selected</li>
-    <li>下个版本，添加直接修改你选中的代码</li>
-  </ul>
+
 
             ]]>
     </change-notes>
