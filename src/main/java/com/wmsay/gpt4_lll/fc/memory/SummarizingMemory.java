@@ -2,8 +2,8 @@ package com.wmsay.gpt4_lll.fc.memory;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.events.ProgressCallback;
+import com.wmsay.gpt4_lll.fc.core.Message;
 
 import java.util.*;
 import java.util.function.Function;
@@ -37,7 +37,7 @@ public class SummarizingMemory implements ConversationMemory {
     private final ConversationMemory delegate;
     private final int tokenThreshold;
     private final Function<String, String> summarizer;
-    private final FunctionCallOrchestrator.ProgressCallback progressCallback;
+    private final ProgressCallback progressCallback;
 
     // 双轨状态
     private final List<Message> originalMessages = new ArrayList<>();
@@ -55,11 +55,11 @@ public class SummarizingMemory implements ConversationMemory {
     public SummarizingMemory(ConversationMemory delegate,
                              int tokenThreshold,
                              Function<String, String> summarizer,
-                             FunctionCallOrchestrator.ProgressCallback progressCallback) {
+                             ProgressCallback progressCallback) {
         this.delegate = delegate;
         this.tokenThreshold = tokenThreshold;
         this.summarizer = summarizer;
-        this.progressCallback = progressCallback != null ? progressCallback : new FunctionCallOrchestrator.ProgressCallback() {};
+        this.progressCallback = progressCallback != null ? progressCallback : new ProgressCallback() {};
     }
 
     @Override

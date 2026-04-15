@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.error;
 
-import com.wmsay.gpt4_lll.fc.model.ErrorMessage;
+import com.wmsay.gpt4_lll.fc.core.ErrorMessage;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
 
 /**
  * 自定义错误处理器接口。

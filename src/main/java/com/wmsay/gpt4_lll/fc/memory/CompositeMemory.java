@@ -1,7 +1,7 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
 import java.util.logging.Logger;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 
 import java.util.*;
 

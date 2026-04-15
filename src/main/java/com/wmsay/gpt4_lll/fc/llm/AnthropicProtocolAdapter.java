@@ -153,6 +153,19 @@ public class AnthropicProtocolAdapter implements ProtocolAdapter {
                     propObj.put("type", type.toString());
                 }
 
+                // array 类型的 items 字段
+                Object items = fieldSchema.get("items");
+                if (items instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> itemsMap = (Map<String, Object>) items;
+                    JSONObject itemsObj = new JSONObject(true);
+                    Object itemType = itemsMap.get("type");
+                    if (itemType != null) {
+                        itemsObj.put("type", itemType.toString());
+                    }
+                    propObj.put("items", itemsObj);
+                }
+
                 Object description = fieldSchema.get("description");
                 if (description != null) {
                     propObj.put("description", description.toString());
@@ -161,6 +174,22 @@ public class AnthropicProtocolAdapter implements ProtocolAdapter {
                 Object enumValues = fieldSchema.get("enum");
                 if (enumValues != null) {
                     propObj.put("enum", enumValues);
+                }
+
+                // default 值
+                Object defaultValue = fieldSchema.get("default");
+                if (defaultValue != null) {
+                    propObj.put("default", defaultValue);
+                }
+
+                // 数值约束
+                Object minValue = fieldSchema.get("min");
+                if (minValue != null) {
+                    propObj.put("minimum", minValue);
+                }
+                Object maxValue = fieldSchema.get("max");
+                if (maxValue != null) {
+                    propObj.put("maximum", maxValue);
                 }
 
                 Boolean required = (Boolean) fieldSchema.get("required");

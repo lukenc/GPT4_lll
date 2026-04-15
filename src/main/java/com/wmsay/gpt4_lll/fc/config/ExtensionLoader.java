@@ -1,11 +1,11 @@
 package com.wmsay.gpt4_lll.fc.config;
 
 import com.wmsay.gpt4_lll.fc.error.CustomErrorHandler;
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapterRegistry;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapterRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
 import com.wmsay.gpt4_lll.fc.validation.CustomValidator;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
 
 import java.util.ArrayList;
 import java.util.List;

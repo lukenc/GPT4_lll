@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.fc.model;
 
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.core.ErrorMessage;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
 /**
  * 工具调用结果。
@@ -20,7 +21,7 @@ public class ToolCallResult {
     private final String callId;
     private final String toolName;
     private final ResultStatus status;
-    private final McpToolResult result;
+    private final ToolResult result;
     private final ErrorMessage error;
     private final long durationMs;
 
@@ -45,7 +46,7 @@ public class ToolCallResult {
         return status;
     }
 
-    public McpToolResult getResult() {
+    public ToolResult getResult() {
         return result;
     }
 
@@ -65,7 +66,7 @@ public class ToolCallResult {
         return new Builder();
     }
 
-    public static ToolCallResult success(String callId, String toolName, McpToolResult result, long durationMs) {
+    public static ToolCallResult success(String callId, String toolName, ToolResult result, long durationMs) {
         return builder()
             .callId(callId)
             .toolName(toolName)
@@ -98,7 +99,7 @@ public class ToolCallResult {
         private String callId;
         private String toolName;
         private ResultStatus status;
-        private McpToolResult result;
+        private ToolResult result;
         private ErrorMessage error;
         private long durationMs;
 
@@ -117,7 +118,7 @@ public class ToolCallResult {
             return this;
         }
 
-        public Builder result(McpToolResult result) {
+        public Builder result(ToolResult result) {
             this.result = result;
             return this;
         }

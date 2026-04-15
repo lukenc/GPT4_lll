@@ -17,16 +17,22 @@ import com.wmsay.gpt4_lll.fc.memory.ConversationMemory;
 import com.wmsay.gpt4_lll.fc.memory.MemoryFactory;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallRequest;
 import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.skill.ContextDistiller;
+import com.wmsay.gpt4_lll.fc.skill.SkillComplexity;
 import com.wmsay.gpt4_lll.fc.skill.SkillDefinition;
 import com.wmsay.gpt4_lll.fc.skill.SkillFileWatcher;
+import com.wmsay.gpt4_lll.fc.skill.SkillGenerator;
 import com.wmsay.gpt4_lll.fc.skill.SkillLoader;
 import com.wmsay.gpt4_lll.fc.skill.SkillMatchResult;
 import com.wmsay.gpt4_lll.fc.skill.SkillMatcher;
 import com.wmsay.gpt4_lll.fc.skill.SkillParser;
 import com.wmsay.gpt4_lll.fc.skill.SkillRegistry;
 import com.wmsay.gpt4_lll.fc.skill.SkillValidator;
+import com.wmsay.gpt4_lll.fc.skill.SubAgentFactory;
 import com.wmsay.gpt4_lll.fc.state.AgentSession;
 import com.wmsay.gpt4_lll.fc.state.ExecutionContext;
+import com.wmsay.gpt4_lll.fc.state.SubAgentProgressProvider;
+import com.wmsay.gpt4_lll.fc.state.SubAgentResult;
 import com.wmsay.gpt4_lll.fc.state.TaskManager;
 import com.wmsay.gpt4_lll.fc.state.TaskPersistence;
 import com.wmsay.gpt4_lll.fc.tools.Tool;
@@ -108,6 +114,12 @@ public class AgentRuntime {
     // FunctionCallOrchestrator 注入（需求 4.1, 4.2）— UI 集成时由 AgentRuntimeBridge 注入
     private volatile FunctionCallOrchestrator orchestrator;
     private volatile StreamingLlmCaller streamingLlmCaller;
+
+    // 子 Agent 进度提供者（需求 1.5, 11.1）— 由 AgentRuntimeBridge 注入
+    private volatile SubAgentProgressProvider subAgentProgressProvider;
+
+    // 上下文蒸馏器（lazy-initialized，需求 8.1）
+    private volatile ContextDistiller contextDistiller;
 
     private AgentRuntime(AgentRuntimeConfig config) {
         this.config = config;
@@ -231,6 +243,30 @@ public class AgentRuntime {
     public void setStreamingLlmCaller(StreamingLlmCaller caller) { this.streamingLlmCaller = caller; }
     public FunctionCallOrchestrator getOrchestrator() { return orchestrator; }
     public StreamingLlmCaller getStreamingLlmCaller() { return streamingLlmCaller; }
+
+    // ---- SubAgentProgressProvider 注入（需求 1.5, 11.1）----
+
+    public void setSubAgentProgressProvider(SubAgentProgressProvider provider) { this.subAgentProgressProvider = provider; }
+    public SubAgentProgressProvider getSubAgentProgressProvider() { return subAgentProgressProvider; }
+
+    // ---- ContextDistiller（lazy-initialized）----
+
+    /**
+     * 获取 ContextDistiller 实例（lazy-initialized）。
+     */
+    private ContextDistiller getOrCreateContextDistiller() {
+        if (contextDistiller == null) {
+            synchronized (this) {
+                if (contextDistiller == null) {
+                    contextDistiller = new ContextDistiller();
+                }
+            }
+        }
+        return contextDistiller;
+    }
+
+    public void setContextDistiller(ContextDistiller distiller) { this.contextDistiller = distiller; }
+    public ContextDistiller getContextDistiller() { return contextDistiller; }
 
     // ---- 配置与可观测性 ----
 
@@ -420,61 +456,186 @@ public class AgentRuntime {
                 intent = IntentResult.defaultResult();
             }
 
-            // 2. Skill 匹配（SkillRegistry 为 null 或空时跳过）
+            // 2. Skill 匹配 + Complexity-Based Routing（需求 2.1, 2.2, 2.3, 12.3, 12.4, 12.5）
             List<String> skillToolNames = null; // null 表示使用默认工具列表
+            SkillDefinition matchedSkill = null;
+            SkillMatchResult skillResult = null;
             if (skillRegistry != null && skillRegistry.getSkillCount() > 0 && skillMatcher != null) {
                 System.out.println("[Skill] Starting skill matching, registry has "
                         + skillRegistry.getSkillCount() + " skill(s)");
                 try {
-                    SkillMatchResult skillResult = skillMatcher.match(message, skillRegistry.getAllSkills(),
+                    skillResult = skillMatcher.match(message, skillRegistry.getAllSkills(),
                             llmCaller, originalChatContent != null ? originalChatContent.getModel() : null);
                     if (skillResult.isMatched()) {
-                        SkillDefinition skill = skillRegistry.getSkill(skillResult.getSkillName());
-                        if (skill != null) {
-                            // 构建 effective system prompt（含 additionalNotes）
-                            String effectiveSystemPrompt = skill.getSystemPrompt();
-                            if (skill.getAdditionalNotes() != null && !skill.getAdditionalNotes().isEmpty()) {
-                                effectiveSystemPrompt += "\n\n" + skill.getAdditionalNotes();
-                            }
-                            // 替换 user message（prompt template + user_input）
-                            String effectiveUserMessage = skill.getPromptTemplate().replace("{{user_input}}", message);
-
-                            // 更新 originalChatContent 中的 system 和 user 消息
-                            if (originalChatContent != null && originalChatContent.getMessages() != null) {
-                                for (Message msg : originalChatContent.getMessages()) {
-                                    if ("system".equals(msg.getRole())) {
-                                        msg.setContent(effectiveSystemPrompt);
-                                    }
-                                }
-                                // 替换最后一条 user 消息
-                                List<Message> msgs = originalChatContent.getMessages();
-                                for (int i = msgs.size() - 1; i >= 0; i--) {
-                                    if ("user".equals(msgs.get(i).getRole())) {
-                                        msgs.get(i).setContent(effectiveUserMessage);
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Skill 声明的工具列表（非空时替代默认工具列表）
-                            if (skill.getTools() != null && !skill.getTools().isEmpty()) {
-                                skillToolNames = skill.getTools();
-                            }
-
-                            System.out.println("[Skill] ✓ Matched skill '" + skillResult.getSkillName()
-                                    + "' with confidence " + skillResult.getConfidence());
-                        }
-                    } else {
-                        System.out.println("[Skill] No skill matched: " + skillResult.getReasoning());
+                        matchedSkill = skillRegistry.getSkill(skillResult.getSkillName());
                     }
                 } catch (Exception skillEx) {
                     System.err.println("[Skill] Skill matching FAILED: " + skillEx.getMessage());
                     skillEx.printStackTrace();
+                    // 容错：匹配失败不阻塞主流程（需求 10.1）
                 }
             } else {
                 System.out.println("[Skill] Skipping skill matching — registry="
                         + (skillRegistry != null ? skillRegistry.getSkillCount() + " skills" : "null")
                         + ", matcher=" + (skillMatcher != null ? "set" : "null"));
+            }
+
+            // 2a. 路由决策（Complexity-Based Routing）
+            if (matchedSkill != null) {
+                SkillComplexity complexity = matchedSkill.getComplexity();
+                String skillName = matchedSkill.getName();
+
+                if (complexity.requiresSubAgent()) {
+                    // MODERATE/COMPLEX → 创建子 Agent（需求 2.1, 12.4, 12.5）
+                    LOG.info("[Skill] Routing decision: skill='" + skillName
+                            + "', complexity=" + complexity + ", decision=CREATE_SUB_AGENT");
+
+                    try {
+                        SubAgentFactory factory = new SubAgentFactory(this, getOrCreateContextDistiller());
+                        SubAgentResult subResult = factory.createAndExecute(
+                                matchedSkill, message, session, llmCaller, callback, subAgentProgressProvider);
+
+                        if (subResult.isSuccess()) {
+                            // 子 Agent 成功：写入主 Agent 的 ConversationMemory 保持对话连续性（需求 5.4）
+                            Message assistantMsg = new Message();
+                            assistantMsg.setRole("assistant");
+                            assistantMsg.setContent(subResult.getContent());
+                            session.getMemory().add(assistantMsg);
+
+                            session.transitionTo(SessionState.COMPLETED);
+                            return FunctionCallResult.success(
+                                    subResult.getContent(), sessionId, Collections.emptyList());
+                        } else {
+                            // 子 Agent 失败：记录回退原因，降级到主流程（需求 5.5, 10.2, 10.3）
+                            LOG.warning("[Skill] Sub-agent failed for skill '" + skillName
+                                    + "', falling back to main flow. Reason: " + subResult.getContent());
+                            // 继续到下方的主流程执行
+                        }
+                    } catch (Exception subAgentEx) {
+                        // 子 Agent 创建/执行异常：优雅降级（需求 10.2, 10.3）
+                        LOG.log(Level.WARNING, "[Skill] Sub-agent creation/execution failed for skill '"
+                                + skillName + "', falling back to main flow", subAgentEx);
+                        // 继续到下方的主流程执行
+                    }
+                } else {
+                    // SIMPLE → Inline_Execution（需求 2.2, 12.3, 12.6）
+                    LOG.info("[Skill] Routing decision: skill='" + skillName
+                            + "', complexity=" + complexity + ", decision=INLINE_EXECUTION");
+
+                    // 注入 promptTemplate 到 ReAct 循环（现有逻辑）
+                    String effectiveSystemPrompt = matchedSkill.getSystemPrompt();
+                    if (matchedSkill.getAdditionalNotes() != null && !matchedSkill.getAdditionalNotes().isEmpty()) {
+                        effectiveSystemPrompt += "\n\n" + matchedSkill.getAdditionalNotes();
+                    }
+                    String effectiveUserMessage = matchedSkill.getPromptTemplate().replace("{{user_input}}", message);
+
+                    if (originalChatContent != null && originalChatContent.getMessages() != null) {
+                        for (Message msg : originalChatContent.getMessages()) {
+                            if ("system".equals(msg.getRole())) {
+                                msg.setContent(effectiveSystemPrompt);
+                            }
+                        }
+                        List<Message> msgs = originalChatContent.getMessages();
+                        for (int i = msgs.size() - 1; i >= 0; i--) {
+                            if ("user".equals(msgs.get(i).getRole())) {
+                                msgs.get(i).setContent(effectiveUserMessage);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (matchedSkill.getTools() != null && !matchedSkill.getTools().isEmpty()) {
+                        skillToolNames = matchedSkill.getTools();
+                    }
+
+                    System.out.println("[Skill] ✓ Inline execution for skill '" + skillName
+                            + "' with confidence " + skillResult.getConfidence());
+                }
+            } else if (skillResult != null && !skillResult.isMatched() && config.isRecruitMode()) {
+                // 未匹配 + recruitMode=true → 招募模式（需求 3.2, 3.4, 3.5）
+                LOG.info("[Skill] No skill matched, recruitMode=true, invoking SkillGenerator");
+
+                try {
+                    // 蒸馏上下文用于 SkillGenerator
+                    String contextSummary = "";
+                    try {
+                        contextSummary = getOrCreateContextDistiller().distill(
+                                session.getMemory(), "general", "unmatched request", null,
+                                llmCaller, originalChatContent != null ? originalChatContent.getModel() : null,
+                                config.getSubAgentContextFallbackMessageCount());
+                    } catch (Exception distillEx) {
+                        LOG.log(Level.WARNING, "[Skill] Context distillation for recruit failed", distillEx);
+                    }
+
+                    SkillGenerator generator = new SkillGenerator();
+                    SkillDefinition generatedSkill = generator.generate(
+                            message, contextSummary, skillRegistry.getAllSkills(),
+                            llmCaller, originalChatContent != null ? originalChatContent.getModel() : null);
+
+                    // 注册生成的 Skill（需求 3.4, 3.10）
+                    skillRegistry.register(generatedSkill);
+                    LOG.info("[Skill] Registered generated skill: " + generatedSkill.getName()
+                            + " (complexity=" + generatedSkill.getComplexity() + ")");
+
+                    // 根据生成 Skill 的 complexity 决定路由
+                    if (generatedSkill.getComplexity().requiresSubAgent()) {
+                        SubAgentFactory factory = new SubAgentFactory(this, getOrCreateContextDistiller());
+                        SubAgentResult subResult = factory.createAndExecute(
+                                generatedSkill, message, session, llmCaller, callback, subAgentProgressProvider);
+
+                        if (subResult.isSuccess()) {
+                            Message assistantMsg = new Message();
+                            assistantMsg.setRole("assistant");
+                            assistantMsg.setContent(subResult.getContent());
+                            session.getMemory().add(assistantMsg);
+
+                            session.transitionTo(SessionState.COMPLETED);
+                            return FunctionCallResult.success(
+                                    subResult.getContent(), sessionId, Collections.emptyList());
+                        } else {
+                            LOG.warning("[Skill] Recruited sub-agent failed for generated skill '"
+                                    + generatedSkill.getName() + "', falling back. Reason: " + subResult.getContent());
+                        }
+                    } else {
+                        // Generated SIMPLE skill → Inline_Execution
+                        LOG.info("[Skill] Generated skill '" + generatedSkill.getName()
+                                + "' is SIMPLE, using inline execution");
+
+                        String effectiveSystemPrompt = generatedSkill.getSystemPrompt();
+                        if (generatedSkill.getAdditionalNotes() != null && !generatedSkill.getAdditionalNotes().isEmpty()) {
+                            effectiveSystemPrompt += "\n\n" + generatedSkill.getAdditionalNotes();
+                        }
+                        String effectiveUserMessage = generatedSkill.getPromptTemplate().replace("{{user_input}}", message);
+
+                        if (originalChatContent != null && originalChatContent.getMessages() != null) {
+                            for (Message msg : originalChatContent.getMessages()) {
+                                if ("system".equals(msg.getRole())) {
+                                    msg.setContent(effectiveSystemPrompt);
+                                }
+                            }
+                            List<Message> msgs = originalChatContent.getMessages();
+                            for (int i = msgs.size() - 1; i >= 0; i--) {
+                                if ("user".equals(msgs.get(i).getRole())) {
+                                    msgs.get(i).setContent(effectiveUserMessage);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (generatedSkill.getTools() != null && !generatedSkill.getTools().isEmpty()) {
+                            skillToolNames = generatedSkill.getTools();
+                        }
+                    }
+                } catch (Exception recruitEx) {
+                    // 招募失败：优雅降级到现有流程（需求 3.9）
+                    LOG.log(Level.WARNING, "[Skill] Recruit mode failed, falling back to main flow", recruitEx);
+                }
+            } else {
+                // 未匹配 + recruitMode=false → 继续现有执行流程（需求 3.5）
+                if (skillResult != null && !skillResult.isMatched()) {
+                    System.out.println("[Skill] No skill matched: " + skillResult.getReasoning()
+                            + ", recruitMode=false, continuing main flow");
+                }
             }
 
             // 3. 工具过滤
@@ -501,6 +662,14 @@ public class AgentRuntime {
                 if (streamingLlmCaller != null) {
                     orchestrator.setStreamingLlmCaller(streamingLlmCaller);
                 }
+
+                // 注入 Skill 相关组件（PlanAndExecuteStrategy 步骤级 Skill 匹配使用，需求 7.1-7.6）
+                orchestrator.setSkillMatcher(skillMatcher);
+                orchestrator.setSkillRegistry(skillRegistry);
+                orchestrator.setAgentRuntime(this);
+                orchestrator.setSubAgentProgressProvider(subAgentProgressProvider);
+                orchestrator.setAgentRuntimeConfig(config);
+                orchestrator.setAgentSession(session);
 
                 // 使用调用方传入的原始 ChatContent（保留完整对话历史和 model 设置）
                 FunctionCallRequest request = FunctionCallRequest.builder()
@@ -544,6 +713,9 @@ public class AgentRuntime {
         userMsg.setContent(message);
         chatContent.setDirectMessages(List.of(userMsg));
         chatContent.setStream(true);
+        // 清除默认 model（"gpt-3.5-turbo"），避免子 Agent / Skill 匹配等旁路调用
+        // 将错误的 model 名发送到 Azure OpenAI 等需要 deployment name 的供应商
+        chatContent.setModel(null);
 
         return send(sessionId, message, chatContent, llmCaller, callback);
     }
@@ -759,6 +931,15 @@ public class AgentRuntime {
      * 立即中断所有正在执行的会话并释放资源。
      */
     public void shutdownNow() {
+        // 停止 Skill 文件监听
+        if (skillLoader != null) {
+            try {
+                skillLoader.stopWatching();
+            } catch (Exception e) {
+                System.err.println("[Skill] Error stopping skill watcher: " + e.getMessage());
+            }
+            skillLoader = null;
+        }
         for (String sessionId : new ArrayList<>(activeSessions.keySet())) {
             destroySession(sessionId);
         }

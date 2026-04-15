@@ -1,7 +1,8 @@
 package com.wmsay.gpt4_lll.fc.model;
 
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.model.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallConfig;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,7 +15,7 @@ import java.util.List;
 public class FunctionCallRequest {
 
     private final ChatContent chatContent;
-    private final List<McpTool> availableTools;
+    private final List<Tool> availableTools;
     private final int maxRounds;
     private final FunctionCallConfig config;
 
@@ -30,7 +31,7 @@ public class FunctionCallRequest {
         return chatContent;
     }
 
-    public List<McpTool> getAvailableTools() {
+    public List<Tool> getAvailableTools() {
         return availableTools;
     }
 
@@ -48,8 +49,8 @@ public class FunctionCallRequest {
 
     public static class Builder {
         private ChatContent chatContent;
-        private List<McpTool> availableTools;
-        private int maxRounds = 20;
+        private List<Tool> availableTools;
+        private int maxRounds = 300;
         private FunctionCallConfig config;
 
         public Builder chatContent(ChatContent chatContent) {
@@ -57,7 +58,7 @@ public class FunctionCallRequest {
             return this;
         }
 
-        public Builder availableTools(List<McpTool> availableTools) {
+        public Builder availableTools(List<Tool> availableTools) {
             this.availableTools = availableTools;
             return this;
         }

@@ -2,7 +2,8 @@ package com.wmsay.gpt4_lll.fc.memory;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import com.wmsay.gpt4_lll.fc.model.FunctionCallConfig;
+
+import com.wmsay.gpt4_lll.fc.core.FunctionCallConfig;
 
 import java.util.ServiceLoader;
 import java.util.function.Function;

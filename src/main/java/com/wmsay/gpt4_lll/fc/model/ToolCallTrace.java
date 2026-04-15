@@ -1,6 +1,6 @@
 package com.wmsay.gpt4_lll.fc.model;
 
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,7 +15,7 @@ public class ToolCallTrace {
     private final String callId;
     private final String toolName;
     private final Map<String, Object> parameters;
-    private final McpToolResult result;
+    private final ToolResult result;
     private final long startTime;
     private final long endTime;
     private final String parentCallId;
@@ -43,7 +43,7 @@ public class ToolCallTrace {
         return parameters;
     }
 
-    public McpToolResult getResult() {
+    public ToolResult getResult() {
         return result;
     }
 
@@ -71,7 +71,7 @@ public class ToolCallTrace {
         private String callId;
         private String toolName;
         private Map<String, Object> parameters;
-        private McpToolResult result;
+        private ToolResult result;
         private long startTime;
         private long endTime;
         private String parentCallId;
@@ -91,7 +91,7 @@ public class ToolCallTrace {
             return this;
         }
 
-        public Builder result(McpToolResult result) {
+        public Builder result(ToolResult result) {
             this.result = result;
             return this;
         }

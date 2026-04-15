@@ -1,8 +1,8 @@
 package com.wmsay.gpt4_lll.fc.result;
 
-import com.wmsay.gpt4_lll.fc.model.ErrorMessage;
+import com.wmsay.gpt4_lll.fc.core.ErrorMessage;
 import com.wmsay.gpt4_lll.fc.model.ToolCallResult;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
 import java.util.Map;
 
@@ -227,15 +227,15 @@ public class ResultFormatter {
     // ── Helpers ─────────────────────────────────────────────────────
 
     private String extractResultData(ToolCallResult result) {
-        McpToolResult mcpResult = result.getResult();
-        if (mcpResult == null) {
+        ToolResult toolResult = result.getResult();
+        if (toolResult == null) {
             return "";
         }
 
-        return switch (mcpResult.getType()) {
-            case TEXT -> mcpResult.getTextContent() != null ? mcpResult.getTextContent() : "";
-            case STRUCTURED -> formatStructuredData(mcpResult.getStructuredData());
-            case ERROR -> mcpResult.getErrorMessage() != null ? mcpResult.getErrorMessage() : "";
+        return switch (toolResult.getType()) {
+            case TEXT -> toolResult.getTextContent() != null ? toolResult.getTextContent() : "";
+            case STRUCTURED -> formatStructuredData(toolResult.getStructuredData());
+            case ERROR -> toolResult.getErrorMessage() != null ? toolResult.getErrorMessage() : "";
         };
     }
 
