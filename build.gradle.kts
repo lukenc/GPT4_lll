@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.wmsay"
-version = "4.0.3"
+version = "4.1.6"
 
 repositories {
     mavenCentral()
@@ -42,6 +42,16 @@ tasks {
     test {
         useJUnitPlatform()
     }
+
+//    // 跳过 instrumentCode — 本地 JDK 路径不含 Packages 目录会导致此任务失败
+//    named("instrumentCode") { enabled = false }
+
+//    // 冻结防御已通过 getInputMethodRequests() 覆写解决，无需修改渲染属性
+//    runIde {
+//        jvmArgs(
+//            "-Djb.consoleLog=true"
+//        )
+//    }
 
     patchPluginXml {
         sinceBuild.set("222")
