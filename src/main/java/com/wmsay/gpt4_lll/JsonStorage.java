@@ -7,7 +7,7 @@ import com.alibaba.fastjson.TypeReference;
 import com.wmsay.gpt4_lll.fc.memory.ConversationData;
 import com.wmsay.gpt4_lll.fc.memory.SummaryMetadata;
 import com.wmsay.gpt4_lll.utils.PluginPathUtils;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import groovy.util.logging.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

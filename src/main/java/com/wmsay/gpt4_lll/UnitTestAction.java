@@ -18,8 +18,9 @@ import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.jetbrains.annotations.NotNull;
@@ -197,7 +198,7 @@ public class UnitTestAction extends AnAction {
         List<Message> sendMessageList= new ArrayList<>(List.of(systemMessage,messageFirst));
         ChatUtils.getProjectChatHistory(project).addAll(sendMessageList);
 
-        chatContent.setMessages(sendMessageList, ModelUtils.getSelectedProvider(project));
+        chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(sendMessageList));
         chatContent.setModel(model);
 
         AgentChatView textArea= project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
@@ -223,7 +224,7 @@ public class UnitTestAction extends AnAction {
                 askSecond.setContent(askSecond.getContent()+",使用junit测试框架。返回的代码要在md的代码块中");
             }
             sendMessageList.add(askSecond);
-            chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
+            chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(sendMessageList));
             secondResponse.set(chat(chatContent, project, false, true, ""));
 
 

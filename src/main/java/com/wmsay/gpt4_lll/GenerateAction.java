@@ -20,18 +20,24 @@ import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.wmsay.gpt4_lll.component.AgentChatView;
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.events.ProgressCallback;
+import com.wmsay.gpt4_lll.fc.llm.LlmApiException;
+import com.wmsay.gpt4_lll.fc.llm.LlmCaller;
+import com.wmsay.gpt4_lll.fc.llm.LlmErrorInfo;
 import com.wmsay.gpt4_lll.fc.model.*;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
 import com.wmsay.gpt4_lll.languages.FileAnalysisManager;
-import com.wmsay.gpt4_lll.llm.LlmClient;
-import com.wmsay.gpt4_lll.llm.LlmRequest;
-import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
+import com.wmsay.gpt4_lll.fc.llm.LlmClient;
+import com.wmsay.gpt4_lll.fc.llm.LlmRequest;
+import com.wmsay.gpt4_lll.fc.llm.LlmStreamCallback;
 import com.wmsay.gpt4_lll.llm.provider.ProviderAdapter;
 import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.mcp.McpContext;
 import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallConfig;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -390,9 +396,9 @@ public class GenerateAction extends AnAction {
                 List<Message> sendMessageList = new ArrayList<>(List.of(systemMessage, message));
                 if (!moreMessageList.isEmpty()) {
                     sendMessageList.addAll(1, moreMessageList);
-                    chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
+                    chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(sendMessageList));
                 }
-                chatContent.setMessages(sendMessageList,ModelUtils.getSelectedProvider(project));
+                chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(sendMessageList));
                 chatContent.setModel(model);
                 if (project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY)==null){
                     project.putUserData(GPT_4_LLL_CONVERSATION_HISTORY,new ArrayList<>());
@@ -425,6 +431,20 @@ public class GenerateAction extends AnAction {
     }
 
     public static String chat(ChatContent content, Project project, Boolean coding, Boolean replyShowInWindow, String loadingNotice, Integer retryTime, Document commitDoc) {
+        // 注册当前线程到 AgentRuntimeBridge，使 Stop 按钮能中断所有调用 chat() 的路径
+        // （包括 GenerateVersionControlCommitMessage、CommentAction、SqlAction 等）
+        WindowTool windowTool = WindowTool.getInstance(project);
+        com.wmsay.gpt4_lll.component.AgentRuntimeBridge bridge = null;
+        if (windowTool != null) {
+            try {
+                bridge = windowTool.getAgentRuntimeBridge(project);
+                if (bridge != null) {
+                    bridge.setCurrentRequestThread(Thread.currentThread());
+                }
+            } catch (Exception ignored) {}
+        }
+        final com.wmsay.gpt4_lll.component.AgentRuntimeBridge finalBridge = bridge;
+
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String url = ChatUtils.getUrl(settings,project);
         if (url == null || url.isBlank()) {
@@ -443,7 +463,7 @@ public class GenerateAction extends AnAction {
 
         LlmRequest llmRequest = LlmRequest.builder()
                 .url(url)
-                .chatContent(content)
+                .requestBody(content.toRequestJson())
                 .apiKey(apiKey)
                 .proxy(proxy)
                 .provider(currentProvider)
@@ -464,11 +484,23 @@ public class GenerateAction extends AnAction {
             LlmClient.streamChat(llmRequest, chatCallback);
         } catch (ProcessCanceledException exception){
             throw exception;
+        } catch (LlmApiException e) {
+            LlmErrorInfo info = e.getErrorInfo();
+            String errorDisplay = "⚠️ " + info.getMessage() + "\n💡 " + info.getSuggestion();
+            SwingUtilities.invokeLater(() -> textArea.appendContent(errorDisplay));
         } catch (Exception e) {
             SwingUtilities.invokeLater(() -> Messages.showMessageDialog(project, e.getMessage(), "ChatGpt", Messages.getInformationIcon()));
             e.printStackTrace();
         } finally {
-            CommonUtil.stopRunningStatus(project);
+            if (Thread.currentThread().isInterrupted()) {
+                CommonUtil.stopRunningStatus(project, false);
+            } else {
+                CommonUtil.stopRunningStatus(project);
+            }
+            // 注销当前线程引用
+            if (finalBridge != null) {
+                finalBridge.setCurrentRequestThread(null);
+            }
         }
 
         String replyContent = chatCallback.getCollectedContent();
@@ -502,7 +534,7 @@ public class GenerateAction extends AnAction {
             //判断是否需要继续未完成的内容
             if (ChatUtils.needsContinuation(replyContent) && retryTime < 2) {
                 project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY).add(continuationAdapter.getContinuationMessage());
-                content.setMessages(project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY),ModelUtils.getSelectedProvider(project));
+                content.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(project.getUserData(GPT_4_LLL_CONVERSATION_HISTORY)));
                 chat(content, project, coding, replyShowInWindow, loadingNotice, retryTime + 1, commitDoc);
             }
         }
@@ -522,8 +554,8 @@ public class GenerateAction extends AnAction {
         if (project == null) return false;
         WindowTool windowTool = WindowTool.getInstance(project);
         if (windowTool == null) return false;
-        FunctionCallOrchestrator orchestrator = windowTool.getFunctionCallOrchestrator();
-        FunctionCallConfig config = windowTool.getFunctionCallConfig();
+        FunctionCallOrchestrator orchestrator = windowTool.getFunctionCallOrchestrator(project);
+        FunctionCallConfig config = windowTool.getFunctionCallConfig(project);
         return orchestrator != null && config != null && config.isEnableFunctionCalling();
     }
 
@@ -540,8 +572,8 @@ public class GenerateAction extends AnAction {
         WindowTool windowTool = WindowTool.getInstance(project);
         if (windowTool == null) return null;
 
-        FunctionCallOrchestrator orchestrator = windowTool.getFunctionCallOrchestrator();
-        FunctionCallConfig config = windowTool.getFunctionCallConfig();
+        FunctionCallOrchestrator orchestrator = windowTool.getFunctionCallOrchestrator(project);
+        FunctionCallConfig config = windowTool.getFunctionCallConfig(project);
         if (orchestrator == null || config == null) return null;
 
         try {
@@ -554,7 +586,7 @@ public class GenerateAction extends AnAction {
 
             McpContext context = McpContext.fromIdeState(project, null);
 
-            FunctionCallOrchestrator.LlmCaller llmCaller = (req) -> {
+            LlmCaller llmCaller = (req) -> {
                 MyPluginSettings settings = MyPluginSettings.getInstance();
                 String url = ChatUtils.getUrl(settings, project);
                 String apiKey = ChatUtils.getApiKey(settings, project);
@@ -563,7 +595,7 @@ public class GenerateAction extends AnAction {
 
                 LlmRequest llmRequest = LlmRequest.builder()
                         .url(url)
-                        .chatContent(req.getChatContent())
+                        .requestBody(req.getChatContent().toRequestJson())
                         .apiKey(apiKey)
                         .proxy(proxy)
                         .provider(currentProvider)
@@ -582,21 +614,21 @@ public class GenerateAction extends AnAction {
 
                 LlmRequest llmRequest = LlmRequest.builder()
                         .url(url)
-                        .chatContent(req.getChatContent())
+                        .requestBody(req.getChatContent().toRequestJson())
                         .apiKey(apiKey)
                         .proxy(proxy)
                         .provider(currentProvider)
                         .build();
 
-                com.wmsay.gpt4_lll.llm.StreamingFcCollector collector =
-                        new com.wmsay.gpt4_lll.llm.StreamingFcCollector(displayCb);
+                com.wmsay.gpt4_lll.fc.llm.StreamingFcCollector collector =
+                        new com.wmsay.gpt4_lll.fc.llm.StreamingFcCollector(displayCb);
                 LlmClient.streamChat(llmRequest, collector);
                 return collector.reconstructResponse();
             });
 
             // 创建进度回调，实时更新 UI
             AgentChatView textArea = project.getUserData(Gpt4lllTextAreaKey.GPT_4_LLL_TEXT_AREA);
-            FunctionCallOrchestrator.ProgressCallback progressCallback =
+            ProgressCallback progressCallback =
                     createFcProgressCallback(textArea);
 
             FunctionCallResult result = orchestrator.execute(
@@ -612,12 +644,12 @@ public class GenerateAction extends AnAction {
     /**
      * 创建 FC 进度回调，实时在 AgentChatView 中显示工具调用状态。
      */
-    private static FunctionCallOrchestrator.ProgressCallback createFcProgressCallback(
+    private static ProgressCallback createFcProgressCallback(
             AgentChatView area) {
         if (area == null) {
-            return new FunctionCallOrchestrator.ProgressCallback() {};
+            return new ProgressCallback() {};
         }
-        return new FunctionCallOrchestrator.ProgressCallback() {
+        return new ProgressCallback() {
             private final java.util.concurrent.atomic.AtomicReference<com.wmsay.gpt4_lll.component.block.ToolUseBlock>
                     currentToolBlock = new java.util.concurrent.atomic.AtomicReference<>();
 
@@ -900,6 +932,17 @@ public class GenerateAction extends AnAction {
         }
 
         @Override
+        public void onError(Exception e) {
+            if (e instanceof LlmApiException) {
+                LlmErrorInfo info = ((LlmApiException) e).getErrorInfo();
+                String errorDisplay = "⚠️ " + info.getMessage() + "\n💡 " + info.getSuggestion();
+                if (textArea != null) {
+                    SwingUtilities.invokeLater(() -> textArea.appendContent(errorDisplay));
+                }
+            }
+        }
+
+        @Override
         public void onNonDataLine(String line) {
             stringBuffer.append(line);
         }
@@ -933,8 +976,17 @@ public class GenerateAction extends AnAction {
                 if (Boolean.TRUE.equals(replyShowInWindow)) {
                     textArea.appendContent(resContent);
                 } else {
-                    if (countDot.get() % 4 == 0 && countDot.get() != 0) {
-                        textArea.setText(textArea.getText().substring(0, textArea.getText().length() - 3));
+                    // 非窗口展示模式：显示进度点动画
+                    // 使用 invokeLater 确保 getText/setText 在 EDT 上原子执行，
+                    // 避免从 HTTP 线程直接访问 Swing 组件导致竞态和假死
+                    int dotCount = countDot.getAndIncrement();
+                    if (dotCount % 4 == 0 && dotCount != 0) {
+                        SwingUtilities.invokeLater(() -> {
+                            String text = textArea.getText();
+                            if (text.length() >= 3) {
+                                textArea.setText(text.substring(0, text.length() - 3));
+                            }
+                        });
                     } else {
                         textArea.appendContent(".");
                     }

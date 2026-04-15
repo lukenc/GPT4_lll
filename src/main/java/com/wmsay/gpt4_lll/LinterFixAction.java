@@ -19,13 +19,14 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.component.LinterFixDialog;
-import com.wmsay.gpt4_lll.llm.LlmClient;
-import com.wmsay.gpt4_lll.llm.LlmRequest;
-import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
-import com.wmsay.gpt4_lll.model.ChatContent;
+import com.wmsay.gpt4_lll.fc.llm.LlmClient;
+import com.wmsay.gpt4_lll.fc.llm.LlmRequest;
+import com.wmsay.gpt4_lll.fc.llm.LlmStreamCallback;
 import com.wmsay.gpt4_lll.model.CodeChange;
 import com.wmsay.gpt4_lll.model.SelectionContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.languages.FileAnalysisManager;
 import com.intellij.openapi.application.ApplicationManager;
@@ -212,7 +213,7 @@ public class LinterFixAction extends AnAction {
             messages.addAll(contextMessages);
         }
         messages.add(userMessage);
-        chatContent.setMessages(messages, ModelUtils.getSelectedProvider(project));
+        chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(messages));
         chatContent.setModel(ChatUtils.getModelName(project));
 
         // 保存会话历史
@@ -439,6 +440,29 @@ public class LinterFixAction extends AnAction {
      * 使用 LlmClient 统一处理 SSE 流式通信，通过回调实时展示到 ToolWindow。
      */
     private String chatWithLinterFix(ChatContent content, Project project, AgentChatView textArea) {
+        // 注册当前线程到 AgentRuntimeBridge，使 Stop 按钮能中断 LinterFix 路径
+        WindowTool windowTool = WindowTool.getInstance(project);
+        com.wmsay.gpt4_lll.component.AgentRuntimeBridge bridge = null;
+        if (windowTool != null) {
+            try {
+                bridge = windowTool.getAgentRuntimeBridge(project);
+                if (bridge != null) {
+                    bridge.setCurrentRequestThread(Thread.currentThread());
+                }
+            } catch (Exception ignored) {}
+        }
+        final com.wmsay.gpt4_lll.component.AgentRuntimeBridge finalBridge = bridge;
+
+        try {
+            return chatWithLinterFixInternal(content, project, textArea);
+        } finally {
+            if (finalBridge != null) {
+                finalBridge.setCurrentRequestThread(null);
+            }
+        }
+    }
+
+    private String chatWithLinterFixInternal(ChatContent content, Project project, AgentChatView textArea) {
         MyPluginSettings settings = MyPluginSettings.getInstance();
         String url = ChatUtils.getUrl(settings, project);
         if (url == null || url.isBlank()) {
@@ -461,7 +485,7 @@ public class LinterFixAction extends AnAction {
         try {
             llmRequest = LlmRequest.builder()
                     .url(url)
-                    .chatContent(content)
+                    .requestBody(content.toRequestJson())
                     .apiKey(apiKey)
                     .proxy(proxy)
                     .provider(provider)

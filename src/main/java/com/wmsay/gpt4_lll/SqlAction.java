@@ -16,8 +16,9 @@ import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
@@ -168,11 +169,11 @@ public class SqlAction extends AnAction {
                 sendMessageList.add(systemMessage);
                 sendMessageList.addAll(moreMessageList);
                 sendMessageList.add(message);
-                chatContent.setMessages(sendMessageList, ModelUtils.getSelectedProvider(project));
+                chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(sendMessageList));
             }else {
                 sendMessageList = new ArrayList<>(List.of(systemMessage, message));
             }
-            chatContent.setMessages(sendMessageList, ModelUtils.getSelectedProvider(project));
+            chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(sendMessageList));
             chatContent.setModel(model);
             chatContent.setTemperature(0.2);
             

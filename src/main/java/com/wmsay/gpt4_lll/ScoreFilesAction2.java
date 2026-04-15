@@ -13,8 +13,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CodeUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
@@ -185,7 +186,7 @@ public class ScoreFilesAction2 extends AnAction {
             codeMessage.setContent("认真对每一项打分，以及总体得分，请开始评估以下代码，：\n" + content);
 
             ChatContent chatContent = new ChatContent();
-            chatContent.setMessages(new ArrayList<>(List.of(systemMessage, message, codeMessage)), providerName);
+            chatContent.setMessages(ProviderAdapterRegistry.getAdapter(providerName).adaptMessages(new ArrayList<>(List.of(systemMessage, message, codeMessage))));
             chatContent.setModel(modelName);
             chatContent.setTemperature(0.1);
             MyPluginSettings settings = MyPluginSettings.getInstance();

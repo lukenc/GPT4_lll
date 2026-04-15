@@ -15,8 +15,9 @@ import java.util.List;
 import java.util.Collection;
 
 import com.wmsay.gpt4_lll.utils.ChatUtils;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -26,10 +27,17 @@ import com.intellij.openapi.vcs.changes.Change;
 import com.intellij.openapi.vcs.changes.ChangeListManager;
 import com.intellij.openapi.vcs.changes.LocalChangeList;
 import com.intellij.openapi.vcs.changes.CurrentContentRevision;
+import com.intellij.vcs.commit.AbstractCommitWorkflowHandler;
+import com.intellij.vcs.commit.CommitWorkflowHandler;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
+import com.wmsay.gpt4_lll.ChangeSourceResolver;
 import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.intellij.openapi.wm.ToolWindow;
@@ -45,6 +53,8 @@ public class GenerateVersionControlCommitMessage extends AnAction {
     
     // 单机应用就是好，没有并发就是爽
     public static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    
+    private final ChangeSourceResolver changeSourceResolver = new ChangeSourceResolver();
     
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
@@ -145,7 +155,9 @@ public class GenerateVersionControlCommitMessage extends AnAction {
 
             // Chat content
             ChatContent chatContent = new ChatContent();
-            chatContent.setMessages(new ArrayList<>(List.of(systemMessage, userMessage)), ModelUtils.getAvailableProvider(project));
+            chatContent.setMessages(
+                ProviderAdapterRegistry.getAdapter(ModelUtils.getAvailableProvider(project))
+                    .adaptMessages(new ArrayList<>(List.of(systemMessage, userMessage))));
             chatContent.setModel(ChatUtils.getModelName(project));
             chatContent.setTemperature(0.2);
 
@@ -213,27 +225,81 @@ public class GenerateVersionControlCommitMessage extends AnAction {
     }
 
     /**
-     * 尝试从commit对话框的不同数据源获取选中的变更
+     * 从 VcsDataKeys 获取用户高亮选中的变更（Selected Changes）
      */
     @NotNull
-    private Change[] getSelectedChangesFromCommitDialog(AnActionEvent e) {
-        Change[] changes = e.getData(VcsDataKeys.CHANGES_SELECTION) != null ? e.getData(VcsDataKeys.CHANGES_SELECTION).getList().toArray(Change[]::new) : null;
-        if (changes != null && changes.length > 0) {
-            return changes;
+    private List<String> extractSelectedChanges(AnActionEvent e, VirtualFile root) {
+        Change[] changes = e.getData(VcsDataKeys.SELECTED_CHANGES);
+        if (changes == null || changes.length == 0) {
+            changes = e.getData(VcsDataKeys.CHANGE_LEAD_SELECTION);
         }
-        changes = e.getData(VcsDataKeys.CHANGE_LEAD_SELECTION);
-        if (changes != null && changes.length > 0) {
-            return changes;
+        if (changes == null || changes.length == 0) {
+            var selection = e.getData(VcsDataKeys.CHANGES_SELECTION);
+            if (selection != null) {
+                changes = selection.getList().toArray(Change[]::new);
+            }
         }
-        changes = e.getData(VcsDataKeys.SELECTED_CHANGES);
-        if (changes != null && changes.length > 0) {
-            return changes;
+        return changesToPaths(changes, root);
+    }
+
+    /**
+     * 从 CommitWorkflowHandler 获取用户勾选的文件（Checked/Included Files）。
+     * 通过 COMMIT_WORKFLOW_HANDLER → AbstractCommitWorkflowHandler → ui.getIncludedChanges()
+     * 获取真正勾选的文件列表，适用于 non-modal、modal 和 Git Staging 三种 commit UI。
+     * 如果无法通过 CommitWorkflowHandler 获取，回退到 VcsDataKeys.CHANGES。
+     */
+    @NotNull
+    private List<String> extractCheckedFiles(AnActionEvent e, VirtualFile root) {
+        // 优先通过 CommitWorkflowHandler 获取勾选文件
+        CommitWorkflowHandler workflowHandler = e.getData(VcsDataKeys.COMMIT_WORKFLOW_HANDLER);
+        System.out.println("[DEBUG] workflowHandler=" + workflowHandler);
+        System.out.println("[DEBUG] workflowHandler class=" + (workflowHandler != null ? workflowHandler.getClass().getName() : "null"));
+        if (workflowHandler instanceof AbstractCommitWorkflowHandler<?, ?> abstractHandler) {
+            List<Change> includedChanges = abstractHandler.getUi().getIncludedChanges();
+            System.out.println("[DEBUG] includedChanges.size=" + includedChanges.size());
+            for (Change c : includedChanges) {
+                System.out.println("[DEBUG]   includedChange: " + (c.getVirtualFile() != null ? c.getVirtualFile().getPath() : "null"));
+            }
+            if (!includedChanges.isEmpty()) {
+                return changesToPathsFromList(includedChanges, root);
+            }
         }
-        changes = e.getData(VcsDataKeys.CHANGES);
-        if (changes != null && changes.length > 0) {
-            return changes;
+        // 回退到 VcsDataKeys.CHANGES
+        Change[] changes = e.getData(VcsDataKeys.CHANGES);
+        System.out.println("[DEBUG] fallback CHANGES=" + (changes != null ? changes.length : "null"));
+        return changesToPaths(changes, root);
+    }
+
+    /**
+     * 将 List<Change> 转换为相对路径列表
+     */
+    private List<String> changesToPathsFromList(List<Change> changes, VirtualFile root) {
+        if (changes == null || changes.isEmpty()) return Collections.emptyList();
+        List<String> paths = new ArrayList<>();
+        for (Change change : changes) {
+            VirtualFile file = change.getVirtualFile();
+            if (file != null) {
+                String rel = getRelativePath(file, root);
+                if (rel != null) paths.add(rel);
+            }
         }
-        return new Change[0];
+        return paths;
+    }
+
+    /**
+     * 将 Change[] 转换为相对路径列表
+     */
+    private List<String> changesToPaths(Change[] changes, VirtualFile root) {
+        if (changes == null || changes.length == 0) return Collections.emptyList();
+        List<String> paths = new ArrayList<>();
+        for (Change change : changes) {
+            VirtualFile file = change.getVirtualFile();
+            if (file != null) {
+                String rel = getRelativePath(file, root);
+                if (rel != null) paths.add(rel);
+            }
+        }
+        return paths;
     }
 
     private String getStagedDiff(Project project, AnActionEvent e) {
@@ -242,14 +308,35 @@ public class GenerateVersionControlCommitMessage extends AnAction {
                     .getVcsRootFor(ProjectUtil.guessProjectDir(project));
             if (root == null) return "";
 
-            // 尝试从commit对话框获取选中的变更
-            Change[] changes = getSelectedChangesFromCommitDialog(e);
+            // 使用 ChangeSourceResolver 解析变更来源
+            List<String> selectedPaths = extractSelectedChanges(e, root);
+            List<String> checkedPaths = extractCheckedFiles(e, root);
+            List<String> resolvedPaths = changeSourceResolver.resolve(selectedPaths, checkedPaths);
 
-            // 如果还是为空，尝试从默认变更列表中获取
-            if (changes == null || changes.length == 0) {
-                changes = getChangesFromDefaultChangeList(project);
+            // DEBUG
+            System.out.println("[ChangeSourceResolver] selectedPaths=" + selectedPaths);
+            System.out.println("[ChangeSourceResolver] checkedPaths=" + checkedPaths);
+            System.out.println("[ChangeSourceResolver] resolvedPaths=" + resolvedPaths);
+
+            // 如果 resolver 返回了路径列表，直接用路径获取 diff
+            if (!resolvedPaths.isEmpty()) {
+                StringBuilder allDiff = new StringBuilder();
+                for (String relativePath : resolvedPaths) {
+                    // 先尝试 staged diff，如果为空再尝试 unstaged diff
+                    String fileDiff = getSingleFileDiff(root, relativePath, false);
+                    if (fileDiff.isEmpty()) {
+                        fileDiff = getSingleFileDiff(root, relativePath, true);
+                    }
+                    if (!fileDiff.isEmpty()) {
+                        allDiff.append("=== File: ").append(relativePath).append(" ===\n");
+                        allDiff.append(fileDiff).append("\n");
+                    }
+                }
+                return allDiff.toString();
             }
 
+            // resolver 返回空 → 回退到 Default Change List
+            Change[] changes = getChangesFromDefaultChangeList(project);
             if (changes == null || changes.length == 0) {
                 return "";
             }

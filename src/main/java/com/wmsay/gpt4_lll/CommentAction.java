@@ -15,8 +15,9 @@ import com.intellij.openapi.wm.ToolWindowManager;
 import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.languages.FileAnalysisManager;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.CommonUtil;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
@@ -177,7 +178,7 @@ public class CommentAction extends AnAction {
                 } else {
                     sendMessageList = new ArrayList<>(List.of(systemMessage, message));
                 }
-                chatContent.setMessages(sendMessageList, ModelUtils.getSelectedProvider(project));
+                chatContent.setMessages(ProviderAdapterRegistry.getAdapter(ModelUtils.getSelectedProvider(project)).adaptMessages(sendMessageList));
                 chatContent.setModel(model);
                 chatContent.setTemperature(0.2);
                 ChatUtils.getProjectChatHistory(project).addAll(chatContent.getMessages());
