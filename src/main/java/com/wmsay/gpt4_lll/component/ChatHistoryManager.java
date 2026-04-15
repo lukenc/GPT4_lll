@@ -8,7 +8,7 @@ import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.ui.JBUI;
 import com.wmsay.gpt4_lll.JsonStorage;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.component.AgentChatView;

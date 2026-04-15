@@ -5,6 +5,7 @@ import com.intellij.util.ui.JBUI;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.HierarchyEvent;
 import java.awt.event.MouseWheelListener;
 
 /**
@@ -26,6 +27,16 @@ public class CodeBlock implements ContentBlock {
 
     public CodeBlock(String language) {
         wrapper = new JPanel(new BorderLayout()) {
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension d = super.getPreferredSize();
+                Container p = getParent();
+                if (p != null && p.getWidth() > 0) {
+                    d.width = Math.min(d.width, p.getWidth());
+                }
+                return d;
+            }
+
             @Override
             public Dimension getMaximumSize() {
                 // 宽度跟随父容器，高度自适应内容，确保内部 JScrollPane 能正确约束水平滚动
@@ -67,6 +78,11 @@ public class CodeBlock implements ContentBlock {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        // 禁用 macOS 平滑滚动动画，减少 MacScrollBarAnimationBehavior 协程
+        scrollPane.putClientProperty("JScrollPane.smoothScrolling", Boolean.FALSE);
+        // 禁用焦点遍历，避免 macOS 焦点系统在窗口切换时激活此组件
+        scrollPane.setFocusable(false);
+        codeArea.setFocusable(false);
 
         // 保存原始监听器，用于处理水平滚动
         MouseWheelListener[] originalListeners = scrollPane.getMouseWheelListeners();
@@ -93,6 +109,15 @@ public class CodeBlock implements ContentBlock {
 
         updateTimer = new Timer(COALESCE_DELAY_MS, e -> flushPendingContent());
         updateTimer.setRepeats(false);
+
+        // 窗口切走时暂停渲染 timer，切回时 flush 积压内容，避免 EDT 队列积压导致假死
+        wrapper.addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                if (wrapper.isShowing() && pendingUpdate) {
+                    flushPendingContent();
+                }
+            }
+        });
     }
 
     @Override
@@ -114,9 +139,16 @@ public class CodeBlock implements ContentBlock {
     public void appendContent(String delta) {
         contentBuilder.append(delta);
         pendingUpdate = true;
-        if (!updateTimer.isRunning()) {
-            updateTimer.restart();
+        // 不可见时跳过 timer 调度，内容留在 contentBuilder 中
+        if (!wrapper.isShowing()) {
+            return;
         }
+        // Timer 方法必须在 EDT 上调用；防御性包裹以匹配 MarkdownBlock 的模式
+        SwingUtilities.invokeLater(() -> {
+            if (!updateTimer.isRunning()) {
+                updateTimer.restart();
+            }
+        });
     }
 
     private void flushPendingContent() {
@@ -144,5 +176,14 @@ public class CodeBlock implements ContentBlock {
 
     public void setOnContentChanged(Runnable callback) {
         this.onContentChanged = callback;
+    }
+
+    /**
+     * Stops the updateTimer and releases resources.
+     * Must be called when this block is removed from the UI to prevent timer leaks.
+     */
+    public void dispose() {
+        updateTimer.stop();
+        pendingUpdate = false;
     }
 }

@@ -9,19 +9,20 @@ import com.vladsch.flexmark.util.misc.Extension;
 import java.util.List;
 
 import javax.swing.*;
-import javax.swing.text.Document;
 import java.awt.*;
-import java.io.StringReader;
+import java.awt.event.HierarchyEvent;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Markdown 内容块。
- * 内部使用 JEditorPane + flexmark 渲染，支持流式追加，
- * 渲染逻辑从原 Gpt4lllTextArea 迁移而来。
+ * 内部使用 SafeHtmlPane + flexmark 渲染，支持流式追加。
+ * <p>
+ * 使用 SafeHtmlPane 替代原始 JEditorPane + HTMLEditorKit，
+ * 避免 macOS 上 CoreText 原生字体渲染导致的窗口冻结。
  */
 public class MarkdownBlock implements ContentBlock {
 
-    private final JEditorPane htmlPane;
+    private final SafeHtmlPane htmlPane;
     private final Parser parser;
     private final HtmlRenderer renderer;
     private final StringBuilder contentBuilder = new StringBuilder();
@@ -31,7 +32,6 @@ public class MarkdownBlock implements ContentBlock {
     private static final int COALESCE_DELAY_MS = 80;
 
     private String lastRenderedHtml = "";
-
     private Runnable onContentChanged;
 
     public MarkdownBlock() {
@@ -41,27 +41,20 @@ public class MarkdownBlock implements ContentBlock {
         parser = Parser.builder(options).build();
         renderer = HtmlRenderer.builder(options).build();
 
-        htmlPane = new JEditorPane() {
-            @Override
-            public Dimension getPreferredSize() {
-                Container p = getParent();
-                if (p != null && p.getWidth() > 0) {
-                    setSize(p.getWidth(), Short.MAX_VALUE);
-                    Dimension d = super.getPreferredSize();
-                    return new Dimension(p.getWidth(), d.height);
-                }
-                return super.getPreferredSize();
-            }
-        };
-        htmlPane.setContentType("text/html");
-        htmlPane.setEditable(false);
-        htmlPane.setDoubleBuffered(true);
-        htmlPane.setOpaque(false);
-        htmlPane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
-        htmlPane.setText(wrapHtml(""));
+        htmlPane = new SafeHtmlPane();
+        htmlPane.setHtmlContent(wrapHtml(""));
 
         updateTimer = new Timer(COALESCE_DELAY_MS, e -> flushPendingContent());
         updateTimer.setRepeats(false);
+
+        // 窗口切走时暂停渲染 timer，切回时 flush 积压内容
+        htmlPane.addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                if (htmlPane.isShowing() && !pendingContent.isEmpty()) {
+                    flushPendingContent();
+                }
+            }
+        });
     }
 
     @Override
@@ -82,6 +75,9 @@ public class MarkdownBlock implements ContentBlock {
     @Override
     public void appendContent(String delta) {
         pendingContent.add(delta);
+        if (!htmlPane.isShowing()) {
+            return;
+        }
         SwingUtilities.invokeLater(() -> {
             if (!updateTimer.isRunning()) {
                 updateTimer.restart();
@@ -98,6 +94,7 @@ public class MarkdownBlock implements ContentBlock {
         contentBuilder.setLength(0);
         contentBuilder.append(fullText);
         lastRenderedHtml = "";
+        htmlPane.invalidateContentCache();
         updateText();
     }
 
@@ -136,19 +133,7 @@ public class MarkdownBlock implements ContentBlock {
             return;
         }
         lastRenderedHtml = html;
-
-        String fullHtml = wrapHtml(html);
-
-        try {
-            Document doc = htmlPane.getDocument();
-            doc.putProperty(Document.StreamDescriptionProperty, null);
-            htmlPane.getEditorKit().read(new StringReader(fullHtml), doc, 0);
-        } catch (Exception e) {
-            htmlPane.setText(fullHtml);
-        }
-
-        htmlPane.revalidate();
-        htmlPane.repaint();
+        htmlPane.setHtmlContent(wrapHtml(html));
     }
 
     private static String wrapHtml(String bodyContent) {
@@ -166,10 +151,15 @@ public class MarkdownBlock implements ContentBlock {
         String borderHex = toHex(border);
 
         return "<html><head><style>"
-                + "body { width: 100%; margin: 2px 0; color: " + fgHex + "; }"
+                + "body { width: 100%; margin: 2px 0; padding: 0 4px; color: " + fgHex + "; }"
                 + "table { width: 100%; margin: 6px 0; }"
                 + "th, td { border: 1px solid " + borderHex + "; padding: 4px 8px; text-align: left; }"
                 + "th { background-color: " + thBgHex + "; font-weight: bold; }"
+                + "ul, ol { padding-left: 24px; margin: 4px 0; }"
+                + "li { margin: 2px 0; }"
+                + "blockquote { margin: 6px 0 6px 12px; padding-left: 10px; border-left: 3px solid #ccc; }"
+                + "p { margin: 4px 0; }"
+                + "pre { margin: 6px 0; overflow-x: auto; }"
                 + "</style></head>"
                 + "<body>" + bodyContent + "</body></html>";
     }

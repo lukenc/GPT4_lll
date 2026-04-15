@@ -1,5 +1,6 @@
 package com.wmsay.gpt4_lll.component;
 
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.ui.JBUI;
 import com.wmsay.gpt4_lll.CommentAction;
@@ -30,7 +31,7 @@ import java.util.regex.Pattern;
  * appendContent / appendMessage / appendThinkingTitle / appendThinkingEnd /
  * clearShowWindow / setScrollPane / setText / getText
  */
-public class AgentChatView extends JPanel implements Scrollable {
+public class AgentChatView extends JPanel implements Scrollable, Disposable {
 
     private final JPanel turnContainer;
     private JScrollPane scrollPane;
@@ -43,6 +44,8 @@ public class AgentChatView extends JPanel implements Scrollable {
 
     /** 当前活跃的计划进度面板 */
     private PlanProgressPanel activePlanPanel;
+    /** 当前活跃的子 Agent 执行面板 */
+    private SubAgentExecutionPanel activeSubAgentPanel;
     /** 粘性进度横条（PlanProgressPanel 滚出可视区时显示） */
     private StickyProgressBar stickyProgressBar;
     /** AgentRuntimeBridge 引用，用于注册/移除计划进度监听器 */
@@ -86,9 +89,11 @@ public class AgentChatView extends JPanel implements Scrollable {
 
         turnContainer = new JPanel();
         turnContainer.setLayout(new BoxLayout(turnContainer, BoxLayout.Y_AXIS));
+        turnContainer.setOpaque(false);
         turnContainer.setBorder(JBUI.Borders.empty(0, 0, 40, 0));
 
         JPanel topAligned = new JPanel(new BorderLayout());
+        topAligned.setOpaque(false);
         topAligned.add(turnContainer, BorderLayout.NORTH);
 
         add(topAligned, BorderLayout.CENTER);
@@ -115,7 +120,10 @@ public class AgentChatView extends JPanel implements Scrollable {
 
     @Override
     public Dimension getPreferredScrollableViewportSize() {
-        return getPreferredSize();
+        // 返回一个合理的 viewport 大小，而不是内容的完整高度。
+        // 这样 JScrollPane 的 preferred size 不会随内容增长而无限膨胀，
+        // 避免 GridBagLayout 给 scrollPane 分配过多空间挤压输入框。
+        return new Dimension(getPreferredSize().width, 200);
     }
 
     @Override
@@ -221,6 +229,30 @@ public class AgentChatView extends JPanel implements Scrollable {
             // 手动初始化 StickyProgressBar 状态：因为 onPlanGenerated 事件在注册监听器之前已经触发，
             // stickyBar 错过了该事件，需要手动通知它有活跃计划
             stickyProgressBar.onPlanGenerated(steps);
+        }
+        scrollToBottomIfNeeded();
+        return panel;
+    }
+
+    // ==================== SubAgentExecutionPanel 集成 ====================
+
+    /**
+     * 在当前 assistant TurnPanel 中创建 SubAgentExecutionPanel 并注册为监听器。
+     * 参考 addPlanProgressBlock() 模式，通过 Bridge 注册 push 监听器。
+     *
+     * @param skillName Skill 名称
+     * @param generated 是否为动态生成的 Skill
+     * @return 创建的 SubAgentExecutionPanel 实例
+     */
+    public SubAgentExecutionPanel addSubAgentExecutionBlock(String skillName, boolean generated) {
+        ensureActiveTurn("assistant");
+        SubAgentExecutionPanel panel = new SubAgentExecutionPanel(skillName, generated);
+        panel.setOnContentChanged(() -> scrollToBottomIfNeeded());
+        activeTurn.addBlock(panel);
+        activeSubAgentPanel = panel;
+        // 通过 Bridge 注册监听器（SubAgentExecutionPanel 实现了 SubAgentProgressListener）
+        if (bridge != null) {
+            bridge.addSubAgentProgressListener(panel);
         }
         scrollToBottomIfNeeded();
         return panel;
@@ -1163,5 +1195,23 @@ public class AgentChatView extends JPanel implements Scrollable {
             activeTurn.flushContent();
         }
         scrollToBottomIfNeeded();
+    }
+
+    @Override
+    public void dispose() {
+        // 停止滚动防抖 timer
+        if (scrollCoalesceTimer != null) {
+            scrollCoalesceTimer.stop();
+        }
+        // 清空离屏缓冲
+        offscreenBuffer.clear();
+        // dispose 所有 TurnPanel
+        for (TurnPanel turn : turns) {
+            turn.dispose();
+        }
+        turns.clear();
+        activeTurn = null;
+        activeStepBlock = null;
+        activePlanPanel = null;
     }
 }

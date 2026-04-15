@@ -40,7 +40,27 @@ public class ToolCallBlock implements ContentBlock {
         this.toolName = toolName;
         this.params = params;
 
-        wrapper = new JPanel(new BorderLayout());
+        wrapper = new JPanel(new BorderLayout()) {
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension d = super.getPreferredSize();
+                Container p = getParent();
+                if (p != null && p.getWidth() > 0) {
+                    d.width = Math.min(d.width, p.getWidth());
+                }
+                return d;
+            }
+
+            @Override
+            public Dimension getMaximumSize() {
+                Dimension pref = getPreferredSize();
+                Container p = getParent();
+                if (p != null && p.getWidth() > 0) {
+                    return new Dimension(p.getWidth(), pref.height);
+                }
+                return new Dimension(Integer.MAX_VALUE, pref.height);
+            }
+        };
         wrapper.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 3, 0, 0, ACCENT_COLOR),
                 JBUI.Borders.empty(8, 10)

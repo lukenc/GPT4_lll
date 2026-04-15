@@ -1,4 +1,4 @@
-package com.wmsay.gpt4_lll.fc.execution;
+package com.wmsay.gpt4_lll.component;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;

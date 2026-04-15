@@ -7,5 +7,9 @@ public enum BlockType {
     THINKING,
     TOOL_CALL,
     TOOL_USE,
-    TOOL_RESULT
+    TOOL_RESULT,
+    FILE_CHANGES,
+    PLAN_PROGRESS,
+    STEP,
+    SUB_AGENT_EXECUTION
 }

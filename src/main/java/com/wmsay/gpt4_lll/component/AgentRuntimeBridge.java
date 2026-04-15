@@ -3,10 +3,13 @@ package com.wmsay.gpt4_lll.component;
 import com.intellij.openapi.project.Project;
 import com.wmsay.gpt4_lll.fc.events.PlanProgressListener;
 import com.wmsay.gpt4_lll.fc.events.ProgressCallback;
+import com.wmsay.gpt4_lll.fc.events.SubAgentProgressListener;
 import com.wmsay.gpt4_lll.fc.llm.LlmCaller;
 import com.wmsay.gpt4_lll.fc.llm.StreamingLlmCaller;
 import com.wmsay.gpt4_lll.fc.planning.PlanProgressProvider;
 import com.wmsay.gpt4_lll.fc.state.PlanProgressSnapshot;
+import com.wmsay.gpt4_lll.fc.state.SubAgentProgressProvider;
+import com.wmsay.gpt4_lll.fc.state.SubAgentProgressSnapshot;
 import com.wmsay.gpt4_lll.fc.runtime.AgentFileChangeHook;
 import com.wmsay.gpt4_lll.fc.runtime.AgentRuntime;
 import com.wmsay.gpt4_lll.fc.runtime.KnowledgeBase;
@@ -65,6 +68,7 @@ public class AgentRuntimeBridge {
     private StreamingLlmCaller streamingLlmCaller;
     private volatile Thread currentRequestThread;
     private PlanProgressProvider planProgressProvider;
+    private SubAgentProgressProvider subAgentProgressProvider;
     private AgentChatView chatView;
 
     public AgentRuntimeBridge(Project project) {
@@ -208,6 +212,55 @@ public class AgentRuntimeBridge {
         this.planProgressProvider = provider;
     }
 
+    // ── 子 Agent 进度转发（UI 层通过这些 public 方法获取子 Agent 进度） ──
+
+    /**
+     * 获取当前子 Agent 进度快照（pull 模式）。
+     * 委托 SubAgentProgressProvider 返回 SubAgentProgressSnapshot DTO。
+     * Provider 为 null 时返回空快照。
+     *
+     * @return 当前子 Agent 进度快照，永不为 null
+     */
+    public SubAgentProgressSnapshot getSubAgentProgress() {
+        SubAgentProgressProvider provider = this.subAgentProgressProvider;
+        return provider != null ? provider.getSnapshot() : SubAgentProgressSnapshot.empty();
+    }
+
+    /**
+     * 注册子 Agent 进度监听器（push 模式）。
+     * UI 层通过此方法注册监听器，不直接接触 SubAgentProgressProvider。
+     *
+     * @param listener 要注册的监听器
+     */
+    public void addSubAgentProgressListener(SubAgentProgressListener listener) {
+        SubAgentProgressProvider provider = this.subAgentProgressProvider;
+        if (provider != null) {
+            provider.addListener(listener);
+        }
+    }
+
+    /**
+     * 移除子 Agent 进度监听器。
+     *
+     * @param listener 要移除的监听器
+     */
+    public void removeSubAgentProgressListener(SubAgentProgressListener listener) {
+        SubAgentProgressProvider provider = this.subAgentProgressProvider;
+        if (provider != null) {
+            provider.removeListener(listener);
+        }
+    }
+
+    /**
+     * 设置 SubAgentProgressProvider（package-private）。
+     * 由 sendMessage 内部调用，不暴露给 UI 层。
+     *
+     * @param provider 子 Agent 进度提供者
+     */
+    void setSubAgentProgressProvider(SubAgentProgressProvider provider) {
+        this.subAgentProgressProvider = provider;
+    }
+
     /**
      * 注入 AgentChatView 引用，供 wrapCallback 在 onPlanGenerated 时创建 PlanProgressPanel。
      *
@@ -220,7 +273,7 @@ public class AgentRuntimeBridge {
     /**
      * 重置会话（新建对话时调用）。
      * 通过 AgentRuntime.destroySession() 销毁旧会话，将 currentSession 置为 null。
-     * 同时清空 PlanProgressProvider 并通知监听器计划已清空。
+     * 同时清空 PlanProgressProvider 和 SubAgentProgressProvider 并通知监听器。
      */
     public void resetSession() {
         // 清空 PlanProgressProvider
@@ -228,6 +281,9 @@ public class AgentRuntimeBridge {
             planProgressProvider.clear();
             planProgressProvider = null;
         }
+
+        // 清空 SubAgentProgressProvider
+        subAgentProgressProvider = null;
 
         if (currentSession != null && runtime != null) {
             runtime.destroySession(currentSession.getSessionId());
@@ -335,10 +391,45 @@ public class AgentRuntimeBridge {
 
     /**
      * 包装 ProgressCallback，将执行进度映射为 AgentPhase 变化。
+     * 同时注册子 Agent 进度监听器，将 fc 层的 Sub_Agent 进度回调转发到 UI 层。
      */
     ProgressCallback wrapCallback(
             Project project,
             ProgressCallback original) {
+
+        // 注册子 Agent 进度监听器，将 fc 层事件转发到 UI 层（需求 11.7, 1.3）
+        // 参考 onPlanGenerated 的转发模式：在 wrapCallback 中桥接 fc 层回调到 AgentPhase 更新
+        SubAgentProgressProvider saProvider = this.subAgentProgressProvider;
+        if (saProvider != null) {
+            saProvider.addListener(new SubAgentProgressListener() {
+                @Override
+                public void onSubAgentStarting(String skillName, boolean generated) {
+                    RuntimeStatusManager.setAgentPhase(project,
+                            AgentStatusContext.of(AgentPhase.RUNNING,
+                                    "子 Agent 执行中: " + skillName));
+                    // 通知 chatView 创建 SubAgentExecutionPanel
+                    if (chatView != null) {
+                        SwingUtilities.invokeLater(() -> chatView.addSubAgentExecutionBlock(skillName, generated));
+                    }
+                }
+
+                @Override
+                public void onSubAgentTextDelta(String delta) {
+                    // 子 Agent 流式输出 — 保持 RUNNING 状态
+                    RuntimeStatusManager.setAgentPhase(project,
+                            AgentStatusContext.of(AgentPhase.RUNNING, "子 Agent 输出中"));
+                }
+
+                @Override
+                public void onSubAgentCompleted(String skillName, boolean success, long durationMs) {
+                    String status = success ? "完成" : "失败";
+                    RuntimeStatusManager.setAgentPhase(project,
+                            AgentStatusContext.of(AgentPhase.RUNNING,
+                                    "子 Agent " + status + ": " + skillName));
+                }
+            });
+        }
+
         return new ProgressCallback() {
             @Override
             public void onLlmCallStarting(int round) {
@@ -414,6 +505,16 @@ public class AgentRuntimeBridge {
             @Override
             public void onStrategyPhase(String phase, String description) {
                 if (original != null) original.onStrategyPhase(phase, description);
+            }
+
+            @Override
+            public void onPlanningContentDelta(String delta) {
+                if (original != null) original.onPlanningContentDelta(delta);
+            }
+
+            @Override
+            public void onPlanningReasoningDelta(String delta) {
+                if (original != null) original.onPlanningReasoningDelta(delta);
             }
 
             @Override
@@ -520,6 +621,16 @@ public class AgentRuntimeBridge {
 
         if (orchestrator != null) {
             orchestrator.addExecutionHook(hook);
+        }
+
+        // 3a. 获取或创建 SubAgentProgressProvider 并设置到 Bridge 和 Runtime
+        if (runtime != null) {
+            SubAgentProgressProvider saProvider = runtime.getSubAgentProgressProvider();
+            if (saProvider == null) {
+                saProvider = new SubAgentProgressProvider();
+                runtime.setSubAgentProgressProvider(saProvider);
+            }
+            setSubAgentProgressProvider(saProvider);
         }
 
         // 4. Wrap callback to map progress events to AgentPhase changes

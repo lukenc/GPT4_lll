@@ -8,8 +8,9 @@ import com.intellij.openapi.wm.ToolWindowManager;
 import com.wmsay.gpt4_lll.GenerateAction;
 import com.wmsay.gpt4_lll.JsonStorage;
 import com.wmsay.gpt4_lll.MyPluginSettings;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.component.AgentChatView;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllTextAreaKey;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
@@ -127,7 +128,7 @@ public class VCSAuthorSelectionDialog extends DialogWrapper {
         String modelName = ChatUtils.getModelName(project);
         MyPluginSettings settings = MyPluginSettings.getInstance();
         ChatContent chatContent = new ChatContent();
-        chatContent.setMessages(new ArrayList<>(List.of(systemMessage, message)), providerName);
+        chatContent.setMessages(ProviderAdapterRegistry.getAdapter(providerName).adaptMessages(new ArrayList<>(List.of(systemMessage, message))));
         chatContent.setModel(modelName);
         chatContent.setTemperature(0.1);
         try {

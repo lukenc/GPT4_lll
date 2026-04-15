@@ -4,28 +4,32 @@ import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 import com.wmsay.gpt4_lll.CommentAction;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.component.block.SafeHtmlPane;
+import com.wmsay.gpt4_lll.fc.core.Message;
 
 import javax.swing.*;
 import javax.swing.Timer;
-import javax.swing.text.Document;
 import java.awt.Point;
-import java.io.StringReader;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class Gpt4lllTextArea extends JEditorPane {
+/**
+ * 旧版文本区域（保留向后兼容）。
+ * <p>
+ * 使用 SafeHtmlPane 替代原始 JEditorPane + HTMLEditorKit，
+ * 避免 macOS 上 CoreText 原生字体渲染导致的窗口冻结。
+ */
+public class Gpt4lllTextArea extends SafeHtmlPane {
     private Parser parser;
     private HtmlRenderer renderer;
     private StringBuilder contentBuilder;
 
-    MutableDataSet OPTIONS ;
+    MutableDataSet OPTIONS;
 
     private final ConcurrentLinkedQueue<String> pendingContent = new ConcurrentLinkedQueue<>();
     private Timer updateTimer;
     private static final int COALESCE_DELAY_MS = 80;
 
     private JScrollPane scrollPane;
-    /** 上一次渲染后的 HTML，用于跳过无变化的更新 */
     private String lastRenderedHtml = "";
 
     public void setScrollPane(JScrollPane scrollPane) {
@@ -33,10 +37,7 @@ public class Gpt4lllTextArea extends JEditorPane {
     }
 
     public Gpt4lllTextArea() {
-        setContentType("text/html");
-        setEditable(false);
-        // 启用双缓冲，防止重绘时闪烁
-        setDoubleBuffered(true);
+        // SafeHtmlPane 构造函数已设置 text/html、不可编辑、双缓冲等
         contentBuilder = new StringBuilder();
         OPTIONS = new MutableDataSet();
         parser = Parser.builder(OPTIONS).build();
@@ -77,49 +78,20 @@ public class Gpt4lllTextArea extends JEditorPane {
         pendingContent.clear();
         contentBuilder.setLength(0);
         lastRenderedHtml = "";
-        setText("""
-                <html>
-                   <head>
-                </head>
-                <body style='width: 100%;'>
-                </body>
-                </html>
-                """);
+        setHtmlContent("<html><head></head><body style='width: 100%;'></body></html>");
     }
 
     private void updateText() {
         String html = renderer.render(parser.parse(contentBuilder.toString()));
-        // 跳过内容未变化的更新，避免无意义的重绘
         if (html.equals(lastRenderedHtml)) {
             return;
         }
         lastRenderedHtml = html;
 
-        String fullHtml = """
-                <html>
-                   <head>
-                """
-                +
-                """
-                 </head>
-                
-                 <body style='width: 100%;'>
-             """
-                +
-                html
-                +
-                "</body></html>";
+        String fullHtml = "<html><head></head><body style='width: 100%;'>"
+                + html + "</body></html>";
 
-        // 用 Document 级别替换代替 setText()，避免组件先清空再重绘导致的闪烁
-        try {
-            Document doc = getDocument();
-            doc.putProperty(Document.StreamDescriptionProperty, null);
-            // 创建新的空 Document 并读入内容，然后一次性替换
-            getEditorKit().read(new StringReader(fullHtml), doc, 0);
-        } catch (Exception e) {
-            // 降级回 setText，保证功能不受影响
-            setText(fullHtml);
-        }
+        setHtmlContent(fullHtml);
     }
 
     private void scrollToBottom() {
@@ -191,5 +163,4 @@ public class Gpt4lllTextArea extends JEditorPane {
             }
         }
     }
-
 }

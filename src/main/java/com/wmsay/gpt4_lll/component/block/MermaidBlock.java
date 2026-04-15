@@ -5,6 +5,7 @@ import com.intellij.util.ui.JBUI;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.HierarchyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelListener;
@@ -47,6 +48,16 @@ public class MermaidBlock implements ContentBlock {
 
     public MermaidBlock() {
         wrapper = new JPanel(new BorderLayout()) {
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension d = super.getPreferredSize();
+                Container p = getParent();
+                if (p != null && p.getWidth() > 0) {
+                    d.width = Math.min(d.width, p.getWidth());
+                }
+                return d;
+            }
+
             @Override
             public Dimension getMaximumSize() {
                 Container p = getParent();
@@ -96,6 +107,11 @@ public class MermaidBlock implements ContentBlock {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        // 禁用 macOS 平滑滚动动画，减少 MacScrollBarAnimationBehavior 协程
+        scrollPane.putClientProperty("JScrollPane.smoothScrolling", Boolean.FALSE);
+        // 禁用焦点遍历，避免 macOS 焦点系统在窗口切换时激活此组件
+        scrollPane.setFocusable(false);
+        codeArea.setFocusable(false);
 
         // 滚动事件转发（与 CodeBlock 一致）
         MouseWheelListener[] originalListeners = scrollPane.getMouseWheelListeners();
@@ -161,6 +177,15 @@ public class MermaidBlock implements ContentBlock {
 
         updateTimer = new Timer(COALESCE_DELAY_MS, e -> flushPendingContent());
         updateTimer.setRepeats(false);
+
+        // 窗口切走时暂停渲染 timer，切回时 flush 积压内容，避免 EDT 队列积压导致假死
+        wrapper.addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                if (wrapper.isShowing() && pendingUpdate) {
+                    flushPendingContent();
+                }
+            }
+        });
     }
 
     private JButton createToolbarButton(String text) {
@@ -188,6 +213,10 @@ public class MermaidBlock implements ContentBlock {
         if (delta == null) return;
         contentBuilder.append(delta);
         pendingUpdate = true;
+        // 不可见时跳过 timer 调度，内容留在 contentBuilder 中
+        if (!wrapper.isShowing()) {
+            return;
+        }
         if (!updateTimer.isRunning()) {
             updateTimer.restart();
         }
