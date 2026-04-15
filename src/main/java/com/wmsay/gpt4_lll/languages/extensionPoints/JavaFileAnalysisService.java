@@ -10,7 +10,7 @@ import com.intellij.psi.*;
 import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.wmsay.gpt4_lll.languages.FileAnalysisService;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import org.apache.commons.collections.CollectionUtils;
 
 import java.util.*;

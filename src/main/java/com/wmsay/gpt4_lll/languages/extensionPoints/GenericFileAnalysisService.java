@@ -8,7 +8,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiRecursiveElementVisitor;
 import com.wmsay.gpt4_lll.languages.FileAnalysisService;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;

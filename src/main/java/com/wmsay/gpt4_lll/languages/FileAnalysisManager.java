@@ -9,25 +9,28 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.wmsay.gpt4_lll.languages.extensionPoints.GenericFileAnalysisService;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 @Service
-public final class FileAnalysisManager {
+public final class FileAnalysisManager implements com.intellij.openapi.Disposable {
     private final List<FileAnalysisService> services;
-    private static final Object lock = new Object();
-    private static volatile List<FileAnalysisService> cachedServices = null;
 
 
     /**
      * FileAnalysisManager的构造方法。初始化服务列表。
      */
     public FileAnalysisManager() {
-        // 获取或创建服务列表并赋值给services成员变量
-        this.services = getOrCreateServices();
+        // 直接创建服务列表（不再使用 static 缓存，避免插件动态卸载时类加载器泄漏）
+        this.services = createServices();
+    }
+
+    @Override
+    public void dispose() {
+        services.clear();
     }
 
 
@@ -69,17 +72,6 @@ public final class FileAnalysisManager {
                 .filter(service -> service.canHandle(file))
                 .max(Comparator.comparingInt(FileAnalysisService::getPriority))
                 .orElse(null);
-    }
-
-    private static List<FileAnalysisService> getOrCreateServices() {
-        if (cachedServices == null) {
-            synchronized (lock) {
-                if (cachedServices == null) {
-                    cachedServices = createServices();
-                }
-            }
-        }
-        return cachedServices;
     }
 
     private static List<FileAnalysisService> createServices() {
