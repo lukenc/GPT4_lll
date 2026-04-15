@@ -1,7 +1,7 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
@@ -32,13 +32,13 @@ class FileReadToolTest {
         FileReadTool tool = new FileReadTool();
         Map<String, Object> params = new HashMap<>();
         params.put("path", "sample.txt");
-        params.put("startLine", 2);
-        params.put("endLine", 10);
-        params.put("maxLines", 2);
+        params.put("start_line", 2);
+        params.put("end_line", 10);
+        params.put("max_lines", 2);
 
-        McpToolResult result = tool.execute(new McpContext(null, null, root), params);
+        ToolResult result = tool.execute(ToolContext.builder().workspaceRoot(root).build(), params);
 
-        assertEquals(McpToolResult.ResultType.STRUCTURED, result.getType());
+        assertEquals(ToolResult.ResultType.STRUCTURED, result.getType());
         Map<String, Object> data = result.getStructuredData();
         assertEquals(4, data.get("totalLines"));
         assertEquals(2, data.get("startLine"));
@@ -63,12 +63,12 @@ class FileReadToolTest {
         FileReadTool tool = new FileReadTool();
         Map<String, Object> params = Map.of(
                 "path", "empty.txt",
-                "startLine", -100,
-                "maxLines", 0
+                "start_line", -100,
+                "max_lines", 0
         );
 
-        McpToolResult result = tool.execute(new McpContext(null, null, root), params);
-        assertEquals(McpToolResult.ResultType.TEXT, result.getType());
+        ToolResult result = tool.execute(ToolContext.builder().workspaceRoot(root).build(), params);
+        assertEquals(ToolResult.ResultType.TEXT, result.getType());
         assertEquals("", result.getTextContent());
     }
 
@@ -80,18 +80,18 @@ class FileReadToolTest {
         Path outsideFile = Files.createFile(tempDir.resolve("outside.txt"));
 
         FileReadTool tool = new FileReadTool();
-        McpContext context = new McpContext(null, null, root);
+        ToolContext context = ToolContext.builder().workspaceRoot(root).build();
 
-        McpToolResult missing = tool.execute(context, Map.of("path", "missing.txt"));
-        assertEquals(McpToolResult.ResultType.ERROR, missing.getType());
+        ToolResult missing = tool.execute(context, Map.of("path", "missing.txt"));
+        assertEquals(ToolResult.ResultType.ERROR, missing.getType());
         assertTrue(missing.getErrorMessage().contains("File not found"));
 
-        McpToolResult directory = tool.execute(context, Map.of("path", root.relativize(dir).toString()));
-        assertEquals(McpToolResult.ResultType.ERROR, directory.getType());
+        ToolResult directory = tool.execute(context, Map.of("path", root.relativize(dir).toString()));
+        assertEquals(ToolResult.ResultType.ERROR, directory.getType());
         assertTrue(directory.getErrorMessage().contains("Path is not a file"));
 
-        McpToolResult outOfWorkspace = tool.execute(context, Map.of("path", outsideFile.toString()));
-        assertEquals(McpToolResult.ResultType.ERROR, outOfWorkspace.getType());
+        ToolResult outOfWorkspace = tool.execute(context, Map.of("path", outsideFile.toString()));
+        assertEquals(ToolResult.ResultType.ERROR, outOfWorkspace.getType());
         assertTrue(outOfWorkspace.getErrorMessage().contains("Path out of workspace"));
         assertFalse(outOfWorkspace.getErrorMessage().isBlank());
     }

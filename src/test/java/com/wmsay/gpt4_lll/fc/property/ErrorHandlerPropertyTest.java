@@ -1,8 +1,14 @@
 package com.wmsay.gpt4_lll.fc.property;
 
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
+import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
+
+import com.wmsay.gpt4_lll.fc.core.ErrorMessage;
 import com.wmsay.gpt4_lll.fc.error.*;
-import com.wmsay.gpt4_lll.fc.model.ErrorMessage;
 import com.wmsay.gpt4_lll.fc.model.ValidationError;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
 import com.wmsay.gpt4_lll.mcp.*;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -29,7 +35,11 @@ class ErrorHandlerPropertyTest {
 
     @BeforeProperty
     void setup() {
-        handler = new ErrorHandler();
+        // Use a supplier that reads from McpToolRegistry so registered tools are visible
+        handler = new ErrorHandler(
+                () -> McpToolRegistry.getAllTools().stream()
+                        .map(Tool::name)
+                        .collect(java.util.stream.Collectors.toList()));
         // Clean up any previously registered test tools
         registeredToolNames.clear();
     }
@@ -55,8 +65,8 @@ class ErrorHandlerPropertyTest {
         // Register available tools
         for (String toolName : testCase.availableTools) {
             String fullName = TOOL_PREFIX + toolName;
-            McpTool tool = new StubMcpTool(fullName, "test tool", Collections.emptyMap());
-            McpToolRegistry.register(tool);
+            Tool tool = new StubMcpTool(fullName, "test tool", Collections.emptyMap());
+            McpToolRegistry.registerTool(tool);
             registeredToolNames.add(fullName);
         }
 
@@ -212,6 +222,147 @@ class ErrorHandlerPropertyTest {
     }
 
     // ---------------------------------------------------------------
+    // Property 9: Error classification and structured messages
+    // Validates: Requirements 3.10, 14.1
+    // ---------------------------------------------------------------
+
+    /**
+     * Property 9: Error classification and structured messages
+     * **Validates: Requirements 3.10, 14.1**
+     *
+     * For any ToolNotFoundException, ValidationException, TimeoutException,
+     * or ConcurrentExecutionException, ErrorHandler should produce an ErrorMessage
+     * with the correct type field, and non-null message and suggestion fields.
+     */
+    @Property(tries = 80)
+    @Tag("Feature: agent-framework-extraction, Property 9: Error classification and structured messages")
+    void errorHandlerShouldClassifyFourExceptionTypesCorrectly(
+            @ForAll("fourExceptionTypes") ClassifiedExceptionCase testCase) {
+
+        ErrorMessage result = testCase.handler.apply(handler);
+
+        // Type should match expected classification
+        assert testCase.expectedType.equals(result.getType()) :
+                "Exception " + testCase.label + " should produce type '" + testCase.expectedType +
+                        "' but got '" + result.getType() + "'";
+
+        // Message should be non-null and non-empty
+        assert result.getMessage() != null && !result.getMessage().isEmpty() :
+                "ErrorMessage.message should be non-null and non-empty for " + testCase.label +
+                        " but got: " + result.getMessage();
+
+        // Suggestion should be non-null and non-empty
+        assert result.getSuggestion() != null && !result.getSuggestion().isEmpty() :
+                "ErrorMessage.suggestion should be non-null and non-empty for " + testCase.label +
+                        " but got: " + result.getSuggestion();
+
+        // Details should be non-null
+        assert result.getDetails() != null :
+                "ErrorMessage.details should be non-null for " + testCase.label;
+    }
+
+    /**
+     * Property 9 (supplement): Each of the four exception types should produce
+     * a distinct error type, confirming correct classification differentiation.
+     */
+    @Property(tries = 50)
+    @Tag("Feature: agent-framework-extraction, Property 9: Error classification and structured messages")
+    void fourExceptionTypesShouldProduceDistinctErrorTypes() {
+        // Create one of each exception type and verify they produce different types
+        ErrorHandler localHandler = new ErrorHandler(() -> List.of("read_file", "write_file"));
+
+        ErrorMessage toolNotFound = localHandler.handleToolNotFound(
+                new ToolNotFoundException("nonexistent_tool"));
+        ErrorMessage validation = localHandler.handleValidationError(
+                new ValidationException(List.of(ValidationError.missingRequired("path"))));
+        ErrorMessage timeout = localHandler.handleTimeout(
+                new TimeoutException("timed out"));
+        ErrorMessage concurrent = localHandler.handleConcurrentExecution(
+                new ConcurrentExecutionException("already running"));
+
+        Set<String> types = new HashSet<>(Arrays.asList(
+                toolNotFound.getType(), validation.getType(),
+                timeout.getType(), concurrent.getType()));
+
+        assert types.size() == 4 :
+                "Four exception types should produce 4 distinct error types but got " +
+                        types.size() + ": " + types;
+    }
+
+    // ---------------------------------------------------------------
+    // Property 10: Levenshtein distance tool suggestion
+    // Validates: Requirements 14.2
+    // ---------------------------------------------------------------
+
+    /**
+     * Property 10: Levenshtein distance tool suggestion
+     * **Validates: Requirements 14.2**
+     *
+     * For any tool name and available tools list, findMostSimilar() should
+     * return the tool name with the minimum Levenshtein distance.
+     */
+    @Property(tries = 100)
+    @Tag("Feature: agent-framework-extraction, Property 10: Levenshtein distance tool suggestion")
+    void findMostSimilarShouldReturnMinimumDistanceTool(
+            @ForAll("levenshteinCases") LevenshteinCase testCase) {
+
+        String result = handler.findMostSimilar(testCase.target, testCase.candidates);
+
+        if (testCase.candidates == null || testCase.candidates.isEmpty()) {
+            assert result == null :
+                    "findMostSimilar should return null for empty candidates but got: " + result;
+        } else {
+            // Result must be from the candidates list
+            assert testCase.candidates.contains(result) :
+                    "Suggestion '" + result + "' should be from candidates " + testCase.candidates;
+
+            // Result should have the minimum Levenshtein distance
+            int resultDistance = handler.levenshteinDistance(
+                    testCase.target.toLowerCase(), result.toLowerCase());
+            for (String candidate : testCase.candidates) {
+                int candidateDistance = handler.levenshteinDistance(
+                        testCase.target.toLowerCase(), candidate.toLowerCase());
+                assert resultDistance <= candidateDistance :
+                        "Suggestion '" + result + "' (distance=" + resultDistance +
+                                ") should have distance <= '" + candidate +
+                                "' (distance=" + candidateDistance + ") for target '" + testCase.target + "'";
+            }
+        }
+    }
+
+    /**
+     * Property 10 (supplement): When the exact tool name exists in the list,
+     * it should be returned as the suggestion (distance = 0).
+     */
+    @Property(tries = 50)
+    @Tag("Feature: agent-framework-extraction, Property 10: Levenshtein distance tool suggestion")
+    void exactMatchShouldBeReturnedAsSuggestion(
+            @ForAll("exactMatchCases") LevenshteinCase testCase) {
+
+        String result = handler.findMostSimilar(testCase.target, testCase.candidates);
+
+        assert testCase.target.equals(result) :
+                "When exact match exists, findMostSimilar should return '" + testCase.target +
+                        "' but got '" + result + "'";
+    }
+
+    /**
+     * Property 10 (supplement): For typos with 1-2 character differences,
+     * the correct tool should be suggested.
+     */
+    @Property(tries = 50)
+    @Tag("Feature: agent-framework-extraction, Property 10: Levenshtein distance tool suggestion")
+    void typosShouldSuggestCorrectTool(
+            @ForAll("typoCases") TypoCase testCase) {
+
+        String result = handler.findMostSimilar(testCase.typo, testCase.candidates);
+
+        assert testCase.expectedSuggestion.equals(result) :
+                "For typo '" + testCase.typo + "', should suggest '" + testCase.expectedSuggestion +
+                        "' but got '" + result + "'";
+    }
+
+    // ---------------------------------------------------------------
     // Property 22: Exception Classification
     // Validates: Requirements 6.2
     // ---------------------------------------------------------------
@@ -321,9 +472,156 @@ class ErrorHandlerPropertyTest {
         }
     }
 
+    static class ClassifiedExceptionCase {
+        final String label;
+        final String expectedType;
+        final java.util.function.Function<ErrorHandler, ErrorMessage> handler;
+
+        ClassifiedExceptionCase(String label, String expectedType,
+                                java.util.function.Function<ErrorHandler, ErrorMessage> handler) {
+            this.label = label;
+            this.expectedType = expectedType;
+            this.handler = handler;
+        }
+
+        @Override
+        public String toString() {
+            return "ClassifiedExc{label=" + label + ", expectedType=" + expectedType + "}";
+        }
+    }
+
+    static class LevenshteinCase {
+        final String target;
+        final List<String> candidates;
+
+        LevenshteinCase(String target, List<String> candidates) {
+            this.target = target;
+            this.candidates = candidates;
+        }
+
+        @Override
+        public String toString() {
+            return "Levenshtein{target=" + target + ", candidates=" + candidates + "}";
+        }
+    }
+
+    static class TypoCase {
+        final String typo;
+        final String expectedSuggestion;
+        final List<String> candidates;
+
+        TypoCase(String typo, String expectedSuggestion, List<String> candidates) {
+            this.typo = typo;
+            this.expectedSuggestion = expectedSuggestion;
+            this.candidates = candidates;
+        }
+
+        @Override
+        public String toString() {
+            return "Typo{typo=" + typo + ", expected=" + expectedSuggestion + "}";
+        }
+    }
+
     // ---------------------------------------------------------------
     // Providers (Arbitraries)
     // ---------------------------------------------------------------
+
+    @Provide
+    Arbitrary<ClassifiedExceptionCase> fourExceptionTypes() {
+        return Arbitraries.oneOf(
+                // ToolNotFoundException → "tool_not_found"
+                Arbitraries.of("unknown_tool", "bad_tool", "missing_func", "no_such_tool")
+                        .map(name -> new ClassifiedExceptionCase(
+                                "ToolNotFoundException(" + name + ")",
+                                "tool_not_found",
+                                h -> h.handleToolNotFound(new ToolNotFoundException(name)))),
+
+                // ValidationException → "validation_error"
+                Arbitraries.of("path", "query", "content", "mode")
+                        .map(field -> new ClassifiedExceptionCase(
+                                "ValidationException(field=" + field + ")",
+                                "validation_error",
+                                h -> h.handleValidationError(
+                                        new ValidationException(List.of(ValidationError.missingRequired(field)))))),
+
+                // TimeoutException → "timeout"
+                Arbitraries.of("operation timed out", "read timeout", "connect timeout")
+                        .map(msg -> new ClassifiedExceptionCase(
+                                "TimeoutException(" + msg + ")",
+                                "timeout",
+                                h -> h.handleTimeout(new TimeoutException(msg)))),
+
+                // ConcurrentExecutionException → "concurrent_execution"
+                Arbitraries.of("tool already running", "lock held", "concurrent conflict")
+                        .map(msg -> new ClassifiedExceptionCase(
+                                "ConcurrentExecutionException(" + msg + ")",
+                                "concurrent_execution",
+                                h -> h.handleConcurrentExecution(new ConcurrentExecutionException(msg))))
+        );
+    }
+
+    @Provide
+    Arbitrary<LevenshteinCase> levenshteinCases() {
+        Arbitrary<String> targets = Arbitraries.of(
+                "read_flie", "writ_file", "serch", "projct_tree",
+                "keyword_serch", "shel_exec", "grep_tol", "file_reed"
+        );
+
+        Arbitrary<List<String>> candidateLists = Arbitraries.of(
+                "read_file", "write_file", "search", "project_tree",
+                "keyword_search", "shell_exec", "grep_tool"
+        ).list().ofMinSize(1).ofMaxSize(5).uniqueElements();
+
+        // Also include empty list case
+        return Arbitraries.oneOf(
+                Combinators.combine(targets, candidateLists).as(LevenshteinCase::new),
+                targets.map(t -> new LevenshteinCase(t, Collections.emptyList()))
+        );
+    }
+
+    @Provide
+    Arbitrary<LevenshteinCase> exactMatchCases() {
+        // Target is always present in the candidates list
+        Arbitrary<String> tools = Arbitraries.of(
+                "read_file", "write_file", "search", "project_tree",
+                "keyword_search", "shell_exec", "grep_tool"
+        );
+
+        return tools.flatMap(tool -> {
+            // Build a candidates list that always contains the exact tool
+            Arbitrary<List<String>> otherTools = Arbitraries.of(
+                    "read_file", "write_file", "search", "project_tree",
+                    "keyword_search", "shell_exec", "grep_tool"
+            ).list().ofMinSize(0).ofMaxSize(4).uniqueElements();
+
+            return otherTools.map(others -> {
+                List<String> candidates = new ArrayList<>(others);
+                if (!candidates.contains(tool)) {
+                    candidates.add(tool);
+                }
+                Collections.shuffle(candidates);
+                return new LevenshteinCase(tool, candidates);
+            });
+        });
+    }
+
+    @Provide
+    Arbitrary<TypoCase> typoCases() {
+        // Predefined typo → correct mappings with 1-2 char differences
+        List<String> allTools = List.of("read_file", "write_file", "search",
+                "project_tree", "keyword_search", "shell_exec");
+
+        return Arbitraries.of(
+                new TypoCase("read_flie", "read_file", allTools),    // swap: i↔l
+                new TypoCase("writ_file", "write_file", allTools),   // missing: e
+                new TypoCase("serch", "search", allTools),           // missing: a
+                new TypoCase("shel_exec", "shell_exec", allTools),   // missing: l
+                new TypoCase("keyword_serch", "keyword_search", allTools), // missing: a
+                new TypoCase("project_tre", "project_tree", allTools),     // missing: e
+                new TypoCase("reed_file", "read_file", allTools),    // extra: e→ee
+                new TypoCase("write_fiel", "write_file", allTools)   // swap: l↔e
+        );
+    }
 
     @Provide
     Arbitrary<ToolNotFoundCase> toolNotFoundCases() {
@@ -464,7 +762,7 @@ class ErrorHandlerPropertyTest {
     // Stub McpTool for testing
     // ---------------------------------------------------------------
 
-    private static class StubMcpTool implements McpTool {
+    private static class StubMcpTool implements Tool {
         private final String name;
         private final String description;
         private final Map<String, Object> schema;
@@ -491,8 +789,8 @@ class ErrorHandlerPropertyTest {
         }
 
         @Override
-        public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("stub result");
+        public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("stub result");
         }
     }
 }

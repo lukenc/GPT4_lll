@@ -3,9 +3,11 @@ package com.wmsay.gpt4_lll.fc.property;
 import com.wmsay.gpt4_lll.fc.model.ToolCall;
 import com.wmsay.gpt4_lll.fc.model.ValidationError;
 import com.wmsay.gpt4_lll.fc.model.ValidationResult;
-import com.wmsay.gpt4_lll.fc.validation.CustomValidator;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
-import com.wmsay.gpt4_lll.mcp.*;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeProperty;
 
@@ -24,11 +26,13 @@ class ValidationEnginePropertyTest {
     private static final String TOOL_PREFIX = "__valtest_";
 
     private ValidationEngine engine;
+    private ToolRegistry toolRegistry;
     private final List<String> registeredToolNames = new ArrayList<>();
 
     @BeforeProperty
     void setup() {
-        engine = new ValidationEngine();
+        toolRegistry = new ToolRegistry();
+        engine = new ValidationEngine(toolRegistry);
         registeredToolNames.clear();
     }
 
@@ -58,8 +62,7 @@ class ValidationEnginePropertyTest {
         Map<String, Object> schema = new HashMap<>();
         schema.put(testCase.fieldName, fieldSchema);
 
-        McpTool tool = new StubMcpTool(toolName, "type test tool", schema);
-        McpToolRegistry.register(tool);
+        // Tool registration not needed for direct validateTypes() call
         registeredToolNames.add(toolName);
 
         // Build params with the mismatched value
@@ -294,13 +297,14 @@ class ValidationEnginePropertyTest {
             @ForAll("customValidatorCases") CustomValidatorCase testCase) {
 
         // Use a fresh engine per try so validators don't accumulate
-        ValidationEngine localEngine = new ValidationEngine();
+        ToolRegistry localRegistry = new ToolRegistry();
+        ValidationEngine localEngine = new ValidationEngine(localRegistry);
 
         String toolName = TOOL_PREFIX + "cv_" + UUID.randomUUID().toString().substring(0, 8);
 
         // Register a tool with an empty schema (no built-in validation errors)
-        McpTool tool = new StubMcpTool(toolName, "custom validator test", Collections.emptyMap());
-        McpToolRegistry.register(tool);
+        Tool tool = new StubTool(toolName, "custom validator test", Collections.emptyMap());
+        localRegistry.registerTool(tool);
         registeredToolNames.add(toolName);
 
         // Track invocation
@@ -648,15 +652,15 @@ class ValidationEnginePropertyTest {
     }
 
     // ---------------------------------------------------------------
-    // Stub McpTool for testing
+    // Stub Tool for testing
     // ---------------------------------------------------------------
 
-    private static class StubMcpTool implements McpTool {
+    private static class StubTool implements Tool {
         private final String name;
         private final String description;
         private final Map<String, Object> schema;
 
-        StubMcpTool(String name, String description, Map<String, Object> schema) {
+        StubTool(String name, String description, Map<String, Object> schema) {
             this.name = name;
             this.description = description;
             this.schema = schema;
@@ -678,8 +682,8 @@ class ValidationEnginePropertyTest {
         }
 
         @Override
-        public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("stub result");
+        public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("stub result");
         }
     }
 }

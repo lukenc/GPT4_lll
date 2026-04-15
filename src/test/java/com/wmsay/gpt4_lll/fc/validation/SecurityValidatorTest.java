@@ -1,6 +1,8 @@
 package com.wmsay.gpt4_lll.fc.validation;
 
 import com.wmsay.gpt4_lll.fc.model.ValidationResult;
+import com.wmsay.gpt4_lll.fc.tools.SecurityValidator;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

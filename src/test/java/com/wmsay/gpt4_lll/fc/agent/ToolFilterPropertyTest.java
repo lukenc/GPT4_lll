@@ -1,9 +1,12 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.runtime.IntentResult;
+import com.wmsay.gpt4_lll.fc.runtime.ToolFilter;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 
@@ -31,7 +34,7 @@ class ToolFilterPropertyTest {
     @Label("Feature: agent-runtime, Property 13: ToolFilter 始终包含 BaseTool")
     void filterResultAlwaysContainsBaseTools(
             @ForAll("nonEmptyFilteredToolNames") List<String> filteredToolNames,
-            @ForAll("toolListsWithBaseTools") List<McpTool> allTools) {
+            @ForAll("toolListsWithBaseTools") List<Tool> allTools) {
 
         ToolFilter filter = new ToolFilter(new ObservabilityManager());
         IntentResult intent = IntentResult.of(
@@ -40,9 +43,9 @@ class ToolFilterPropertyTest {
                 "react", "test",
                 filteredToolNames);
 
-        List<McpTool> result = filter.filter(intent, allTools);
-        Set<String> resultNames = result.stream().map(McpTool::name).collect(Collectors.toSet());
-        Set<String> allToolNames = allTools.stream().map(McpTool::name).collect(Collectors.toSet());
+        List<Tool> result = filter.filter(intent, allTools);
+        Set<String> resultNames = result.stream().map(Tool::name).collect(Collectors.toSet());
+        Set<String> allToolNames = allTools.stream().map(Tool::name).collect(Collectors.toSet());
 
         // Every BASE_TOOL that exists in allTools must appear in the result
         for (String baseTool : BASE_TOOLS) {
@@ -63,7 +66,7 @@ class ToolFilterPropertyTest {
     @Label("Feature: agent-runtime, Property 13: ToolFilter 非 BaseTool filteredToolNames 仍包含 BaseTool")
     void filterWithNonBaseFilteredNamesStillIncludesBaseTools(
             @ForAll("nonBaseToolNames") List<String> filteredToolNames,
-            @ForAll("toolListsWithBaseTools") List<McpTool> allTools) {
+            @ForAll("toolListsWithBaseTools") List<Tool> allTools) {
 
         Assume.that(!filteredToolNames.isEmpty());
 
@@ -74,9 +77,9 @@ class ToolFilterPropertyTest {
                 "plan_and_execute", "test",
                 filteredToolNames);
 
-        List<McpTool> result = filter.filter(intent, allTools);
-        Set<String> resultNames = result.stream().map(McpTool::name).collect(Collectors.toSet());
-        Set<String> allToolNames = allTools.stream().map(McpTool::name).collect(Collectors.toSet());
+        List<Tool> result = filter.filter(intent, allTools);
+        Set<String> resultNames = result.stream().map(Tool::name).collect(Collectors.toSet());
+        Set<String> allToolNames = allTools.stream().map(Tool::name).collect(Collectors.toSet());
 
         for (String baseTool : BASE_TOOLS) {
             if (allToolNames.contains(baseTool)) {
@@ -99,7 +102,7 @@ class ToolFilterPropertyTest {
     @Property(tries = 100)
     @Label("Feature: agent-runtime, Property 14: ToolFilter 空 filteredToolNames 回退为全量")
     void emptyFilteredToolNamesFallsBackToAllTools(
-            @ForAll("toolLists") List<McpTool> allTools) {
+            @ForAll("toolLists") List<Tool> allTools) {
 
         ToolFilter filter = new ToolFilter(new ObservabilityManager());
         IntentResult intent = IntentResult.of(
@@ -108,15 +111,15 @@ class ToolFilterPropertyTest {
                 "react", "test",
                 Collections.emptyList());
 
-        List<McpTool> result = filter.filter(intent, allTools);
+        List<Tool> result = filter.filter(intent, allTools);
 
         // Result should contain exactly the same tools as allTools
         assert result.size() == allTools.size() :
                 "Empty filteredToolNames should return all tools. "
                         + "Expected size=" + allTools.size() + " but got=" + result.size();
 
-        Set<String> resultNames = result.stream().map(McpTool::name).collect(Collectors.toSet());
-        Set<String> allToolNames = allTools.stream().map(McpTool::name).collect(Collectors.toSet());
+        Set<String> resultNames = result.stream().map(Tool::name).collect(Collectors.toSet());
+        Set<String> allToolNames = allTools.stream().map(Tool::name).collect(Collectors.toSet());
         assert resultNames.equals(allToolNames) :
                 "Empty filteredToolNames should return all tools. "
                         + "Expected=" + allToolNames + " but got=" + resultNames;
@@ -128,11 +131,11 @@ class ToolFilterPropertyTest {
     @Property(tries = 50)
     @Label("Feature: agent-runtime, Property 14: ToolFilter null intent 回退为全量")
     void nullIntentFallsBackToAllTools(
-            @ForAll("toolLists") List<McpTool> allTools) {
+            @ForAll("toolLists") List<Tool> allTools) {
 
         ToolFilter filter = new ToolFilter(new ObservabilityManager());
 
-        List<McpTool> result = filter.filter(null, allTools);
+        List<Tool> result = filter.filter(null, allTools);
 
         assert result.size() == allTools.size() :
                 "Null intent should return all tools. "
@@ -145,7 +148,7 @@ class ToolFilterPropertyTest {
     @Property(tries = 50)
     @Label("Feature: agent-runtime, Property 14: ToolFilter null filteredToolNames 回退为全量")
     void nullFilteredToolNamesFallsBackToAllTools(
-            @ForAll("toolLists") List<McpTool> allTools) {
+            @ForAll("toolLists") List<Tool> allTools) {
 
         ToolFilter filter = new ToolFilter(new ObservabilityManager());
         // IntentResult.of with null filteredToolNames → internally becomes emptyList
@@ -155,7 +158,7 @@ class ToolFilterPropertyTest {
                 "react", "test",
                 null);
 
-        List<McpTool> result = filter.filter(intent, allTools);
+        List<Tool> result = filter.filter(intent, allTools);
 
         assert result.size() == allTools.size() :
                 "Null filteredToolNames should return all tools. "
@@ -167,7 +170,7 @@ class ToolFilterPropertyTest {
     // ---------------------------------------------------------------
 
     @Provide
-    Arbitrary<List<McpTool>> toolLists() {
+    Arbitrary<List<Tool>> toolLists() {
         Arbitrary<String> toolName = Arbitraries.strings()
                 .alpha().ofMinLength(2).ofMaxLength(20)
                 .map(s -> "tool_" + s);
@@ -179,14 +182,14 @@ class ToolFilterPropertyTest {
     }
 
     @Provide
-    Arbitrary<List<McpTool>> toolListsWithBaseTools() {
+    Arbitrary<List<Tool>> toolListsWithBaseTools() {
         // Always include all BASE_TOOLS plus some random extra tools
         Arbitrary<String> extraName = Arbitraries.strings()
                 .alpha().ofMinLength(2).ofMaxLength(20)
                 .map(s -> "extra_" + s);
         return extraName.list().ofMinSize(0).ofMaxSize(8)
                 .map(extras -> {
-                    List<McpTool> tools = new ArrayList<>();
+                    List<Tool> tools = new ArrayList<>();
                     for (String bt : BASE_TOOLS) {
                         tools.add(stubTool(bt));
                     }
@@ -219,8 +222,8 @@ class ToolFilterPropertyTest {
     // Utility
     // ---------------------------------------------------------------
 
-    private static McpTool stubTool(String name) {
-        return new McpTool() {
+    private static Tool stubTool(String name) {
+        return new Tool() {
             @Override
             public String name() { return name; }
 
@@ -231,7 +234,7 @@ class ToolFilterPropertyTest {
             public Map<String, Object> inputSchema() { return Collections.emptyMap(); }
 
             @Override
-            public McpToolResult execute(McpContext context, Map<String, Object> params) {
+            public ToolResult execute(ToolContext context, Map<String, Object> params) {
                 return null;
             }
         };

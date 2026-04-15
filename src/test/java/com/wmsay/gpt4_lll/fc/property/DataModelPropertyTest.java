@@ -1,5 +1,9 @@
 package com.wmsay.gpt4_lll.fc.property;
 
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
+
 import com.wmsay.gpt4_lll.fc.model.SessionTrace;
 import com.wmsay.gpt4_lll.fc.model.ToolCallTrace;
 import com.wmsay.gpt4_lll.mcp.*;
@@ -49,14 +53,14 @@ class DataModelPropertyTest {
             @ForAll("toolDescriptions") String description) {
 
         // Create a simple test tool
-        McpTool tool = new StubMcpTool(toolName, description);
+        Tool tool = new StubMcpTool(toolName, description);
 
         // Register it
-        McpToolRegistry.register(tool);
+        McpToolRegistry.registerTool(tool);
         registeredToolNames.add(toolName);
 
         // Query by name
-        McpTool retrieved = McpToolRegistry.getTool(toolName);
+        Tool retrieved = McpToolRegistry.getTool(toolName);
 
         // Should return the exact same instance
         assert retrieved != null :
@@ -78,7 +82,7 @@ class DataModelPropertyTest {
     void unregisteredToolShouldReturnNull(
             @ForAll("nonExistentToolNames") String toolName) {
 
-        McpTool retrieved = McpToolRegistry.getTool(toolName);
+        Tool retrieved = McpToolRegistry.getTool(toolName);
 
         assert retrieved == null :
                 "Expected null for unregistered tool '" + toolName + "' but got a result";
@@ -93,14 +97,14 @@ class DataModelPropertyTest {
     void reRegistrationShouldOverwritePreviousTool(
             @ForAll("uniqueToolNames") String toolName) {
 
-        McpTool tool1 = new StubMcpTool(toolName, "first");
-        McpTool tool2 = new StubMcpTool(toolName, "second");
+        Tool tool1 = new StubMcpTool(toolName, "first");
+        Tool tool2 = new StubMcpTool(toolName, "second");
 
-        McpToolRegistry.register(tool1);
-        McpToolRegistry.register(tool2);
+        McpToolRegistry.registerTool(tool1);
+        McpToolRegistry.registerTool(tool2);
         registeredToolNames.add(toolName);
 
-        McpTool retrieved = McpToolRegistry.getTool(toolName);
+        Tool retrieved = McpToolRegistry.getTool(toolName);
 
         assert retrieved == tool2 :
                 "Expected the second registered tool instance";
@@ -117,11 +121,11 @@ class DataModelPropertyTest {
     void getAllToolsShouldContainRegisteredTool(
             @ForAll("uniqueToolNames") String toolName) {
 
-        McpTool tool = new StubMcpTool(toolName, "test");
-        McpToolRegistry.register(tool);
+        Tool tool = new StubMcpTool(toolName, "test");
+        McpToolRegistry.registerTool(tool);
         registeredToolNames.add(toolName);
 
-        List<McpTool> allTools = McpToolRegistry.getAllTools();
+        List<Tool> allTools = McpToolRegistry.getAllTools();
         boolean found = allTools.stream().anyMatch(t -> t.name().equals(toolName));
 
         assert found :
@@ -402,7 +406,7 @@ class DataModelPropertyTest {
     /**
      * Minimal McpTool implementation for registry property tests.
      */
-    private static class StubMcpTool implements McpTool {
+    private static class StubMcpTool implements Tool {
         private final String name;
         private final String description;
 
@@ -427,8 +431,8 @@ class DataModelPropertyTest {
         }
 
         @Override
-        public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("stub result");
+        public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("stub result");
         }
     }
 }

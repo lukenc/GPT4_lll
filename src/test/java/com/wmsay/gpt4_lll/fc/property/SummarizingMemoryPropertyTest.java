@@ -1,8 +1,8 @@
 package com.wmsay.gpt4_lll.fc.property;
 
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
 import com.wmsay.gpt4_lll.fc.memory.*;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import net.jqwik.api.*;
 
 import java.util.*;

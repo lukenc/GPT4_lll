@@ -55,6 +55,8 @@ class AgentRuntimeIntegrationTest {
     void tearDown() {
         try {
             runtime.shutdownNow();
+            // Allow background threads to terminate before ThreadLeakTracker checks
+            Thread.sleep(200);
         } catch (Exception ignored) { }
         AgentRuntime.removeInstance(projectId);
     }

@@ -1,16 +1,21 @@
 package com.wmsay.gpt4_lll;
 
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.core.ErrorMessage;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallConfig;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
 import com.wmsay.gpt4_lll.fc.model.*;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.protocol.MarkdownProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -36,8 +41,8 @@ class WindowToolFunctionCallingTest {
         ErrorHandler errorHandler = new ErrorHandler();
         observabilityManager = new ObservabilityManager();
         RetryStrategy retryStrategy = new RetryStrategy();
-        UserApprovalManager approvalManager = new UserApprovalManager();
-        ExecutionEngine executionEngine = new ExecutionEngine(retryStrategy, approvalManager);
+        ToolRegistry toolRegistry = new ToolRegistry();
+        ExecutionEngine executionEngine = new ExecutionEngine(toolRegistry, new DefaultApprovalProvider(), retryStrategy);
 
         orchestrator = new FunctionCallOrchestrator(
                 protocolAdapter, validationEngine, executionEngine,
@@ -68,7 +73,7 @@ class WindowToolFunctionCallingTest {
     void testDefaultConfigValues() {
         assertEquals(30, config.getDefaultTimeout());
         assertEquals(3, config.getMaxRetries());
-        assertEquals(20, config.getMaxRounds());
+        assertEquals(300, config.getMaxRounds());
         assertTrue(config.isEnableApproval());
         assertTrue(config.isEnableFunctionCalling());
         assertEquals(FunctionCallConfig.LogLevel.INFO, config.getLogLevel());
@@ -77,8 +82,8 @@ class WindowToolFunctionCallingTest {
     @Test
     void testToolCallResultDisplayLogic_Success() {
         // Simulate a successful tool call result
-        McpToolResult mcpResult = McpToolResult.text("File content here");
-        ToolCallResult tcr = ToolCallResult.success("call-1", "read_file", mcpResult, 100);
+        ToolResult toolResult = ToolResult.text("File content here");
+        ToolCallResult tcr = ToolCallResult.success("call-1", "read_file", toolResult, 100);
 
         assertTrue(tcr.isSuccess());
         assertEquals("read_file", tcr.getToolName());
@@ -129,9 +134,9 @@ class WindowToolFunctionCallingTest {
 
     @Test
     void testToolCallHistoryInResult() {
-        McpToolResult mcpResult = McpToolResult.text("result data");
-        ToolCallResult tcr1 = ToolCallResult.success("call-1", "read_file", mcpResult, 50);
-        ToolCallResult tcr2 = ToolCallResult.success("call-2", "tree", mcpResult, 30);
+        ToolResult toolResult = ToolResult.text("result data");
+        ToolCallResult tcr1 = ToolCallResult.success("call-1", "read_file", toolResult, 50);
+        ToolCallResult tcr2 = ToolCallResult.success("call-2", "tree", toolResult, 30);
 
         FunctionCallResult result = FunctionCallResult.success(
                 "Final answer", "session-1", List.of(tcr1, tcr2));

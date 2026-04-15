@@ -1,20 +1,24 @@
 package com.wmsay.gpt4_lll.fc;
 
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.llm.DegradationManager;
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.OpenAIProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
 import com.wmsay.gpt4_lll.fc.model.*;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.protocol.DegradationManager;
-import com.wmsay.gpt4_lll.fc.protocol.MarkdownProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.protocol.OpenAIProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
-import com.wmsay.gpt4_lll.model.ChatContent;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +46,7 @@ class FunctionCallOrchestratorDegradationTest {
         validationEngine = new ValidationEngine();
         errorHandler = new ErrorHandler();
         executionEngine = new ExecutionEngine(
-                new RetryStrategy(), new UserApprovalManager(), Executors.newSingleThreadExecutor());
+                new ToolRegistry(), new DefaultApprovalProvider(), new RetryStrategy(), Executors.newSingleThreadExecutor());
     }
 
     // ---- Req 16.2, 16.5: disabled DegradationManager returns DEGRADED ----
@@ -60,7 +64,7 @@ class FunctionCallOrchestratorDegradationTest {
                 adapter, validationEngine, executionEngine, errorHandler, observability, degradationManager);
 
         FunctionCallRequest request = buildRequest();
-        FunctionCallResult result = orchestrator.execute(request, null, req -> "no tool calls");
+        FunctionCallResult result = orchestrator.execute(request, (ToolContext) null, req -> "no tool calls");
 
         assertEquals(FunctionCallResult.ResultType.DEGRADED, result.getType());
         assertNotNull(result.getContent());
@@ -79,7 +83,7 @@ class FunctionCallOrchestratorDegradationTest {
 
         FunctionCallRequest request = buildRequest();
         // LLM returns plain text (no tool calls) → should succeed
-        FunctionCallResult result = orchestrator.execute(request, null, req -> "Hello, no tools here.");
+        FunctionCallResult result = orchestrator.execute(request, (ToolContext) null, req -> "Hello, no tools here.");
 
         assertEquals(FunctionCallResult.ResultType.SUCCESS, result.getType());
         // DegradationManager should have recorded a parse attempt (empty = failure for PE mode)
@@ -103,7 +107,7 @@ class FunctionCallOrchestratorDegradationTest {
 
         FunctionCallRequest request = buildRequest();
         // LLM returns plain text → parse returns empty → recorded as failure → triggers disable
-        FunctionCallResult result = orchestrator.execute(request, null, req -> "plain text response");
+        FunctionCallResult result = orchestrator.execute(request, (ToolContext) null, req -> "plain text response");
 
         // The first round parses empty (failure recorded), but since toolCalls is empty,
         // it returns SUCCESS for this call. The degradation manager should now be disabled.
@@ -123,7 +127,7 @@ class FunctionCallOrchestratorDegradationTest {
                 adapter, validationEngine, executionEngine, errorHandler, observability, degradationManager);
 
         FunctionCallRequest request = buildRequest();
-        FunctionCallResult result = orchestrator.execute(request, null, req -> "Hello from GPT-4");
+        FunctionCallResult result = orchestrator.execute(request, (ToolContext) null, req -> "Hello from GPT-4");
 
         assertEquals(FunctionCallResult.ResultType.SUCCESS, result.getType());
         // No parse attempts should be recorded for native adapters

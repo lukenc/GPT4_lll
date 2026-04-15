@@ -3,7 +3,7 @@ package com.wmsay.gpt4_lll.fc.memory;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.wmsay.gpt4_lll.JsonStorage;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 

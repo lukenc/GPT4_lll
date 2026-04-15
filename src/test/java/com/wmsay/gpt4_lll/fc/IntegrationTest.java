@@ -1,16 +1,30 @@
 package com.wmsay.gpt4_lll.fc;
 
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
+
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
 import com.wmsay.gpt4_lll.fc.model.*;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.protocol.*;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.llm.*;
 import com.wmsay.gpt4_lll.mcp.*;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.llm.AnthropicProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.DegradationManager;
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.OpenAIProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapterRegistry;
+
 import org.junit.jupiter.api.*;
 
 import java.nio.file.Paths;
@@ -39,13 +53,20 @@ class IntegrationTest {
     @BeforeEach
     void setUp() {
         observability = new ObservabilityManager();
-        validationEngine = new ValidationEngine();
-        errorHandler = new ErrorHandler();
-        executionEngine = new ExecutionEngine(
-                new RetryStrategy(), new UserApprovalManager(), Executors.newSingleThreadExecutor());
 
-        // Register a test tool in McpToolRegistry for integration tests
-        McpToolRegistry.register(new EchoMcpTool());
+        // Create shared ToolRegistry and register test tools
+        ToolRegistry toolRegistry = new ToolRegistry();
+        toolRegistry.registerTool(new EchoMcpTool());
+        toolRegistry.registerTool(new RequiredParamTool());
+
+        validationEngine = new ValidationEngine(toolRegistry);
+        errorHandler = new ErrorHandler(() -> toolRegistry.getAllTools().stream()
+                .map(Tool::name).collect(java.util.stream.Collectors.toList()));
+        executionEngine = new ExecutionEngine(
+                toolRegistry, new DefaultApprovalProvider(), new RetryStrategy(), Executors.newSingleThreadExecutor());
+
+        // Also register in McpToolRegistry for backward compatibility
+        McpToolRegistry.registerTool(new EchoMcpTool());
     }
 
     @AfterEach
@@ -71,7 +92,7 @@ class IntegrationTest {
         AtomicInteger callCount = new AtomicInteger(0);
 
         // Mock LLM: first call returns a tool call, second call returns plain text
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 return "I'll use the echo tool.\n\n"
@@ -117,7 +138,7 @@ class IntegrationTest {
 
         AtomicInteger callCount = new AtomicInteger(0);
 
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round <= 3) {
                 return "```tool_call\n"
@@ -219,7 +240,7 @@ class IntegrationTest {
 
         // LLM should never be called because degradation check happens first
         AtomicInteger llmCallCount = new AtomicInteger(0);
-        FunctionCallResult result = orchestrator.execute(request, null, req -> {
+        FunctionCallResult result = orchestrator.execute(request, (ToolContext) null, req -> {
             llmCallCount.incrementAndGet();
             return "This should not be reached";
         });
@@ -252,7 +273,7 @@ class IntegrationTest {
                 observability, degradationManager);
 
         FunctionCallRequest request = buildRequest(5);
-        FunctionCallResult result = orchestrator.execute(request, null,
+        FunctionCallResult result = orchestrator.execute(request, (ToolContext) null,
                 req -> "Plain text after reset.");
 
         assertEquals(FunctionCallResult.ResultType.SUCCESS, result.getType());
@@ -276,7 +297,7 @@ class IntegrationTest {
 
         AtomicInteger callCount = new AtomicInteger(0);
 
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 // LLM tries to call a tool that doesn't exist
@@ -312,7 +333,7 @@ class IntegrationTest {
         DegradationManager degradationManager = new DegradationManager();
 
         // Register a tool with a required parameter
-        McpToolRegistry.register(new RequiredParamTool());
+        McpToolRegistry.registerTool(new RequiredParamTool());
 
         FunctionCallOrchestrator orchestrator = new FunctionCallOrchestrator(
                 adapter, validationEngine, executionEngine, errorHandler,
@@ -320,7 +341,7 @@ class IntegrationTest {
 
         AtomicInteger callCount = new AtomicInteger(0);
 
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 // LLM calls the tool but omits the required "query" parameter
@@ -360,7 +381,7 @@ class IntegrationTest {
 
         AtomicInteger callCount = new AtomicInteger(0);
 
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 // Return OpenAI-format tool call
@@ -398,7 +419,7 @@ class IntegrationTest {
         ChatContent chatContent = new ChatContent();
         return FunctionCallRequest.builder()
                 .chatContent(chatContent)
-                .availableTools(Collections.emptyList())
+                .availableTools(McpToolRegistry.getAllTools())
                 .maxRounds(maxRounds)
                 .build();
     }
@@ -407,7 +428,7 @@ class IntegrationTest {
      * A simple echo tool for integration testing.
      * Returns the "input" parameter value as text result.
      */
-    private static class EchoMcpTool implements McpTool {
+    private static class EchoMcpTool implements Tool {
         @Override
         public String name() {
             return TEST_TOOL_NAME;
@@ -429,16 +450,16 @@ class IntegrationTest {
         }
 
         @Override
-        public McpToolResult execute(McpContext context, Map<String, Object> params) {
+        public ToolResult execute(ToolContext context, Map<String, Object> params) {
             String input = params.getOrDefault("input", "").toString();
-            return McpToolResult.text("Echo: " + input);
+            return ToolResult.text("Echo: " + input);
         }
     }
 
     /**
      * A tool with a required parameter, used to test validation error recovery.
      */
-    private static class RequiredParamTool implements McpTool {
+    private static class RequiredParamTool implements Tool {
         @Override
         public String name() {
             return "integration_required_param_tool";
@@ -461,9 +482,9 @@ class IntegrationTest {
         }
 
         @Override
-        public McpToolResult execute(McpContext context, Map<String, Object> params) {
+        public ToolResult execute(ToolContext context, Map<String, Object> params) {
             String query = params.getOrDefault("query", "").toString();
-            return McpToolResult.text("Result for: " + query);
+            return ToolResult.text("Result for: " + query);
         }
     }
 }

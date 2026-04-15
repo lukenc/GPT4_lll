@@ -1,7 +1,7 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,12 +19,12 @@ class FileWriteToolTest {
 
     private final FileWriteTool tool = new FileWriteTool();
 
-    private McpContext context() throws Exception {
+    private ToolContext context() throws Exception {
         Path root = tempDir.resolve("workspace");
         if (!Files.exists(root)) {
             Files.createDirectory(root);
         }
-        return new McpContext(null, null, root);
+        return ToolContext.builder().workspaceRoot(root).build();
     }
 
     private Path workspaceRoot() {
@@ -37,14 +37,15 @@ class FileWriteToolTest {
 
     @Test
     void overwrite_createsNewFile() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Map<String, Object> params = new HashMap<>();
         params.put("path", "hello.txt");
         params.put("content", "Hello, World!");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.STRUCTURED, result.getType());
+        assertEquals(ToolResult.ResultType.STRUCTURED, result.getType());
         Map<String, Object> data = result.getStructuredData();
         assertEquals(true, data.get("success"));
         assertEquals(true, data.get("created"));
@@ -56,15 +57,16 @@ class FileWriteToolTest {
 
     @Test
     void overwrite_replacesExistingFile() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("existing.txt");
         Files.writeString(file, "old content");
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "existing.txt");
         params.put("content", "new content");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         Map<String, Object> data = result.getStructuredData();
         assertEquals(true, data.get("success"));
@@ -74,14 +76,15 @@ class FileWriteToolTest {
 
     @Test
     void overwrite_createsParentDirectories() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Map<String, Object> params = new HashMap<>();
         params.put("path", "deep/nested/dir/file.txt");
         params.put("content", "deep content");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.STRUCTURED, result.getType());
+        assertEquals(ToolResult.ResultType.STRUCTURED, result.getType());
         assertEquals(true, result.getStructuredData().get("success"));
 
         Path target = workspaceRoot().resolve("deep/nested/dir/file.txt");
@@ -91,15 +94,16 @@ class FileWriteToolTest {
 
     @Test
     void overwrite_failsWhenCreateDirsFalseAndParentMissing() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Map<String, Object> params = new HashMap<>();
         params.put("path", "nonexistent/dir/file.txt");
         params.put("content", "content");
+        params.put("mode", "overwrite");
         params.put("create_dirs", false);
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("Parent directory does not exist"));
         assertTrue(result.getErrorMessage().contains("create_dirs=true"));
     }
@@ -110,7 +114,7 @@ class FileWriteToolTest {
 
     @Test
     void patch_exactlyOneMatch_succeeds() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("code.java");
         Files.writeString(file, "public class Foo {\n    int x = 1;\n    int y = 2;\n}\n");
 
@@ -120,9 +124,9 @@ class FileWriteToolTest {
         params.put("old_content", "    int x = 1;");
         params.put("content", "    int x = 42;");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.STRUCTURED, result.getType());
+        assertEquals(ToolResult.ResultType.STRUCTURED, result.getType());
         assertEquals(true, result.getStructuredData().get("success"));
 
         String updated = Files.readString(file);
@@ -133,7 +137,7 @@ class FileWriteToolTest {
 
     @Test
     void patch_zeroMatches_failsWithClearMessage() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("code.java");
         Files.writeString(file, "public class Foo {\n    int x = 1;\n}\n");
 
@@ -143,16 +147,16 @@ class FileWriteToolTest {
         params.put("old_content", "this text does not exist");
         params.put("content", "replacement");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("old_content not found"));
         assertTrue(result.getErrorMessage().contains("read_file"));
     }
 
     @Test
     void patch_multipleMatches_failsWithCountAndGuidance() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("code.java");
         Files.writeString(file, "int x = 1;\nint y = 1;\nint z = 1;\n");
 
@@ -162,9 +166,9 @@ class FileWriteToolTest {
         params.put("old_content", "= 1;");
         params.put("content", "= 99;");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         String errorMsg = result.getErrorMessage();
         assertTrue(errorMsg.contains("3 times"), "Should report exact count: " + errorMsg);
         assertTrue(errorMsg.contains("expand old_content"), "Should guide agent: " + errorMsg);
@@ -173,7 +177,7 @@ class FileWriteToolTest {
 
     @Test
     void patch_missingOldContent_failsWithClearMessage() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("code.java");
         Files.writeString(file, "content");
 
@@ -183,15 +187,15 @@ class FileWriteToolTest {
         params.put("content", "new content");
         // old_content not provided
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("old_content"));
     }
 
     @Test
     void patch_onNonexistentFile_failsWithClearMessage() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "does_not_exist.txt");
@@ -199,16 +203,16 @@ class FileWriteToolTest {
         params.put("old_content", "old");
         params.put("content", "new");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("does not exist"));
         assertTrue(result.getErrorMessage().contains("overwrite mode"));
     }
 
     @Test
     void patch_preservesCRLF() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("crlf.txt");
         Files.writeString(file, "line1\r\nline2\r\nline3\r\n");
 
@@ -218,7 +222,7 @@ class FileWriteToolTest {
         params.put("old_content", "line2");
         params.put("content", "REPLACED");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         assertEquals(true, result.getStructuredData().get("success"));
         String updated = Files.readString(file);
@@ -233,7 +237,7 @@ class FileWriteToolTest {
 
     @Test
     void append_toExistingFile() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("log.txt");
         Files.writeString(file, "line1\n");
 
@@ -242,7 +246,7 @@ class FileWriteToolTest {
         params.put("mode", "append");
         params.put("content", "line2\n");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         assertEquals(true, result.getStructuredData().get("success"));
         assertEquals("append", result.getStructuredData().get("mode"));
@@ -251,14 +255,14 @@ class FileWriteToolTest {
 
     @Test
     void append_toNewFile() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "new_log.txt");
         params.put("mode", "append");
         params.put("content", "first line\n");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         assertEquals(true, result.getStructuredData().get("success"));
         assertEquals(true, result.getStructuredData().get("created"));
@@ -271,7 +275,7 @@ class FileWriteToolTest {
 
     @Test
     void insertAfterLine_inMiddle() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("lines.txt");
         Files.writeString(file, "alpha\nbeta\ngamma\n");
 
@@ -281,7 +285,7 @@ class FileWriteToolTest {
         params.put("line_number", 2);
         params.put("content", "INSERTED");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         assertEquals(true, result.getStructuredData().get("success"));
         String updated = Files.readString(file);
@@ -294,7 +298,7 @@ class FileWriteToolTest {
 
     @Test
     void insertAfterLine_atBeginning() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("lines.txt");
         Files.writeString(file, "first\nsecond\n");
 
@@ -304,7 +308,7 @@ class FileWriteToolTest {
         params.put("line_number", 0);
         params.put("content", "HEADER");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         assertEquals(true, result.getStructuredData().get("success"));
         String updated = Files.readString(file);
@@ -313,7 +317,7 @@ class FileWriteToolTest {
 
     @Test
     void insertAfterLine_exceedsTotalLines_failsWithClearMessage() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("short.txt");
         Files.writeString(file, "one\ntwo\n");
 
@@ -323,15 +327,15 @@ class FileWriteToolTest {
         params.put("line_number", 100);
         params.put("content", "NEVER");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("exceeds total lines"));
     }
 
     @Test
     void insertAfterLine_missingLineNumber_fails() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Path file = workspaceRoot().resolve("lines.txt");
         Files.writeString(file, "content\n");
 
@@ -340,9 +344,9 @@ class FileWriteToolTest {
         params.put("mode", "insert_after_line");
         params.put("content", "stuff");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("line_number"));
     }
 
@@ -352,43 +356,46 @@ class FileWriteToolTest {
 
     @Test
     void pathTraversal_dotDotSlash_rejected() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "../../../etc/passwd");
         params.put("content", "hacked");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("Path out of workspace"));
     }
 
     @Test
     void pathTraversal_absolutePathOutside_rejected() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "/tmp/evil.txt");
         params.put("content", "hacked");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("Path out of workspace"));
     }
 
     @Test
     void pathTraversal_encodedDots_rejected() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "subdir/../../outside.txt");
         params.put("content", "hacked");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("Path out of workspace"));
     }
 
@@ -398,59 +405,62 @@ class FileWriteToolTest {
 
     @Test
     void missingContent_fails() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "file.txt");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("content"));
     }
 
     @Test
     void invalidMode_fails() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "file.txt");
         params.put("content", "data");
         params.put("mode", "delete_everything");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("Invalid mode"));
     }
 
     @Test
     void invalidEncoding_fails() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "file.txt");
         params.put("content", "data");
+        params.put("mode", "overwrite");
         params.put("encoding", "non-existent-charset-xyz");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("Unsupported encoding"));
     }
 
     @Test
     void writingToDirectory_fails() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         Files.createDirectory(workspaceRoot().resolve("adir"));
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "adir");
         params.put("content", "data");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
-        assertEquals(McpToolResult.ResultType.ERROR, result.getType());
+        assertEquals(ToolResult.ResultType.ERROR, result.getType());
         assertTrue(result.getErrorMessage().contains("not a regular file"));
     }
 
@@ -460,15 +470,16 @@ class FileWriteToolTest {
 
     @Test
     void customEncoding_gbk() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         String chinese = "你好世界";
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "gbk_file.txt");
         params.put("content", chinese);
         params.put("encoding", "GBK");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         assertEquals(true, result.getStructuredData().get("success"));
 
@@ -507,13 +518,14 @@ class FileWriteToolTest {
 
     @Test
     void resultContainsAllExpectedFields() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
 
         Map<String, Object> params = new HashMap<>();
         params.put("path", "result_check.txt");
         params.put("content", "abc");
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         Map<String, Object> data = result.getStructuredData();
         assertTrue(data.containsKey("success"));
@@ -538,7 +550,7 @@ class FileWriteToolTest {
 
     @Test
     void atomicWrite_preservesContentIntegrity() throws Exception {
-        McpContext ctx = context();
+        ToolContext ctx = context();
         StringBuilder largeContent = new StringBuilder();
         for (int i = 0; i < 10000; i++) {
             largeContent.append("Line ").append(i).append(": some data here\n");
@@ -547,8 +559,9 @@ class FileWriteToolTest {
         Map<String, Object> params = new HashMap<>();
         params.put("path", "large_file.txt");
         params.put("content", largeContent.toString());
+        params.put("mode", "overwrite");
 
-        McpToolResult result = tool.execute(ctx, params);
+        ToolResult result = tool.execute(ctx, params);
 
         assertEquals(true, result.getStructuredData().get("success"));
         String read = Files.readString(workspaceRoot().resolve("large_file.txt"));

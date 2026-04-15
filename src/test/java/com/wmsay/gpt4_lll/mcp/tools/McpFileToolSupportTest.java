@@ -1,6 +1,6 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -24,7 +24,7 @@ class McpFileToolSupportTest {
         Path nestedDir = Files.createDirectories(root.resolve("dir/sub"));
         Path absoluteInside = nestedDir.toAbsolutePath().normalize();
 
-        McpContext context = new McpContext(null, null, root);
+        ToolContext context = ToolContext.builder().workspaceRoot(root).build();
 
         assertEquals(root, McpFileToolSupport.resolvePath(context, Map.of("path", "."), "path"));
         assertEquals(root.resolve("dir/sub"), McpFileToolSupport.resolvePath(context, Map.of("path", "dir/sub"), "path"));
@@ -39,7 +39,7 @@ class McpFileToolSupportTest {
 
         IllegalArgumentException missingRoot = assertThrows(
                 IllegalArgumentException.class,
-                () -> McpFileToolSupport.resolvePath(new McpContext(null, null, null), Map.of("path", "."), "path")
+                () -> McpFileToolSupport.resolvePath(ToolContext.builder().build(), Map.of("path", "."), "path")
         );
         assertTrue(missingRoot.getMessage().contains("Project root is unavailable"));
     }

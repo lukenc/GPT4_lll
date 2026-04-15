@@ -1,13 +1,20 @@
 package com.wmsay.gpt4_lll.fc;
 
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
 import com.wmsay.gpt4_lll.fc.model.ToolCall;
 import com.wmsay.gpt4_lll.fc.model.ValidationResult;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
-import com.wmsay.gpt4_lll.mcp.*;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
+import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import org.junit.jupiter.api.*;
 
 import java.nio.file.Paths;
@@ -28,16 +35,18 @@ class PerformanceTest {
 
     private ValidationEngine validationEngine;
     private ExecutionEngine executionEngine;
+    private ToolRegistry toolRegistry;
 
     @BeforeEach
     void setUp() {
-        validationEngine = new ValidationEngine();
+        toolRegistry = new ToolRegistry();
+        validationEngine = new ValidationEngine(toolRegistry);
         executionEngine = new ExecutionEngine(
-                new RetryStrategy(), new UserApprovalManager(), Executors.newFixedThreadPool(4));
+                toolRegistry, new DefaultApprovalProvider(), new RetryStrategy(), Executors.newFixedThreadPool(4));
 
-        // Register benchmark tools
+        // Register benchmark tools in ToolRegistry for ExecutionEngine
         for (int i = 0; i < 100; i++) {
-            McpToolRegistry.register(new BenchmarkTool("perf_tool_" + i));
+            toolRegistry.registerTool(new BenchmarkTool("perf_tool_" + i));
         }
     }
 
@@ -57,7 +66,7 @@ class PerformanceTest {
     void toolRegistryLookup_isConstantTime() {
         // Register many tools
         for (int i = 0; i < 1000; i++) {
-            McpToolRegistry.register(new BenchmarkTool("lookup_tool_" + i));
+            McpToolRegistry.registerTool(new McpBenchmarkTool("lookup_tool_" + i));
         }
 
         // Warm up
@@ -113,7 +122,7 @@ class PerformanceTest {
     @Test
     void parameterValidation_completesWithin10ms() {
         // Register a tool with a schema that has required fields and types
-        McpToolRegistry.register(new SchemaRichTool());
+        toolRegistry.registerTool(new SchemaRichTool());
 
         ToolCall validCall = ToolCall.builder()
                 .callId("perf_valid")
@@ -144,7 +153,7 @@ class PerformanceTest {
 
     @Test
     void parameterValidation_withErrors_completesWithin10ms() {
-        McpToolRegistry.register(new SchemaRichTool());
+        toolRegistry.registerTool(new SchemaRichTool());
 
         // Missing required "query" parameter + wrong type for "maxResults"
         ToolCall invalidCall = ToolCall.builder()
@@ -178,7 +187,7 @@ class PerformanceTest {
 
     @Test
     void schemaCaching_reducesSubsequentValidationTime() {
-        McpToolRegistry.register(new SchemaRichTool());
+        toolRegistry.registerTool(new SchemaRichTool());
         validationEngine.clearSchemaCache();
         assertEquals(0, validationEngine.getSchemaCacheSize(), "Cache should start empty");
 
@@ -205,7 +214,7 @@ class PerformanceTest {
 
     @Test
     void schemaCaching_cachedValidation_isFasterThanColdStart() {
-        McpToolRegistry.register(new SchemaRichTool());
+        toolRegistry.registerTool(new SchemaRichTool());
 
         ToolCall call = ToolCall.builder()
                 .callId("cache_perf")
@@ -333,9 +342,9 @@ class PerformanceTest {
     @Test
     void concurrentExecution_multipleToolCalls_completesEfficiently() throws Exception {
         // Register a fast tool
-        McpToolRegistry.register(new FastTool());
+        toolRegistry.registerTool(new FastTool());
 
-        McpContext context = new McpContext(null, null, Paths.get("."));
+        ToolContext context = ToolContext.builder().workspaceRoot(Paths.get(".")).build();
         int concurrentCalls = 10;
         ExecutorService testExecutor = Executors.newFixedThreadPool(concurrentCalls);
         CountDownLatch latch = new CountDownLatch(concurrentCalls);
@@ -353,8 +362,8 @@ class PerformanceTest {
                             .toolName("fast_tool")
                             .parameters(Map.of("input", "test_" + idx))
                             .build();
-                    McpToolResult result = executionEngine.execute(call, context);
-                    if (result.getType() == McpToolResult.ResultType.TEXT) {
+                    ToolResult result = executionEngine.execute(call, context);
+                    if (result.getType() == ToolResult.ResultType.TEXT) {
                         successCount.incrementAndGet();
                     } else {
                         errorCount.incrementAndGet();
@@ -387,9 +396,9 @@ class PerformanceTest {
     void concurrentExecution_concurrentSafeTools_allSucceed() throws Exception {
         // "read_file" is in CONCURRENT_SAFE_TOOLS — no lock contention
         // Register a tool named "read_file" that returns quickly
-        McpToolRegistry.register(new BenchmarkTool("read_file"));
+        toolRegistry.registerTool(new BenchmarkTool("read_file"));
 
-        McpContext context = new McpContext(null, null, Paths.get("."));
+        ToolContext context = ToolContext.builder().workspaceRoot(Paths.get(".")).build();
         int concurrentCalls = 10;
         ExecutorService testExecutor = Executors.newFixedThreadPool(concurrentCalls);
         CountDownLatch latch = new CountDownLatch(concurrentCalls);
@@ -406,8 +415,8 @@ class PerformanceTest {
                             .toolName("read_file")
                             .parameters(Map.of("path", "test_" + idx))
                             .build();
-                    McpToolResult result = executionEngine.execute(call, context);
-                    if (result.getType() == McpToolResult.ResultType.TEXT) {
+                    ToolResult result = executionEngine.execute(call, context);
+                    if (result.getType() == ToolResult.ResultType.TEXT) {
                         successCount.incrementAndGet();
                     }
                 } catch (Exception e) {
@@ -477,7 +486,7 @@ class PerformanceTest {
     /**
      * A minimal tool for benchmarking registry lookup and basic execution.
      */
-    private static class BenchmarkTool implements McpTool {
+    private static class BenchmarkTool implements Tool {
         private final String name;
 
         BenchmarkTool(String name) {
@@ -492,15 +501,15 @@ class PerformanceTest {
             pathField.put("description", "Input path");
             return Map.of("path", pathField);
         }
-        @Override public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("OK: " + params.getOrDefault("path", ""));
+        @Override public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("OK: " + params.getOrDefault("path", ""));
         }
     }
 
     /**
      * A tool with a rich schema for validation performance testing.
      */
-    private static class SchemaRichTool implements McpTool {
+    private static class SchemaRichTool implements Tool {
         @Override public String name() { return "schema_rich_tool"; }
         @Override public String description() { return "Tool with rich schema for perf testing"; }
         @Override public Map<String, Object> inputSchema() {
@@ -526,15 +535,15 @@ class PerformanceTest {
 
             return schema;
         }
-        @Override public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("Results for: " + params.get("query"));
+        @Override public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("Results for: " + params.get("query"));
         }
     }
 
     /**
      * A fast-executing tool for concurrent execution testing.
      */
-    private static class FastTool implements McpTool {
+    private static class FastTool implements Tool {
         @Override public String name() { return "fast_tool"; }
         @Override public String description() { return "Fast tool for concurrency testing"; }
         @Override public Map<String, Object> inputSchema() {
@@ -543,8 +552,35 @@ class PerformanceTest {
             inputField.put("description", "Input");
             return Map.of("input", inputField);
         }
-        @Override public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("Fast: " + params.getOrDefault("input", ""));
+        @Override public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("Fast: " + params.getOrDefault("input", ""));
+        }
+    }
+
+    // McpTool implementations for McpToolRegistry lookup performance tests
+    private static class McpBenchmarkTool implements Tool {
+        private final String name;
+        McpBenchmarkTool(String name) { this.name = name; }
+        @Override public String name() { return name; }
+        @Override public String description() { return "Benchmark tool: " + name; }
+        @Override public Map<String, Object> inputSchema() { return Map.of("path", Map.of("type", "string")); }
+        @Override public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("OK: " + params.getOrDefault("path", ""));
+        }
+    }
+
+    private static class McpSchemaRichTool implements Tool {
+        @Override public String name() { return "schema_rich_tool"; }
+        @Override public String description() { return "Tool with rich schema for perf testing"; }
+        @Override public Map<String, Object> inputSchema() {
+            Map<String, Object> schema = new LinkedHashMap<>();
+            schema.put("query", Map.of("type", "string", "required", true));
+            schema.put("maxResults", Map.of("type", "integer", "minimum", 1, "maximum", 100));
+            schema.put("caseSensitive", Map.of("type", "boolean"));
+            return schema;
+        }
+        @Override public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("Results for: " + params.get("query"));
         }
     }
 }

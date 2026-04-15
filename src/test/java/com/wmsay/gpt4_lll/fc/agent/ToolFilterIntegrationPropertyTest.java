@@ -1,9 +1,12 @@
 package com.wmsay.gpt4_lll.fc.agent;
 
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.runtime.IntentResult;
+import com.wmsay.gpt4_lll.fc.runtime.ToolFilter;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import net.jqwik.api.*;
 
 import java.util.*;
@@ -31,13 +34,13 @@ class ToolFilterIntegrationPropertyTest {
     @Label("Feature: agent-runtime-ui-integration, Property 8: 工具过滤始终包含 BaseTool")
     void filterAlwaysContainsBaseToolsPresentInAllTools(
             @ForAll("randomIntentWithNonEmptyFilter") IntentResult intent,
-            @ForAll("randomToolListWithSomeBaseTools") List<McpTool> allTools) {
+            @ForAll("randomToolListWithSomeBaseTools") List<Tool> allTools) {
 
         ToolFilter filter = new ToolFilter(new ObservabilityManager());
 
-        List<McpTool> result = filter.filter(intent, allTools);
-        Set<String> resultNames = result.stream().map(McpTool::name).collect(Collectors.toSet());
-        Set<String> allToolNames = allTools.stream().map(McpTool::name).collect(Collectors.toSet());
+        List<Tool> result = filter.filter(intent, allTools);
+        Set<String> resultNames = result.stream().map(Tool::name).collect(Collectors.toSet());
+        Set<String> allToolNames = allTools.stream().map(Tool::name).collect(Collectors.toSet());
 
         for (String baseTool : BASE_TOOLS) {
             if (allToolNames.contains(baseTool)) {
@@ -60,7 +63,7 @@ class ToolFilterIntegrationPropertyTest {
     @Property(tries = 200)
     @Label("Feature: agent-runtime-ui-integration, Property 9: 空过滤名称回退到全量工具")
     void emptyFilteredToolNamesReturnsAllTools(
-            @ForAll("randomToolList") List<McpTool> allTools) {
+            @ForAll("randomToolList") List<Tool> allTools) {
 
         ToolFilter filter = new ToolFilter(new ObservabilityManager());
         IntentResult intent = IntentResult.of(
@@ -69,10 +72,10 @@ class ToolFilterIntegrationPropertyTest {
                 "react", "test",
                 Collections.emptyList());
 
-        List<McpTool> result = filter.filter(intent, allTools);
+        List<Tool> result = filter.filter(intent, allTools);
 
-        Set<String> resultNames = result.stream().map(McpTool::name).collect(Collectors.toSet());
-        Set<String> allToolNames = allTools.stream().map(McpTool::name).collect(Collectors.toSet());
+        Set<String> resultNames = result.stream().map(Tool::name).collect(Collectors.toSet());
+        Set<String> allToolNames = allTools.stream().map(Tool::name).collect(Collectors.toSet());
 
         assert result.size() == allTools.size() :
                 "Empty filteredToolNames should return all tools. "
@@ -101,7 +104,7 @@ class ToolFilterIntegrationPropertyTest {
     }
 
     @Provide
-    Arbitrary<List<McpTool>> randomToolListWithSomeBaseTools() {
+    Arbitrary<List<Tool>> randomToolListWithSomeBaseTools() {
         // Include a random subset of BASE_TOOLS plus random extra tools
         Arbitrary<Set<String>> baseSubset = Arbitraries.subsetOf(BASE_TOOLS).ofMinSize(0);
         Arbitrary<List<String>> extraNames = Arbitraries.strings()
@@ -121,7 +124,7 @@ class ToolFilterIntegrationPropertyTest {
     }
 
     @Provide
-    Arbitrary<List<McpTool>> randomToolList() {
+    Arbitrary<List<Tool>> randomToolList() {
         Arbitrary<String> toolName = Arbitraries.strings()
                 .alpha().ofMinLength(2).ofMaxLength(20)
                 .map(s -> "tool_" + s);
@@ -136,12 +139,12 @@ class ToolFilterIntegrationPropertyTest {
     // Utility
     // ---------------------------------------------------------------
 
-    private static McpTool stubTool(String name) {
-        return new McpTool() {
+    private static Tool stubTool(String name) {
+        return new Tool() {
             @Override public String name() { return name; }
             @Override public String description() { return "Stub: " + name; }
             @Override public Map<String, Object> inputSchema() { return Collections.emptyMap(); }
-            @Override public McpToolResult execute(McpContext ctx, Map<String, Object> params) { return null; }
+            @Override public ToolResult execute(ToolContext ctx, Map<String, Object> params) { return null; }
         };
     }
 }

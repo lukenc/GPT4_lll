@@ -1,7 +1,7 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,15 +31,15 @@ class ProjectTreeToolTest {
         Files.createDirectory(root.resolve(".git"));
 
         ProjectTreeTool tool = new ProjectTreeTool();
-        McpContext context = new McpContext(null, null, root);
+        ToolContext context = ToolContext.builder().workspaceRoot(root).build();
 
-        McpToolResult onlyDirs = tool.execute(context, Map.of(
+        ToolResult onlyDirs = tool.execute(context, Map.of(
                 "path", ".",
                 "showFiles", false,
                 "showHidden", false,
                 "maxDepth", 5
         ));
-        assertEquals(McpToolResult.ResultType.STRUCTURED, onlyDirs.getType());
+        assertEquals(ToolResult.ResultType.STRUCTURED, onlyDirs.getType());
         String onlyDirsTree = (String) onlyDirs.getStructuredData().get("tree");
         assertTrue(onlyDirsTree.contains("src/"));
         assertTrue(onlyDirsTree.contains("docs/"));
@@ -47,16 +47,16 @@ class ProjectTreeToolTest {
         assertFalse(onlyDirsTree.contains(".env"));
         assertFalse(onlyDirsTree.contains(".git/"));
 
-        McpToolResult depthZero = tool.execute(context, Map.of("maxDepth", 0));
-        assertEquals(McpToolResult.ResultType.STRUCTURED, depthZero.getType());
+        ToolResult depthZero = tool.execute(context, Map.of("maxDepth", 0));
+        assertEquals(ToolResult.ResultType.STRUCTURED, depthZero.getType());
         assertEquals(0, depthZero.getStructuredData().get("entryCount"));
         assertEquals(false, depthZero.getStructuredData().get("truncated"));
 
-        McpToolResult truncated = tool.execute(context, Map.of(
+        ToolResult truncated = tool.execute(context, Map.of(
                 "maxEntries", 1,
                 "showHidden", true
         ));
-        assertEquals(McpToolResult.ResultType.STRUCTURED, truncated.getType());
+        assertEquals(ToolResult.ResultType.STRUCTURED, truncated.getType());
         String truncatedTree = (String) truncated.getStructuredData().get("tree");
         assertTrue((Boolean) truncated.getStructuredData().get("truncated"));
         assertTrue(truncatedTree.contains("... (truncated)"));
@@ -66,15 +66,15 @@ class ProjectTreeToolTest {
     void shouldReturnErrorsForMissingPathAndOutOfWorkspacePath() throws Exception {
         Path root = Files.createDirectory(tempDir.resolve("workspace"));
         ProjectTreeTool tool = new ProjectTreeTool();
-        McpContext context = new McpContext(null, null, root);
+        ToolContext context = ToolContext.builder().workspaceRoot(root).build();
 
-        McpToolResult missingPath = tool.execute(context, Map.of("path", "not-exists"));
-        assertEquals(McpToolResult.ResultType.ERROR, missingPath.getType());
+        ToolResult missingPath = tool.execute(context, Map.of("path", "not-exists"));
+        assertEquals(ToolResult.ResultType.ERROR, missingPath.getType());
         assertTrue(missingPath.getErrorMessage().contains("Path not found"));
 
         Path outside = Files.createDirectory(tempDir.resolve("outside"));
-        McpToolResult outOfWorkspace = tool.execute(context, Map.of("path", outside.toString()));
-        assertEquals(McpToolResult.ResultType.ERROR, outOfWorkspace.getType());
+        ToolResult outOfWorkspace = tool.execute(context, Map.of("path", outside.toString()));
+        assertEquals(ToolResult.ResultType.ERROR, outOfWorkspace.getType());
         assertTrue(outOfWorkspace.getErrorMessage().contains("Path out of workspace"));
     }
 }

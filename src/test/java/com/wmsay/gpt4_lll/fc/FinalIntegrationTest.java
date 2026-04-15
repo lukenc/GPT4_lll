@@ -1,18 +1,33 @@
 package com.wmsay.gpt4_lll.fc;
 
-import com.wmsay.gpt4_lll.fc.config.ConfigLoader;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import com.wmsay.gpt4_lll.fc.config.ExtensionLoader;
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.ConfigLoader;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallConfig;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+import com.wmsay.gpt4_lll.fc.llm.AnthropicProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.DegradationManager;
+import com.wmsay.gpt4_lll.fc.llm.LlmCaller;
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.OpenAIProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapterRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.SecurityValidator;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
 import com.wmsay.gpt4_lll.fc.model.*;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.protocol.*;
-import com.wmsay.gpt4_lll.fc.validation.SecurityValidator;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.llm.*;
 import com.wmsay.gpt4_lll.mcp.*;
-import com.wmsay.gpt4_lll.model.ChatContent;
+
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -54,14 +69,21 @@ class FinalIntegrationTest {
     @BeforeEach
     void setUp() {
         observability = new ObservabilityManager();
-        validationEngine = new ValidationEngine();
-        errorHandler = new ErrorHandler();
-        executionEngine = new ExecutionEngine(
-                new RetryStrategy(), new UserApprovalManager(), Executors.newSingleThreadExecutor());
 
-        // Register test tools
-        McpToolRegistry.register(new EchoTool());
-        McpToolRegistry.register(new FileReadTool());
+        // Create shared ToolRegistry and register test tools
+        ToolRegistry toolRegistry = new ToolRegistry();
+        toolRegistry.registerTool(new EchoTool());
+        toolRegistry.registerTool(new FileReadTool());
+
+        validationEngine = new ValidationEngine(toolRegistry);
+        errorHandler = new ErrorHandler(() -> toolRegistry.getAllTools().stream()
+                .map(Tool::name).collect(java.util.stream.Collectors.toList()));
+        executionEngine = new ExecutionEngine(
+                toolRegistry, new DefaultApprovalProvider(), new RetryStrategy(), Executors.newSingleThreadExecutor());
+
+        // Also register in McpToolRegistry for backward compatibility
+        McpToolRegistry.registerTool(new EchoTool());
+        McpToolRegistry.registerTool(new FileReadTool());
     }
 
     @AfterEach
@@ -80,7 +102,7 @@ class FinalIntegrationTest {
         ConfigLoader configLoader = new ConfigLoader(name -> null);
         FunctionCallConfig config = configLoader.loadFromFile(null);
         assertNotNull(config);
-        assertEquals(20, config.getMaxRounds());
+        assertEquals(300, config.getMaxRounds());
         assertTrue(config.isEnableFunctionCalling());
 
         // 2. Load SPI extensions (SecurityValidator registered manually for test)
@@ -98,7 +120,7 @@ class FinalIntegrationTest {
 
         // 4. Mock LLM: round 1 = tool call, round 2 = plain text
         AtomicInteger callCount = new AtomicInteger(0);
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 return "Let me echo something.\n\n"
@@ -148,7 +170,7 @@ class FinalIntegrationTest {
         AtomicInteger callCount = new AtomicInteger(0);
 
         // LLM tries path traversal on round 1, then gives up on round 2
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 return "```tool_call\n"
@@ -194,7 +216,7 @@ class FinalIntegrationTest {
                 observability, degradationManager);
 
         AtomicInteger llmCallCount = new AtomicInteger(0);
-        FunctionCallResult result = orchestrator.execute(buildRequest(5), null, req -> {
+        FunctionCallResult result = orchestrator.execute(buildRequest(5), (ToolContext) null, req -> {
             llmCallCount.incrementAndGet();
             return "Should not be called";
         });
@@ -224,7 +246,7 @@ class FinalIntegrationTest {
                 observability, degradationManager);
 
         AtomicInteger callCount = new AtomicInteger(0);
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round <= 2) {
                 return "```tool_call\n"
@@ -262,7 +284,7 @@ class FinalIntegrationTest {
                 observability, degradationManager);
 
         AtomicInteger callCount = new AtomicInteger(0);
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 return "{\"tool_calls\":[{\"id\":\"call_oai_1\",\"type\":\"function\","
@@ -297,7 +319,7 @@ class FinalIntegrationTest {
                 observability, degradationManager);
 
         AtomicInteger callCount = new AtomicInteger(0);
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 return "```tool_call\n"
@@ -332,7 +354,7 @@ class FinalIntegrationTest {
                 observability, degradationManager);
 
         // LLM always returns a tool call
-        FunctionCallOrchestrator.LlmCaller mockLlm = request ->
+        LlmCaller mockLlm = request ->
                 "```tool_call\n"
                         + "{\"id\":\"call_loop\",\"name\":\"" + ECHO_TOOL + "\","
                         + "\"parameters\":{\"input\":\"loop\"}}\n"
@@ -425,7 +447,7 @@ class FinalIntegrationTest {
                 observability, degradationManager);
 
         AtomicInteger callCount = new AtomicInteger(0);
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 // Absolute path attempt
@@ -459,7 +481,7 @@ class FinalIntegrationTest {
                 observability, degradationManager);
 
         AtomicInteger callCount = new AtomicInteger(0);
-        FunctionCallOrchestrator.LlmCaller mockLlm = request -> {
+        LlmCaller mockLlm = request -> {
             int round = callCount.incrementAndGet();
             if (round == 1) {
                 return "{\"content\":[{\"type\":\"tool_use\",\"id\":\"toolu_ant_1\","
@@ -511,13 +533,13 @@ class FinalIntegrationTest {
         ChatContent chatContent = new ChatContent();
         return FunctionCallRequest.builder()
                 .chatContent(chatContent)
-                .availableTools(Collections.emptyList())
+                .availableTools(McpToolRegistry.getAllTools())
                 .maxRounds(maxRounds)
                 .build();
     }
 
     /** Simple echo tool for integration testing. */
-    private static class EchoTool implements McpTool {
+    private static class EchoTool implements Tool {
         @Override public String name() { return ECHO_TOOL; }
         @Override public String description() { return "Echo tool for final integration test"; }
         @Override public Map<String, Object> inputSchema() {
@@ -526,13 +548,13 @@ class FinalIntegrationTest {
             inputField.put("description", "Input to echo");
             return Map.of("input", inputField);
         }
-        @Override public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("Echo: " + params.getOrDefault("input", ""));
+        @Override public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("Echo: " + params.getOrDefault("input", ""));
         }
     }
 
     /** File read tool with a "path" parameter (triggers SecurityValidator checks). */
-    private static class FileReadTool implements McpTool {
+    private static class FileReadTool implements Tool {
         @Override public String name() { return FILE_TOOL; }
         @Override public String description() { return "File read tool for security testing"; }
         @Override public Map<String, Object> inputSchema() {
@@ -542,8 +564,8 @@ class FinalIntegrationTest {
             pathField.put("required", true);
             return Map.of("path", pathField);
         }
-        @Override public McpToolResult execute(McpContext context, Map<String, Object> params) {
-            return McpToolResult.text("Content of: " + params.getOrDefault("path", ""));
+        @Override public ToolResult execute(ToolContext context, Map<String, Object> params) {
+            return ToolResult.text("Content of: " + params.getOrDefault("path", ""));
         }
     }
 }

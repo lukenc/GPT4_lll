@@ -1,7 +1,8 @@
 package com.wmsay.gpt4_lll.fc.property;
 
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
 import com.wmsay.gpt4_lll.fc.model.ToolCall;
-import com.wmsay.gpt4_lll.fc.protocol.MarkdownProtocolAdapter;
+
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.constraints.StringLength;

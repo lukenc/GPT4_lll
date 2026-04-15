@@ -15,6 +15,9 @@ class AgentRuntimeConfigTest {
         assertEquals(3, config.getMaxDelegationDepth());
         assertEquals(120, config.getDelegationTimeoutSeconds());
         assertEquals(600, config.getSessionIdleTimeoutSeconds());
+        assertFalse(config.isRecruitMode());
+        assertEquals(5, config.getSubAgentContextFallbackMessageCount());
+        assertEquals(180, config.getSubAgentTimeoutSeconds());
     }
 
     @Test
@@ -24,11 +27,17 @@ class AgentRuntimeConfigTest {
                 .maxDelegationDepth(5)
                 .delegationTimeoutSeconds(60)
                 .sessionIdleTimeoutSeconds(300)
+                .recruitMode(true)
+                .subAgentContextFallbackMessageCount(10)
+                .subAgentTimeoutSeconds(300)
                 .build();
         assertEquals(10, config.getMaxConcurrentSessions());
         assertEquals(5, config.getMaxDelegationDepth());
         assertEquals(60, config.getDelegationTimeoutSeconds());
         assertEquals(300, config.getSessionIdleTimeoutSeconds());
+        assertTrue(config.isRecruitMode());
+        assertEquals(10, config.getSubAgentContextFallbackMessageCount());
+        assertEquals(300, config.getSubAgentTimeoutSeconds());
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.wmsay.gpt4_lll.fc.memory;
 
-import com.wmsay.gpt4_lll.fc.FunctionCallOrchestrator;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.events.ProgressCallback;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -226,7 +226,7 @@ class SummarizingMemoryUnitTest {
 
     // --- Helper: TestProgressCallback ---
 
-    private static class TestProgressCallback implements FunctionCallOrchestrator.ProgressCallback {
+    private static class TestProgressCallback implements ProgressCallback {
         boolean startedCalled = false;
         boolean completedCalled = false;
         boolean failedCalled = false;

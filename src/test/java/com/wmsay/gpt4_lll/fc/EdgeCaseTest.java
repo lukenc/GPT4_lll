@@ -1,21 +1,29 @@
 package com.wmsay.gpt4_lll.fc;
 
-import com.wmsay.gpt4_lll.fc.config.ConfigLoader;
-import com.wmsay.gpt4_lll.fc.error.ErrorHandler;
-import com.wmsay.gpt4_lll.fc.execution.ExecutionEngine;
-import com.wmsay.gpt4_lll.fc.execution.RetryStrategy;
-import com.wmsay.gpt4_lll.fc.execution.UserApprovalManager;
+import com.wmsay.gpt4_lll.fc.tools.ExecutionEngine;
+import com.wmsay.gpt4_lll.fc.tools.RetryStrategy;
+import com.wmsay.gpt4_lll.fc.tools.DefaultApprovalProvider;
+import com.wmsay.gpt4_lll.fc.tools.ErrorHandler;
+import com.wmsay.gpt4_lll.fc.tools.ToolRegistry;
+import com.wmsay.gpt4_lll.fc.tools.ValidationEngine;
+import com.wmsay.gpt4_lll.component.IntelliJApprovalProvider;
+import com.wmsay.gpt4_lll.fc.llm.DegradationManager;
+import com.wmsay.gpt4_lll.fc.llm.MarkdownProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapter;
+import com.wmsay.gpt4_lll.fc.llm.ProtocolAdapterRegistry;
 import com.wmsay.gpt4_lll.fc.model.*;
-import com.wmsay.gpt4_lll.fc.observability.ObservabilityManager;
-import com.wmsay.gpt4_lll.fc.protocol.DegradationManager;
-import com.wmsay.gpt4_lll.fc.protocol.MarkdownProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapter;
-import com.wmsay.gpt4_lll.fc.protocol.ProtocolAdapterRegistry;
-import com.wmsay.gpt4_lll.fc.validation.ValidationEngine;
-import com.wmsay.gpt4_lll.mcp.McpTool;
+import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.ConfigLoader;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallConfig;
+import com.wmsay.gpt4_lll.fc.core.FunctionCallResult;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.events.ObservabilityManager;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,7 +53,7 @@ class EdgeCaseTest {
         validationEngine = new ValidationEngine();
         errorHandler = new ErrorHandler();
         executionEngine = new ExecutionEngine(
-                new RetryStrategy(), new UserApprovalManager(), Executors.newSingleThreadExecutor());
+                new ToolRegistry(), new DefaultApprovalProvider(), new RetryStrategy(), Executors.newSingleThreadExecutor());
     }
 
     // ========================================================================
@@ -101,15 +109,15 @@ class EdgeCaseTest {
 
     @Test
     void register_duplicateToolInMcpRegistry_overwritesPrevious() {
-        // McpToolRegistry.register() uses put() — duplicates silently overwrite
+        // McpToolRegistry.registerTool() uses put() — duplicates silently overwrite
         String toolName = "edge_case_test_tool";
         StubMcpTool tool1 = new StubMcpTool(toolName, "first description");
         StubMcpTool tool2 = new StubMcpTool(toolName, "second description");
 
-        McpToolRegistry.register(tool1);
-        McpToolRegistry.register(tool2);
+        McpToolRegistry.registerTool(tool1);
+        McpToolRegistry.registerTool(tool2);
 
-        McpTool retrieved = McpToolRegistry.getTool(toolName);
+        Tool retrieved = McpToolRegistry.getTool(toolName);
         assertNotNull(retrieved);
         assertEquals("second description", retrieved.description(),
                 "Duplicate tool registration should overwrite the previous tool");
@@ -132,7 +140,7 @@ class EdgeCaseTest {
         FunctionCallRequest request = buildRequest(2); // maxRounds = 2
 
         // LLM always returns a tool call response
-        FunctionCallResult result = orchestrator.execute(request, null,
+        FunctionCallResult result = orchestrator.execute(request, (ToolContext) null,
                 req -> "```tool_call\n{\"name\":\"read_file\",\"id\":\"c1\",\"parameters\":{\"path\":\"x\"}}\n```");
 
         assertEquals(FunctionCallResult.ResultType.MAX_ROUNDS_EXCEEDED, result.getType(),
@@ -161,7 +169,7 @@ class EdgeCaseTest {
         assertNotNull(config);
         assertEquals(30, config.getDefaultTimeout());
         assertEquals(3, config.getMaxRetries());
-        assertEquals(20, config.getMaxRounds());
+        assertEquals(300, config.getMaxRounds());
         assertTrue(config.isEnableFunctionCalling());
         assertEquals(FunctionCallConfig.LogLevel.INFO, config.getLogLevel());
     }
@@ -177,7 +185,7 @@ class EdgeCaseTest {
         // Builder validation rejects negative values → falls back to default
         assertNotNull(config);
         assertEquals(30, config.getDefaultTimeout());
-        assertEquals(20, config.getMaxRounds());
+        assertEquals(300, config.getMaxRounds());
     }
 
     // ========================================================================
@@ -269,9 +277,9 @@ class EdgeCaseTest {
         // Without a real Project instance, we verify the lock mechanism exists
         // by checking that acquireLock/releaseLock work for null project.
         RetryStrategy retryStrategy = new RetryStrategy();
-        UserApprovalManager approvalManager = new UserApprovalManager();
+        ToolRegistry toolRegistry = new ToolRegistry();
         ExecutionEngine engine = new ExecutionEngine(
-                retryStrategy, approvalManager, Executors.newSingleThreadExecutor());
+                toolRegistry, new DefaultApprovalProvider(), retryStrategy, Executors.newSingleThreadExecutor());
 
         // With null project, acquireLock always returns true (no lock needed)
         // This verifies the null-safety of the lock mechanism
@@ -288,24 +296,24 @@ class EdgeCaseTest {
 
     @Test
     void userApprovalManager_alwaysAllowed_bypassesApproval() {
-        UserApprovalManager manager = new UserApprovalManager();
+        IntelliJApprovalProvider provider = new IntelliJApprovalProvider();
 
-        assertFalse(manager.isAlwaysAllowed("write_file"),
+        assertFalse(provider.isAlwaysAllowed("write_file"),
                 "Tool should not be always-allowed by default");
 
         // We can't call requestApproval without IDE, but we can test the
         // preference management
-        manager.clearAlwaysAllowedTools();
-        assertFalse(manager.isAlwaysAllowed("write_file"));
+        provider.clearAlwaysAllowed();
+        assertFalse(provider.isAlwaysAllowed("write_file"));
     }
 
     @Test
     void userApprovalManager_removeAlwaysAllowed_works() {
-        UserApprovalManager manager = new UserApprovalManager();
+        IntelliJApprovalProvider provider = new IntelliJApprovalProvider();
 
-        // clearAlwaysAllowedTools should not throw even when empty
-        assertDoesNotThrow(() -> manager.clearAlwaysAllowedTools());
-        assertDoesNotThrow(() -> manager.removeAlwaysAllowed("nonexistent_tool"));
+        // clearAlwaysAllowed should not throw even when empty
+        assertDoesNotThrow(() -> provider.clearAlwaysAllowed());
+        assertDoesNotThrow(() -> provider.removeAlwaysAllowed("nonexistent_tool"));
     }
 
     // ========================================================================
@@ -335,7 +343,7 @@ class EdgeCaseTest {
 
         @Override public String getName() { return name; }
         @Override public boolean supports(String providerName) { return false; }
-        @Override public Object formatToolDescriptions(List<McpTool> tools) { return ""; }
+        @Override public Object formatToolDescriptions(List<Tool> tools) { return ""; }
         @Override public List<ToolCall> parseToolCalls(String response) { return Collections.emptyList(); }
         @Override public Message formatToolResult(ToolCallResult result) { return new Message(); }
         @Override public boolean supportsNativeFunctionCalling() { return nativeSupport; }
@@ -344,7 +352,7 @@ class EdgeCaseTest {
     /**
      * Stub McpTool for testing duplicate registration in McpToolRegistry.
      */
-    private static class StubMcpTool implements McpTool {
+    private static class StubMcpTool implements Tool {
         private final String name;
         private final String description;
 
@@ -356,9 +364,9 @@ class EdgeCaseTest {
         @Override public String name() { return name; }
         @Override public String description() { return description; }
         @Override public Map<String, Object> inputSchema() { return Collections.emptyMap(); }
-        @Override public com.wmsay.gpt4_lll.mcp.McpToolResult execute(
-                com.wmsay.gpt4_lll.mcp.McpContext context, Map<String, Object> params) {
-            return com.wmsay.gpt4_lll.mcp.McpToolResult.text("stub result");
+        @Override public com.wmsay.gpt4_lll.fc.tools.ToolResult execute(
+                com.wmsay.gpt4_lll.fc.tools.ToolContext context, Map<String, Object> params) {
+            return com.wmsay.gpt4_lll.fc.tools.ToolResult.text("stub result");
         }
     }
 
@@ -369,7 +377,7 @@ class EdgeCaseTest {
     private static class AlwaysToolCallAdapter implements ProtocolAdapter {
         @Override public String getName() { return "always-tool-call"; }
         @Override public boolean supports(String providerName) { return true; }
-        @Override public Object formatToolDescriptions(List<McpTool> tools) { return ""; }
+        @Override public Object formatToolDescriptions(List<Tool> tools) { return ""; }
         @Override
         public List<ToolCall> parseToolCalls(String response) {
             // Always return a tool call to force the orchestrator to keep looping

@@ -10,6 +10,10 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.wmsay.gpt4_lll.fc.state.TaskPersistence;
+import com.wmsay.gpt4_lll.fc.state.TaskPersistenceData;
+import com.wmsay.gpt4_lll.fc.state.TaskState;
+
 /**
  * TaskPersistence 属性测试。
  * <p>
@@ -56,8 +60,8 @@ class TaskPersistencePropertyTest {
                             + " but got " + loaded.getSteps();
 
             // State map round-trip
-            ConcurrentHashMap<Integer, TaskState> originalStates = original.getStepStates();
-            ConcurrentHashMap<Integer, TaskState> loadedStates = loaded.getStepStates();
+            Map<Integer, TaskState> originalStates = original.getStepStates();
+            Map<Integer, TaskState> loadedStates = loaded.getStepStates();
             assert loadedStates.size() == originalStates.size() :
                     "State map size mismatch: expected " + originalStates.size()
                             + " but got " + loadedStates.size();
