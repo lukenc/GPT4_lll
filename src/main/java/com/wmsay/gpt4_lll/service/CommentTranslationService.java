@@ -8,9 +8,10 @@ import com.intellij.psi.PsiPackageStatement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.wmsay.gpt4_lll.MyPluginSettings;
-import com.wmsay.gpt4_lll.model.ChatContent;
 import com.wmsay.gpt4_lll.model.CommentTranslation;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 import com.wmsay.gpt4_lll.utils.ModelUtils;
 import org.slf4j.Logger;
@@ -483,7 +484,7 @@ public class CommentTranslationService {
             messages.add(userMessage);
 
             ChatContent chatContent = new ChatContent();
-            chatContent.setMessages(messages, provider);
+            chatContent.setMessages(ProviderAdapterRegistry.getAdapter(provider).adaptMessages(messages));
             chatContent.setModel(ModelUtils.getAvailableModelName(project));
 
             // 调用LLM进行翻译
@@ -603,7 +604,7 @@ public class CommentTranslationService {
             messages.add(userMessage);
 
             ChatContent chatContent = new ChatContent();
-            chatContent.setMessages(messages, provider);
+            chatContent.setMessages(ProviderAdapterRegistry.getAdapter(provider).adaptMessages(messages));
             chatContent.setModel(ModelUtils.getAvailableModelName(project));
 
             // 调用LLM进行翻译
