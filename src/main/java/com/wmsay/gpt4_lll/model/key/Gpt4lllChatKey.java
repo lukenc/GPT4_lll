@@ -2,7 +2,7 @@ package com.wmsay.gpt4_lll.model.key;
 
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.util.Key;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
 
 import java.util.List;
 
