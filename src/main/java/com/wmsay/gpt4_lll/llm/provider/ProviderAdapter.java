@@ -1,9 +1,9 @@
 package com.wmsay.gpt4_lll.llm.provider;
 
 import com.wmsay.gpt4_lll.MyPluginSettings;
-import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
-import com.wmsay.gpt4_lll.llm.SseStreamProcessor;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.llm.LlmStreamCallback;
+import com.wmsay.gpt4_lll.fc.llm.SseStreamProcessor;
 
 import java.util.List;
 

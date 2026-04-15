@@ -1,10 +1,10 @@
 package com.wmsay.gpt4_lll.llm.provider.adapters;
 
 import com.wmsay.gpt4_lll.MyPluginSettings;
-import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
-import com.wmsay.gpt4_lll.llm.SseStreamProcessor;
 import com.wmsay.gpt4_lll.llm.provider.ProviderAdapter;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.Message;
+import com.wmsay.gpt4_lll.fc.llm.LlmStreamCallback;
+import com.wmsay.gpt4_lll.fc.llm.SseStreamProcessor;
 import com.wmsay.gpt4_lll.utils.AuthUtils;
 import com.wmsay.gpt4_lll.utils.ChatUtils;
 
