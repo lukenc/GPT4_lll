@@ -3,13 +3,13 @@ package com.wmsay.gpt4_lll.utils;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.wmsay.gpt4_lll.MyPluginSettings;
-import com.wmsay.gpt4_lll.llm.LlmClient;
-import com.wmsay.gpt4_lll.llm.LlmRequest;
-import com.wmsay.gpt4_lll.llm.LlmStreamCallback;
+import com.wmsay.gpt4_lll.fc.llm.LlmClient;
+import com.wmsay.gpt4_lll.fc.llm.LlmRequest;
+import com.wmsay.gpt4_lll.fc.llm.LlmStreamCallback;
 import com.wmsay.gpt4_lll.llm.provider.ProviderAdapter;
 import com.wmsay.gpt4_lll.llm.provider.ProviderAdapterRegistry;
-import com.wmsay.gpt4_lll.model.ChatContent;
-import com.wmsay.gpt4_lll.model.Message;
+import com.wmsay.gpt4_lll.fc.core.ChatContent;
+import com.wmsay.gpt4_lll.fc.core.Message;
 import com.wmsay.gpt4_lll.model.SelectModelOption;
 import com.wmsay.gpt4_lll.model.key.Gpt4lllChatKey;
 import org.apache.commons.lang3.StringUtils;
@@ -49,8 +49,18 @@ public class ChatUtils {
     public static String getModelName(Project project) {
         SelectModelOption selectedModel=  ModelUtils.getSelectedModel(project);
         if (selectedModel!=null){
+            String modelName = selectedModel.getModelName();
+            // 自定义(Personal)供应商的模型名存储在设置中，SelectModelOption中为空
+            if ((modelName == null || modelName.isBlank())
+                    && "Personal".equals(selectedModel.getProvider())) {
+                String personalModel = MyPluginSettings.getInstance().getPersonalModel();
+                if (personalModel != null && !personalModel.isBlank()) {
+                    log.debug("使用自定义模型名====={}",personalModel);
+                    return personalModel;
+                }
+            }
             log.debug("选中的模型是====={}",selectedModel.getModelName());
-            return selectedModel.getModelName();
+            return modelName;
         }
         return "gpt-3.5-turbo";
     }
@@ -282,7 +292,7 @@ public class ChatUtils {
         try {
             request = LlmRequest.builder()
                     .url(url)
-                    .chatContent(content)
+                    .requestBody(content.toRequestJson())
                     .apiKey(apiKey)
                     .proxy(proxy)
                     .provider(provider)

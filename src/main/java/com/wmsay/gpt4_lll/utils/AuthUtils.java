@@ -75,11 +75,18 @@ public class AuthUtils {
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build();
 
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAcceptAsync(stringHttpResponse -> {
-            TokenInfo tokenInfo= JSON.parseObject(stringHttpResponse.body(), TokenInfo.class);
-            accessToken.set(tokenInfo.getAccess_token());
-            expiresIn.set(tokenInfo.getExpires_in());
-        }).join();
+        try {
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAcceptAsync(stringHttpResponse -> {
+                TokenInfo tokenInfo= JSON.parseObject(stringHttpResponse.body(), TokenInfo.class);
+                accessToken.set(tokenInfo.getAccess_token());
+                expiresIn.set(tokenInfo.getExpires_in());
+            }).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Baidu token request interrupted", e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            throw new RuntimeException("Baidu token request failed", e.getCause());
+        }
 
         LinkedHashMap<String,String> data = new LinkedHashMap<>();
         data.put(ACCESS_TOKEN_KEY,accessToken.get());
@@ -133,17 +140,24 @@ public class AuthUtils {
                 .GET()
                 .build();
 
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAcceptAsync(stringHttpResponse -> {
-            ApiResponse<TokenResult> tokenInfo= JSON.parseObject(stringHttpResponse.body(), new TypeReference<ApiResponse<TokenResult>>() {});
-            if (tokenInfo.isSuccess()){
-                tokenInfo.getData().getTokenList().forEach(apiToken -> {
-                    if ("BaiduFree".equals(apiToken.getApiModel()) ){
-                        accessToken.set( apiToken.getToken());
-                        expiresDate.set(apiToken.getExpireDate());
-                    }
-                });
-            }
-        }).join();
+        try {
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAcceptAsync(stringHttpResponse -> {
+                ApiResponse<TokenResult> tokenInfo= JSON.parseObject(stringHttpResponse.body(), new TypeReference<ApiResponse<TokenResult>>() {});
+                if (tokenInfo.isSuccess()){
+                    tokenInfo.getData().getTokenList().forEach(apiToken -> {
+                        if ("BaiduFree".equals(apiToken.getApiModel()) ){
+                            accessToken.set( apiToken.getToken());
+                            expiresDate.set(apiToken.getExpireDate());
+                        }
+                    });
+                }
+            }).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Free Baidu token request interrupted", e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            throw new RuntimeException("Free Baidu token request failed", e.getCause());
+        }
         LinkedHashMap<String,String> data = new LinkedHashMap<>();
         data.put(BAIDU_FREE_ACCESS_TOKEN_KEY,accessToken.get());
         // 获取当前时间的时间戳（毫秒）

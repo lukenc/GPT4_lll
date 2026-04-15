@@ -103,6 +103,21 @@ public class RuntimeStatusManager {
         }
     }
 
+    /**
+     * 清除指定项目的所有 StatusListener 和 AgentPhaseListener。
+     * 用于插件动态卸载或项目关闭时的彻底清理。
+     */
+    public static void clearListeners(Project project) {
+        List<StatusListener> statusListeners = project.getUserData(GPT_4_LLL_STATUS_LISTENERS);
+        if (statusListeners != null) {
+            statusListeners.clear();
+        }
+        List<AgentPhaseListener> phaseListeners = project.getUserData(GPT_4_LLL_PHASE_LISTENERS);
+        if (phaseListeners != null) {
+            phaseListeners.clear();
+        }
+    }
+
     // ========== AgentPhase extension ==========
 
     /**
