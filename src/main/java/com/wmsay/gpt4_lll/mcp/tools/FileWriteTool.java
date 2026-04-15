@@ -1,9 +1,13 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
@@ -28,12 +32,14 @@ import java.util.Map;
  *   <li>路径安全：复用 McpFileToolSupport.resolvePath 做工作区边界检测</li>
  * </ul>
  */
-public class FileWriteTool implements McpTool {
+public class FileWriteTool implements Tool {
 
     private static final String MODE_OVERWRITE = "overwrite";
     private static final String MODE_PATCH = "patch";
     private static final String MODE_APPEND = "append";
     private static final String MODE_INSERT = "insert_after_line";
+
+    private static final long MAX_CONTENT_BYTES = 5L * 1024 * 1024; // 5 MB
 
     @Override
     public String name() {
@@ -42,9 +48,11 @@ public class FileWriteTool implements McpTool {
 
     @Override
     public String description() {
-        return "Write file content with support for overwrite, patch (str_replace), append, "
-                + "and insert_after_line modes. Automatically creates parent directories. "
-                + "Uses atomic write (temp file + rename) to prevent corruption.";
+        return "Write file content. Default mode is patch (str_replace). "
+                + "Supports: patch (replace old_content with content), overwrite (replace entire file), "
+                + "append (add to end with auto newline), insert_after_line (insert after line N, 1-based). "
+                + "Uses atomic write. Max content size: 5 MB. "
+                + "Use read_file first to inspect current content before patching.";
     }
 
     @Override
@@ -57,26 +65,35 @@ public class FileWriteTool implements McpTool {
         schema.put("content", Map.of(
                 "type", "string",
                 "required", true,
-                "description", "content to write (new_content for patch mode)"));
+                "description", "The new text to write. In patch mode, this is the replacement text "
+                        + "that will replace old_content. Pass empty string in patch mode to delete old_content."));
         schema.put("mode", Map.of(
                 "type", "string",
                 "required", false,
-                "default", MODE_OVERWRITE,
+                "default", MODE_PATCH,
                 "enum", List.of(MODE_OVERWRITE, MODE_PATCH, MODE_APPEND, MODE_INSERT),
-                "description", "write mode: overwrite (default), patch, append, insert_after_line"));
+                "description", "write mode (default: patch). "
+                        + "overwrite: replace entire file content; "
+                        + "patch: replace old_content with content (str_replace); "
+                        + "append: add content after existing file content (auto newline separator); "
+                        + "insert_after_line: insert content after the specified line_number."));
         schema.put("old_content", Map.of(
                 "type", "string",
                 "required", false,
-                "description", "original content to replace (required for patch mode, exact match)"));
+                "description", "The exact original text to find and replace (required for patch mode). "
+                        + "Must appear exactly once in the file. "
+                        + "Include surrounding context lines if the snippet is not unique."));
         schema.put("line_number", Map.of(
                 "type", "integer",
                 "required", false,
-                "description", "insert after this line number, 1-based (required for insert_after_line mode)"));
+                "description", "1-based line number. Use 0 to insert at the very beginning of the file "
+                        + "(before line 1). Use N to insert after line N. (required for insert_after_line mode)"));
         schema.put("create_dirs", Map.of(
                 "type", "boolean",
                 "required", false,
                 "default", true,
-                "description", "auto-create parent directories if missing"));
+                "description", "Auto-create parent directories if missing (default: true). "
+                        + "Set to false if you want an error when the parent directory does not exist."));
         schema.put("encoding", Map.of(
                 "type", "string",
                 "required", false,
@@ -86,18 +103,24 @@ public class FileWriteTool implements McpTool {
     }
 
     @Override
-    public McpToolResult execute(McpContext context, Map<String, Object> params) {
+    public ToolResult execute(ToolContext context, Map<String, Object> params) {
         // --- 参数提取 ---
-        String content = McpFileToolSupport.getString(params, "content", null);
-        if (content == null) {
-            return McpToolResult.error("Missing required parameter: content");
-        }
-
-        String mode = McpFileToolSupport.getString(params, "mode", MODE_OVERWRITE);
+        String mode = McpFileToolSupport.getString(params, "mode", MODE_PATCH);
         if (!MODE_OVERWRITE.equals(mode) && !MODE_PATCH.equals(mode)
                 && !MODE_APPEND.equals(mode) && !MODE_INSERT.equals(mode)) {
-            return McpToolResult.error("Invalid mode '" + mode
+            return ToolResult.error("Invalid mode '" + mode
                     + "'. Allowed values: overwrite, patch, append, insert_after_line");
+        }
+
+        // patch 模式允许空字符串 content（表示删除 old_content）
+        String content;
+        if (MODE_PATCH.equals(mode)) {
+            content = McpFileToolSupport.getStringAllowEmpty(params, "content", null);
+        } else {
+            content = McpFileToolSupport.getString(params, "content", null);
+        }
+        if (content == null) {
+            return ToolResult.error("Missing required parameter: content");
         }
 
         boolean createDirs = McpFileToolSupport.getBoolean(params, "create_dirs", true);
@@ -107,7 +130,7 @@ public class FileWriteTool implements McpTool {
         try {
             charset = Charset.forName(encodingName);
         } catch (UnsupportedCharsetException ex) {
-            return McpToolResult.error("Unsupported encoding '" + encodingName
+            return ToolResult.error("Unsupported encoding '" + encodingName
                     + "'. Use standard charset names such as utf-8, gbk, iso-8859-1.");
         }
 
@@ -116,29 +139,48 @@ public class FileWriteTool implements McpTool {
         try {
             filePath = McpFileToolSupport.resolvePath(context, params, "path");
         } catch (IllegalArgumentException ex) {
-            return McpToolResult.error(ex.getMessage());
+            return ToolResult.error(ex.getMessage());
         }
 
         if (Files.exists(filePath) && !Files.isRegularFile(filePath)) {
-            return McpToolResult.error("Path exists but is not a regular file: " + filePath);
+            return ToolResult.error("Path exists but is not a regular file: " + filePath);
         }
 
         // --- 父目录处理 ---
         Path parentDir = filePath.getParent();
         if (parentDir != null && !Files.exists(parentDir)) {
             if (!createDirs) {
-                return McpToolResult.error("Parent directory does not exist: " + parentDir
+                return ToolResult.error("Parent directory does not exist: " + parentDir
                         + ". Set create_dirs=true to auto-create.");
             }
             try {
                 Files.createDirectories(parentDir);
             } catch (IOException ex) {
-                return McpToolResult.error("Failed to create parent directories for " + parentDir
+                return ToolResult.error("Failed to create parent directories for " + parentDir
                         + ": " + friendlyIOMessage(ex));
             }
         }
 
+        // --- 大文件写入保护 ---
+        byte[] contentBytes = content.getBytes(charset);
+        if (contentBytes.length > MAX_CONTENT_BYTES) {
+            return ToolResult.error("Content size " + contentBytes.length
+                    + " bytes exceeds maximum allowed size of " + MAX_CONTENT_BYTES
+                    + " bytes (5 MB).");
+        }
+
         boolean isNewFile = !Files.exists(filePath);
+
+        // 在写入前捕获原始内容，供 AgentFileChangeHook 追踪变更
+        String originalContent = "";
+        if (!isNewFile) {
+            try {
+                originalContent = Files.readString(filePath, charset);
+            } catch (IOException ex) {
+                // 读取失败不阻塞写入，记录为空
+                originalContent = "";
+            }
+        }
 
         // --- 分模式执行 ---
         try {
@@ -157,26 +199,30 @@ public class FileWriteTool implements McpTool {
                     finalContent = executeInsert(filePath, content, params, charset);
                     break;
                 default:
-                    return McpToolResult.error("Unrecognized mode: " + mode);
+                    return ToolResult.error("Unrecognized mode: " + mode);
             }
 
             byte[] bytes = finalContent.getBytes(charset);
             atomicWrite(filePath, bytes);
 
+            // 通知 IntelliJ VFS 刷新，使编辑器立即看到磁盘变更
+            refreshVirtualFile(filePath);
+
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("success", true);
             result.put("tool", name());
-            result.put("path", filePath.toString());
+            result.put("path", context.getWorkspaceRoot().relativize(filePath).toString());
             result.put("mode", mode);
             result.put("bytes_written", bytes.length);
             result.put("created", isNewFile);
+            result.put("original_content", originalContent);
             result.put("error", null);
-            return McpToolResult.structured(result);
+            return ToolResult.structured(result);
 
         } catch (WriteToolException ex) {
-            return McpToolResult.error(ex.getMessage());
+            return ToolResult.error(ex.getMessage());
         } catch (IOException ex) {
-            return McpToolResult.error("Write failed: " + friendlyIOMessage(ex));
+            return ToolResult.error("Write failed: " + friendlyIOMessage(ex));
         }
     }
 
@@ -241,6 +287,11 @@ public class FileWriteTool implements McpTool {
             return content;
         }
         String existing = Files.readString(filePath, charset);
+        // 自动补换行：如果现有内容不以换行符结尾，插入一个换行符
+        if (!existing.isEmpty() && !existing.endsWith("\n") && !existing.endsWith("\r\n")) {
+            String lineEnding = detectLineEnding(existing);
+            return existing + lineEnding + content;
+        }
         return existing + content;
     }
 
@@ -301,6 +352,32 @@ public class FileWriteTool implements McpTool {
             sb.append(sep);
         }
         return sb.toString();
+    }
+
+    // ─── VFS 刷新：通知 IDE 磁盘文件已变更 ───
+
+    /**
+     * 通知 IntelliJ VFS 刷新指定文件，使编辑器能立即看到磁盘上的变更。
+     * 通过 invokeLater 在 EDT 上执行，避免阻塞工具执行线程。
+     */
+    private static void refreshVirtualFile(Path filePath) {
+        if (ApplicationManager.getApplication() == null) return;
+        ApplicationManager.getApplication().invokeLater(() -> {
+            LocalFileSystem fs = LocalFileSystem.getInstance();
+            File ioFile = filePath.toFile();
+            VirtualFile vf = fs.refreshAndFindFileByIoFile(ioFile);
+            if (vf != null) {
+                vf.refresh(false, false);
+            }
+            // 同时刷新父目录（处理新建文件场景）
+            File parent = ioFile.getParentFile();
+            if (parent != null) {
+                VirtualFile parentVf = fs.refreshAndFindFileByIoFile(parent);
+                if (parentVf != null) {
+                    parentVf.refresh(false, false);
+                }
+            }
+        });
     }
 
     // ─── 原子写入：先写临时文件再 rename ───

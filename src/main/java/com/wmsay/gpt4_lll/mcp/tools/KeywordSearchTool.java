@@ -1,8 +1,8 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,7 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
@@ -23,7 +22,7 @@ import java.util.stream.Stream;
  * 支持单关键词（keyword）或多关键词并行搜索（keywords 数组）。
  * 增强功能：上下文行数、文件大小限制、目录黑名单、二进制文件过滤。
  */
-public class KeywordSearchTool implements McpTool {
+public class KeywordSearchTool implements Tool {
 
     private static final Set<String> DEFAULT_IGNORE_DIRS = Set.of(
             ".git", ".idea", "node_modules", "target", "build", "out", ".gradle",
@@ -39,7 +38,9 @@ public class KeywordSearchTool implements McpTool {
 
     @Override
     public String description() {
-        return "Search one or more keywords in files. Supports single 'keyword' or multiple 'keywords' array for parallel search.";
+        return "Search one or more keywords in files. Returns 1-based line numbers that can be used directly "
+                + "with write_file's insert_after_line mode. "
+                + "Supports single 'keyword' or multiple 'keywords' array for parallel search.";
     }
 
     @Override
@@ -48,46 +49,54 @@ public class KeywordSearchTool implements McpTool {
         schema.put("keyword", Map.of("type", "string", "required", false, "description", "single keyword or regex pattern (use 'keyword' or 'keywords', at least one required)"));
         schema.put("keywords", Map.of("type", "array", "items", Map.of("type", "string"), "required", false, "description", "multiple keywords/patterns to search simultaneously, each file is scanned once"));
         schema.put("path", Map.of("type", "string", "required", false, "default", ".", "description", "search root path"));
-        schema.put("ignoreCase", Map.of("type", "boolean", "required", false, "default", false));
+        schema.put("ignore_case", Map.of("type", "boolean", "required", false, "default", false,
+            "description", "Case-insensitive matching (default: false)"));
         schema.put("regex", Map.of("type", "boolean", "required", false, "default", false));
-        schema.put("filePattern", Map.of("type", "string", "required", false, "description", "glob-like suffix, e.g. .java"));
-        schema.put("maxResults", Map.of("type", "integer", "required", false, "default", 200));
-        schema.put("contextLines", Map.of("type", "integer", "required", false, "default", 0, "description", "number of context lines before/after match"));
-        schema.put("maxFileBytes", Map.of("type", "integer", "required", false, "default", 1048576, "description", "skip files larger than this (bytes)"));
-        schema.put("ignoreDirs", Map.of("type", "array", "required", false, "description", "additional directories to ignore"));
-        schema.put("skipBinary", Map.of("type", "boolean", "required", false, "default", true, "description", "skip binary files"));
+        schema.put("file_pattern", Map.of("type", "string", "required", false,
+            "description", "Glob-like suffix filter, e.g. .java"));
+        schema.put("max_results", Map.of("type", "integer", "required", false, "default", 200,
+            "description", "Maximum number of matches to return (default: 200)"));
+        schema.put("context_lines", Map.of("type", "integer", "required", false, "default", 0,
+            "description", "Number of context lines before/after each match (default: 0)"));
+        schema.put("max_file_bytes", Map.of("type", "integer", "required", false, "default", 1048576,
+            "description", "Skip files larger than this size in bytes (default: 1 MB)"));
+        schema.put("ignore_dirs", Map.of("type", "array", "required", false,
+            "items", Map.of("type", "string"),
+            "description", "Additional directory names to ignore during search"));
+        schema.put("skip_binary", Map.of("type", "boolean", "required", false, "default", true,
+            "description", "Skip binary files (default: true)"));
         return schema;
     }
 
     @Override
-    public McpToolResult execute(McpContext context, Map<String, Object> params) {
+    public ToolResult execute(ToolContext context, Map<String, Object> params) {
         List<String> keywordList = resolveKeywords(params);
         if (keywordList.isEmpty()) {
-            return McpToolResult.error("Missing keyword or keywords/缺少 keyword 或 keywords 参数");
+            return ToolResult.error("Missing keyword or keywords/缺少 keyword 或 keywords 参数");
         }
 
         Path basePath;
         try {
             basePath = McpFileToolSupport.resolvePath(context, params, "path");
         } catch (IllegalArgumentException ex) {
-            return McpToolResult.error(ex.getMessage());
+            return ToolResult.error(ex.getMessage());
         }
 
         if (!Files.exists(basePath)) {
-            return McpToolResult.error("Path not found: " + basePath);
+            return ToolResult.error("Path not found: " + basePath);
         }
 
-        boolean ignoreCase = McpFileToolSupport.getBoolean(params, "ignoreCase", false);
+        boolean ignoreCase = McpFileToolSupport.getBoolean(params, "ignore_case", false);
         boolean regex = McpFileToolSupport.getBoolean(params, "regex", false);
-        String filePattern = McpFileToolSupport.getString(params, "filePattern", "");
-        int maxResults = Math.max(1, McpFileToolSupport.getInt(params, "maxResults", 200));
-        int contextLines = Math.max(0, McpFileToolSupport.getInt(params, "contextLines", 0));
-        long maxFileBytes = Math.max(1, McpFileToolSupport.getLong(params, "maxFileBytes", DEFAULT_MAX_FILE_BYTES));
-        boolean skipBinary = McpFileToolSupport.getBoolean(params, "skipBinary", true);
+        String filePattern = McpFileToolSupport.getString(params, "file_pattern", "");
+        int maxResults = Math.max(1, McpFileToolSupport.getInt(params, "max_results", 200));
+        int contextLines = Math.max(0, McpFileToolSupport.getInt(params, "context_lines", 0));
+        long maxFileBytes = Math.max(1, McpFileToolSupport.getLong(params, "max_file_bytes", DEFAULT_MAX_FILE_BYTES));
+        boolean skipBinary = McpFileToolSupport.getBoolean(params, "skip_binary", true);
 
         // 构建忽略目录集合
         Set<String> ignoreDirs = new HashSet<>(DEFAULT_IGNORE_DIRS);
-        Object ignoreDirsParam = params.get("ignoreDirs");
+        Object ignoreDirsParam = params.get("ignore_dirs");
         if (ignoreDirsParam instanceof List<?> list) {
             for (Object item : list) {
                 if (item != null) {
@@ -104,7 +113,7 @@ public class KeywordSearchTool implements McpTool {
                 Pattern p = regex ? Pattern.compile(kw, flags) : Pattern.compile(Pattern.quote(kw), flags);
                 patterns.add(new PatternEntry(kw, p));
             } catch (PatternSyntaxException ex) {
-                return McpToolResult.error("Invalid regex '" + kw + "'/正则表达式错误: " + ex.getMessage());
+                return ToolResult.error("Invalid regex '" + kw + "'/正则表达式错误: " + ex.getMessage());
             }
         }
 
@@ -114,15 +123,16 @@ public class KeywordSearchTool implements McpTool {
         Set<String> skippedDirs = new HashSet<>();
 
         try (Stream<Path> pathStream = Files.walk(basePath)) {
+            Path workspaceRoot = context.getWorkspaceRoot();
             pathStream
                     .filter(path -> filterPath(path, basePath, ignoreDirs, skippedDirs))
                     .filter(Files::isRegularFile)
                     .filter(path -> matchesFilePattern(path, filePattern))
                     .filter(path -> checkFileSize(path, maxFileBytes, skippedFiles))
                     .filter(path -> !skipBinary || !isBinaryFile(path))
-                    .forEach(file -> collectMatches(file, basePath, patterns, matches, maxResults, contextLines, multiKeyword));
+                    .forEach(file -> collectMatches(file, workspaceRoot, patterns, matches, maxResults, contextLines, multiKeyword));
         } catch (IOException ex) {
-            return McpToolResult.error("Search failed/搜索失败: " + ex.getMessage());
+            return ToolResult.error("Search failed/搜索失败: " + ex.getMessage());
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -132,12 +142,13 @@ public class KeywordSearchTool implements McpTool {
         } else {
             result.put("keyword", keywordList.get(0));
         }
-        result.put("path", basePath.toString());
+        result.put("workspaceRoot", context.getWorkspaceRoot().toString());
+        result.put("path", context.getWorkspaceRoot().relativize(basePath).toString());
         result.put("matchCount", matches.size());
         result.put("matches", matches);
         result.put("skippedFiles", skippedFiles[0]);
         result.put("skippedDirs", new ArrayList<>(skippedDirs));
-        return McpToolResult.structured(result);
+        return ToolResult.structured(result);
     }
 
     /**

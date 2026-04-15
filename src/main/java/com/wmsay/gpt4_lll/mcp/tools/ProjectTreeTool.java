@@ -1,8 +1,8 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,7 +21,7 @@ import java.util.stream.Stream;
  * 项目目录树读取工具，行为接近 tree 命令。
  * 增强功能：默认忽略目录、自定义忽略目录。
  */
-public class ProjectTreeTool implements McpTool {
+public class ProjectTreeTool implements Tool {
 
     private static final Set<String> DEFAULT_IGNORE_DIRS = Set.of(
             ".git", ".idea", "node_modules", "target", "build", "out", ".gradle",
@@ -46,21 +46,21 @@ public class ProjectTreeTool implements McpTool {
         schema.put("showFiles", Map.of("type", "boolean", "required", false, "default", true));
         schema.put("showHidden", Map.of("type", "boolean", "required", false, "default", false));
         schema.put("maxEntries", Map.of("type", "integer", "required", false, "default", 1000));
-        schema.put("ignoreDirs", Map.of("type", "array", "required", false, "description", "additional directories to ignore (merged with defaults)"));
+        schema.put("ignoreDirs", Map.of("type", "array", "required", false, "items", Map.of("type", "string"), "description", "additional directories to ignore (merged with defaults)"));
         schema.put("useDefaultIgnores", Map.of("type", "boolean", "required", false, "default", true, "description", "whether to ignore .git, .idea, node_modules, etc."));
         return schema;
     }
 
     @Override
-    public McpToolResult execute(McpContext context, Map<String, Object> params) {
+    public ToolResult execute(ToolContext context, Map<String, Object> params) {
         Path root;
         try {
             root = McpFileToolSupport.resolvePath(context, params, "path");
         } catch (IllegalArgumentException ex) {
-            return McpToolResult.error(ex.getMessage());
+            return ToolResult.error(ex.getMessage());
         }
         if (!Files.exists(root)) {
-            return McpToolResult.error("Path not found: " + root);
+            return ToolResult.error("Path not found: " + root);
         }
 
         int maxDepth = Math.max(0, McpFileToolSupport.getInt(params, "maxDepth", 3));
@@ -89,12 +89,13 @@ public class ProjectTreeTool implements McpTool {
         try {
             walk(root, root, "", maxDepth, showFiles, showHidden, maxEntries, lines, ignoreDirs);
         } catch (IOException ex) {
-            return McpToolResult.error("Tree read failed/读取目录树失败: " + ex.getMessage());
+            return ToolResult.error("Tree read failed/读取目录树失败: " + ex.getMessage());
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("tool", name());
-        result.put("path", root.toString());
+        result.put("workspaceRoot", context.getWorkspaceRoot().toString());
+        result.put("path", context.getWorkspaceRoot().relativize(root).toString());
         result.put("maxDepth", maxDepth);
         result.put("showFiles", showFiles);
         result.put("showHidden", showHidden);
@@ -102,7 +103,7 @@ public class ProjectTreeTool implements McpTool {
         result.put("truncated", lines.size() > maxEntries + 1);
         result.put("ignoredDirs", new ArrayList<>(ignoreDirs));
         result.put("tree", String.join("\n", lines));
-        return McpToolResult.structured(result);
+        return ToolResult.structured(result);
     }
 
     private static void walk(Path root, Path current, String prefix, int maxDepth, boolean showFiles,

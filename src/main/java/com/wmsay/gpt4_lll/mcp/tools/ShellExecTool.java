@@ -1,9 +1,9 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
 import com.intellij.openapi.diagnostic.Logger;
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 import com.wmsay.gpt4_lll.mcp.tools.shell.*;
 
 import java.nio.charset.Charset;
@@ -23,7 +23,7 @@ import java.util.*;
  * @see ShellCommandValidator
  * @see LocalProcessExecutor
  */
-public class ShellExecTool implements McpTool {
+public class ShellExecTool implements Tool {
 
     private static final Logger LOG = Logger.getInstance(ShellExecTool.class);
 
@@ -85,6 +85,7 @@ public class ShellExecTool implements McpTool {
 
         schema.put("command", Map.of(
                 "type", "array",
+                "items", Map.of("type", "string"),
                 "required", false,
                 "description", "Recommended. Command and arguments array, e.g. [\"git\", \"status\"]. "
                         + "First element is the executable, rest are arguments."
@@ -154,10 +155,10 @@ public class ShellExecTool implements McpTool {
     }
 
     @Override
-    public McpToolResult execute(McpContext context, Map<String, Object> params) {
-        Path projectRoot = context.getProjectRoot();
+    public ToolResult execute(ToolContext context, Map<String, Object> params) {
+        Path projectRoot = context.getWorkspaceRoot();
         if (projectRoot == null) {
-            return McpToolResult.error("Project root is unavailable. Cannot execute shell commands without a workspace context.");
+            return ToolResult.error("Project root is unavailable. Cannot execute shell commands without a workspace context.");
         }
 
         ensurePolicyLoaded(projectRoot);
@@ -167,14 +168,14 @@ public class ShellExecTool implements McpTool {
         try {
             request = parseRequest(params, projectRoot);
         } catch (IllegalArgumentException e) {
-            return McpToolResult.error("Parameter validation failed: " + e.getMessage());
+            return ToolResult.error("Parameter validation failed: " + e.getMessage());
         }
 
         // ---- 2. 安全校验 ----
         ShellExecResult blocked = validator.validate(request, projectRoot);
         if (blocked != null) {
             logExecution("shell_exec_blocked", request, blocked.getRiskLevel(), 0);
-            return McpToolResult.structured(blocked.toStructuredMap());
+            return ToolResult.structured(blocked.toStructuredMap());
         }
 
         // ---- 3. 风险评估 ----
@@ -190,7 +191,7 @@ public class ShellExecTool implements McpTool {
                     riskLevel
             );
             logExecution("shell_exec_blocked", request, riskLevel, 0);
-            return McpToolResult.structured(systemBlocked.toStructuredMap());
+            return ToolResult.structured(systemBlocked.toStructuredMap());
         }
 
         // ---- 4. 日志记录 ----
@@ -209,7 +210,7 @@ public class ShellExecTool implements McpTool {
                 result.toStructuredMap().containsKey("durationMs")
                         ? ((Number) result.toStructuredMap().get("durationMs")).longValue() : 0);
 
-        return McpToolResult.structured(resultMap);
+        return ToolResult.structured(resultMap);
     }
 
     // ---- 参数解析 ----

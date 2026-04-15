@@ -1,8 +1,8 @@
 package com.wmsay.gpt4_lll.mcp.tools;
 
-import com.wmsay.gpt4_lll.mcp.McpContext;
-import com.wmsay.gpt4_lll.mcp.McpTool;
-import com.wmsay.gpt4_lll.mcp.McpToolResult;
+import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.fc.tools.ToolContext;
+import com.wmsay.gpt4_lll.fc.tools.ToolResult;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,7 +15,7 @@ import java.util.Map;
 /**
  * 文件读取工具，支持按行读取，行为接近 sed/head/tail 组合。
  */
-public class FileReadTool implements McpTool {
+public class FileReadTool implements Tool {
 
     @Override
     public String name() {
@@ -24,44 +24,50 @@ public class FileReadTool implements McpTool {
 
     @Override
     public String description() {
-        return "Read file content by path with optional line range.";
+        return "Read file content by line range. Returns 1-based line numbers in format 'N|text'. "
+                + "Output is capped by max_lines (default 400). "
+                + "Line numbers in output can be used directly with write_file's insert_after_line mode. "
+                + "Use with write_file for read-modify-write workflows.";
     }
 
     @Override
     public Map<String, Object> inputSchema() {
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("path", Map.of("type", "string", "required", true, "description", "target file path"));
-        schema.put("startLine", Map.of("type", "integer", "required", false, "default", 1));
-        schema.put("endLine", Map.of("type", "integer", "required", false, "description", "inclusive end line"));
-        schema.put("maxLines", Map.of("type", "integer", "required", false, "default", 400));
+        schema.put("start_line", Map.of("type", "integer", "required", false, "default", 1,
+                "description", "1-based start line number (default: 1, the first line)"));
+        schema.put("end_line", Map.of("type", "integer", "required", false,
+                "description", "1-based inclusive end line number (default: last line of file)"));
+        schema.put("max_lines", Map.of("type", "integer", "required", false, "default", 400,
+                "description", "Maximum number of lines to return (default: 400). Output is truncated if the requested range exceeds this limit."));
         return schema;
     }
 
     @Override
-    public McpToolResult execute(McpContext context, Map<String, Object> params) {
+    public ToolResult execute(ToolContext context, Map<String, Object> params) {
         Path filePath;
         try {
             filePath = McpFileToolSupport.resolvePath(context, params, "path");
         } catch (IllegalArgumentException ex) {
-            return McpToolResult.error(ex.getMessage());
+            return ToolResult.error(ex.getMessage());
         }
 
         if (!Files.exists(filePath)) {
-            return McpToolResult.error("File not found: " + filePath);
+            return ToolResult.error("File not found: " + filePath);
         }
         if (!Files.isRegularFile(filePath)) {
-            return McpToolResult.error("Path is not a file: " + filePath);
+            return ToolResult.error("Path is not a file: " + filePath);
         }
 
-        int startLineInput = Math.max(1, McpFileToolSupport.getInt(params, "startLine", 1));
-        int endLineInput = McpFileToolSupport.getInt(params, "endLine", Integer.MAX_VALUE);
-        int maxLines = Math.max(1, McpFileToolSupport.getInt(params, "maxLines", 400));
+        int startLineInput = Math.max(1, McpFileToolSupport.getInt(params, "start_line", 1));
+        int endLineInput = McpFileToolSupport.getInt(params, "end_line", Integer.MAX_VALUE);
+        int maxLines = Math.max(1, McpFileToolSupport.getInt(params, "max_lines", 400));
 
         try {
             List<String> allLines = Files.readAllLines(filePath);
             int total = allLines.size();
             if (total == 0) {
-                return McpToolResult.text("");
+                return ToolResult.text("");
             }
 
             int startIndex = Math.min(startLineInput - 1, total - 1);
@@ -88,16 +94,16 @@ public class FileReadTool implements McpTool {
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("tool", name());
-            result.put("path", filePath.toString());
+            result.put("path", context.getWorkspaceRoot().relativize(filePath).toString());
             result.put("totalLines", total);
             result.put("startLine", startIndex + 1);
             result.put("endLine", endIndex + 1);
             result.put("truncated", endIndex < endIndexByInput);
             result.put("lines", lines);
             result.put("content", content.toString());
-            return McpToolResult.structured(result);
+            return ToolResult.structured(result);
         } catch (IOException ex) {
-            return McpToolResult.error("Read file failed/读取文件失败: " + ex.getMessage());
+            return ToolResult.error("Read file failed/读取文件失败: " + ex.getMessage());
         }
     }
 }
