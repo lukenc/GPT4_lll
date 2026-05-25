@@ -37,6 +37,15 @@ public class ExecutionEngine {
     /** 默认超时时间（秒） */
     private static final long DEFAULT_TIMEOUT_SECONDS = 30;
 
+    /**
+     * ToolContext data key:当前会话 id。
+     * <p>
+     * 由 {@code AgentRuntime.send} 在 send 入口写入。{@link #deriveContextId} 用它作为
+     * isConcurrentSafe=false 工具的锁粒度——保证"同一 session 内不并发执行同一工具",
+     * 而不是粗粒度的"同一 workspace 内不并发"。
+     */
+    public static final String CTX_KEY_SESSION_ID = "execution_engine.sessionId";
+
     /** 已知的并发安全工具（只读工具） */
     private static final Set<String> CONCURRENT_SAFE_TOOLS = Set.of(
             "read_file", "tree", "grep", "keyword_search"
@@ -167,18 +176,26 @@ public class ExecutionEngine {
      * 带超时和重试的工具执行。
      * 使用 {@link CompletableFuture#supplyAsync} 提交到线程池，配合 {@code get(timeout)} 实现超时控制。
      * 可重试异常按指数退避重试，最多重试 {@link RetryStrategy#getMaxRetries()} 次。
+     * <p>
+     * <strong>TimeoutException 策略</strong>:不重试 + 强制取消运行中的任务。
+     * 此前的设计是 timeout 后无条件 retry,但旧 Future 不取消,旧任务在 threadPool 继续跑——
+     * 重试相当于"新增并发实例"而不是"再试一次"。在长跑工具(子 Agent 派发、shell_exec 跑测试
+     * 之类)上会形成"多个实例并发跑同一个调用"的 cascade。新策略:超时即取消 + fail-fast,
+     * 因为 30s 超时如果再多等 30s 通常也不会成功(不是 transient,是真的慢),交给上层
+     * (LLM 看 ToolResult.error 后)决定要不要换工具或缩范围。
+     * 真正应该 retryable 的是 rate limit / 5xx 之类的 transient 失败,走 {@link RetryStrategy#isRetryable}。
      */
     ToolResult executeWithTimeoutAndRetry(Tool tool, ToolCall toolCall, ToolContext context) {
         int maxRetries = retryStrategy.getMaxRetries();
         long timeout = getTimeout(tool);
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                CompletableFuture<ToolResult> future = CompletableFuture.supplyAsync(
-                        () -> tool.execute(context, toolCall.getParameters()),
-                        threadPool
-                );
+            CompletableFuture<ToolResult> future = CompletableFuture.supplyAsync(
+                    () -> tool.execute(context, toolCall.getParameters()),
+                    threadPool
+            );
 
+            try {
                 ToolResult result = future.get(timeout, TimeUnit.SECONDS);
 
                 if (attempt > 0) {
@@ -188,18 +205,18 @@ public class ExecutionEngine {
                 return result;
 
             } catch (TimeoutException e) {
+                // 关键:强制取消运行中的任务,避免"幽灵任务"在 threadPool 继续跑。
+                // cancel(true) 调用 thread.interrupt();工具自身需在长跑循环里 check
+                // Thread.isInterrupted() 才能尽快退出——这是 fc 工具的契约。
+                future.cancel(true);
                 LOG.log(Level.WARNING, "Tool '" + toolCall.getToolName()
-                        + "' timed out (attempt " + (attempt + 1) + "/" + (maxRetries + 1)
-                        + ", timeout=" + timeout + "s)");
-
-                if (attempt == maxRetries) {
-                    return ToolResult.error(
-                            String.format("Tool execution timed out after %d seconds. "
-                                    + "Consider using smaller data range or step-by-step execution.",
-                                    timeout));
-                }
-                // Timeout is retryable — apply backoff then continue
-                sleep(retryStrategy.getBackoffDelay(attempt));
+                        + "' timed out after " + timeout + "s; cancelled and not retrying. "
+                        + "(TimeoutException is non-retryable by design — see executeWithTimeoutAndRetry javadoc)");
+                return ToolResult.error(
+                        String.format("Tool execution timed out after %d seconds. "
+                                + "Consider using smaller data range, step-by-step execution, "
+                                + "or a different approach.",
+                                timeout));
 
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
@@ -217,6 +234,7 @@ public class ExecutionEngine {
                 sleep(retryStrategy.getBackoffDelay(attempt));
 
             } catch (InterruptedException e) {
+                future.cancel(true);
                 Thread.currentThread().interrupt();
                 return ToolResult.error("Tool execution interrupted: " + e.getMessage());
 
@@ -236,10 +254,25 @@ public class ExecutionEngine {
      * @return contextId 字符串，若 workspaceRoot 为 null 则返回 "__default__"
      */
     String deriveContextId(ToolContext context) {
-        if (context == null || context.getWorkspaceRoot() == null) {
+        if (context == null) {
             return "__default__";
         }
-        return context.getWorkspaceRoot().toString();
+        // 优先用 session id —— 这是 isConcurrentSafe=false 工具锁定的正确粒度
+        // ("同 session 不并发执行同一工具",而不是"同项目不并发")。
+        // 之前用 workspaceRoot 当 contextId 的问题:同项目的两个独立 session(用户开
+        // 两个聊天窗 / 主 agent + sub-agent 在同一 workspace)会共享同一把锁,带来
+        // ConcurrentExecutionException 误伤。
+        // AgentRuntime.send 会在 send 入口把 sessionId 塞进 ToolContext 的 CTX_KEY_SESSION_ID。
+        String sessionId = context.get(CTX_KEY_SESSION_ID, String.class);
+        if (sessionId != null && !sessionId.isBlank()) {
+            return "session:" + sessionId;
+        }
+        // 兜底:没有 sessionId 时回退到 workspaceRoot(老行为,确保不会破坏不经 AgentRuntime
+        // 的旧用法,例如直接构造 ExecutionEngine 跑工具的测试)。
+        if (context.getWorkspaceRoot() == null) {
+            return "__default__";
+        }
+        return "workspace:" + context.getWorkspaceRoot().toString();
     }
 
     /**

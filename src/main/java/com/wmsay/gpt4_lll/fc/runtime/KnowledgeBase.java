@@ -111,7 +111,13 @@ public class KnowledgeBase {
             userMsg.setRole("user");
             userMsg.setContent("请分析项目根目录: " + projectRoot);
 
-            chatContent.setDirectMessages(List.of(systemMsg, userMsg));
+            // 必须用可变 List:下游 ReActStrategy.updateConversationHistory 会 .add() 追加
+            // assistant + tool_result 消息,用 List.of(...) 会抛 UnsupportedOperationException
+            // (与 AgentRuntime.send 4 参 overload 此前的 bug 同型)。
+            java.util.List<Message> msgs = new java.util.ArrayList<>();
+            msgs.add(systemMsg);
+            msgs.add(userMsg);
+            chatContent.setDirectMessages(msgs);
             chatContent.setStream(false);
 
             FunctionCallRequest request = FunctionCallRequest.builder()

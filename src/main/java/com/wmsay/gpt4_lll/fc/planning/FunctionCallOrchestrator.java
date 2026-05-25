@@ -87,6 +87,46 @@ public class FunctionCallOrchestrator {
     private final ObservabilityManager observability;
     private final DegradationManager degradationManager;
 
+    /**
+     * 是否原生支持 function calling。
+     * <p>
+     * 暴露给 {@code AgentRuntime} 用于决定 skill 匹配路由(in-context dispatcher tool
+     * 还是 sidecar 旁路 LLM)。仅供查询,不要在此基础上发起副作用。
+     *
+     * @return 当前绑定的 ProtocolAdapter 是否支持原生 function calling
+     */
+    public boolean supportsNativeFunctionCalling() {
+        return protocolAdapter != null && protocolAdapter.supportsNativeFunctionCalling();
+    }
+
+    /**
+     * 获取本 orchestrator 绑定的 ValidationEngine 的 ToolRegistry。
+     * <p>
+     * 暴露这个引用是因为 {@code AgentRuntime} 在 in-context skill 路由路径下需要把
+     * {@code InvokeSkillTool} 注册到 validation/execution 实际查询的那个 ToolRegistry
+     * 实例——如果 {@code AgentRuntime.toolRegistry} 字段没被外部注入(例如 plugin 层
+     * 走 WindowTool 路径就不会注入),那么 orchestrator 的 ValidationEngine 持有的
+     * 注册表才是 canonical 来源。
+     */
+    public com.wmsay.gpt4_lll.fc.tools.ToolRegistry getToolRegistry() {
+        return validationEngine != null ? validationEngine.getToolRegistry() : null;
+    }
+
+    /**
+     * 设置指定工具的执行超时(秒)。委托给内部 ExecutionEngine。
+     * <p>
+     * 暴露这个方法是因为某些工具(典型:{@code InvokeSkillTool})自身会触发子 Agent 全
+     * loop 执行,远超 ExecutionEngine 默认 30s。如果 outer timeout(30s)< 工具实际耗时,
+     * outer 会在 inner 完成前超时并重试——ExecutionEngine 对 TimeoutException 是无条件重试,
+     * 重试时旧的 supplyAsync 任务并不会取消,会形成"多个 sub-agent 并发跑同一个调用"的
+     * cascade。让调用方为这种工具配置足够长的 outer timeout 是干净的解法。
+     */
+    public void setToolTimeout(String toolName, long timeoutSeconds) {
+        if (executionEngine != null) {
+            executionEngine.setToolTimeout(toolName, timeoutSeconds);
+        }
+    }
+
     /** 可选的对话记忆管理器，为 null 时保持现有行为不变 */
     private ConversationMemory memory;
     /** 可选的 token 使用量追踪器，仅当 memory 非 null 时创建 */

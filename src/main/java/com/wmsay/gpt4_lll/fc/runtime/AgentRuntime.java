@@ -18,6 +18,7 @@ import com.wmsay.gpt4_lll.fc.memory.MemoryFactory;
 import com.wmsay.gpt4_lll.fc.model.FunctionCallRequest;
 import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
 import com.wmsay.gpt4_lll.fc.skill.ContextDistiller;
+import com.wmsay.gpt4_lll.fc.skill.InvokeSkillTool;
 import com.wmsay.gpt4_lll.fc.skill.SkillComplexity;
 import com.wmsay.gpt4_lll.fc.skill.SkillDefinition;
 import com.wmsay.gpt4_lll.fc.skill.SkillFileWatcher;
@@ -25,6 +26,7 @@ import com.wmsay.gpt4_lll.fc.skill.SkillGenerator;
 import com.wmsay.gpt4_lll.fc.skill.SkillLoader;
 import com.wmsay.gpt4_lll.fc.skill.SkillMatchResult;
 import com.wmsay.gpt4_lll.fc.skill.SkillMatcher;
+import com.wmsay.gpt4_lll.fc.skill.SkillMatchingMode;
 import com.wmsay.gpt4_lll.fc.skill.SkillParser;
 import com.wmsay.gpt4_lll.fc.skill.SkillRegistry;
 import com.wmsay.gpt4_lll.fc.skill.SkillValidator;
@@ -457,10 +459,25 @@ public class AgentRuntime {
             }
 
             // 2. Skill 匹配 + Complexity-Based Routing（需求 2.1, 2.2, 2.3, 12.3, 12.4, 12.5）
+            //
+            // 路由决策:根据 config.skillMatchingMode、provider 原生 FC 能力、skill 数量,决定本轮
+            // 通过 sidecar(SkillMatcher 旁路 LLM)还是 in-context(InvokeSkillTool dispatcher)
+            // 进行 skill 匹配,或完全禁用 skill 匹配。
+            //
+            // 这是显式过渡态:当 Markdown 模式弃用、所有目标 provider 都支持原生 FC 时,
+            // SIDECAR 路径(以及 SkillMatcher/SkillMatchResult 等相关类)可整体删除,
+            // 届时只保留 IN_CONTEXT 与 DISABLED。详见 SkillMatchingMode 类注释。
+            SkillRoutingPath skillPath = decideSkillMatchingPath();
+            if (LOG.isLoggable(Level.FINE)) {
+                LOG.fine("[Skill] Routing decision: " + skillPath);
+            }
+            System.out.println("[Skill] Routing decision: " + skillPath);
+
             List<String> skillToolNames = null; // null 表示使用默认工具列表
             SkillDefinition matchedSkill = null;
             SkillMatchResult skillResult = null;
-            if (skillRegistry != null && skillRegistry.getSkillCount() > 0 && skillMatcher != null) {
+            if (skillPath == SkillRoutingPath.SIDECAR
+                    && skillRegistry != null && skillRegistry.getSkillCount() > 0 && skillMatcher != null) {
                 System.out.println("[Skill] Starting skill matching, registry has "
                         + skillRegistry.getSkillCount() + " skill(s)");
                 try {
@@ -651,6 +668,37 @@ public class AgentRuntime {
             System.out.println("[AgentRuntime] Tool filtering: " + allTools.size()
                     + " total → " + filteredTools.size() + " filtered");
 
+            // 2b. In-context skill 路由:把 InvokeSkillTool dispatcher 加入 filteredTools。
+            // 模型可在主循环里调用 invoke_skill(skill_name, user_input) 触发对应 skill,
+            // 派发到 SubAgentFactory 走与 sidecar 路径同样的子 Agent 隔离机制。
+            //
+            // 关键:这个 tool 必须同时(a)注册进全局 toolRegistry——ValidationEngine 和
+            // ExecutionEngine 都按 toolRegistry.getTool(name) 查找;(b)加入 filteredTools——
+            // protocolAdapter.formatToolDescriptions 用 request.availableTools 渲染给 LLM。
+            // 缺任何一边都会失败:缺 (a) → "Parameter validation failed";缺 (b) → 模型看不见。
+            //
+            // Per-call 运行时引用通过 ToolContext 传递。注意:sub-session 与 parent 共享同一
+            // ToolContext 实例(AgentRuntime.createSession 通过 ExecutionContext.fromToolContext
+            // 复用 parent 的 toolContext),所以这些 set 在 sub-agent 的 send 里会被覆盖——
+            // 这正是我们想要的(每次 send 用当前 session 的引用)。自递归(skill X 调 skill X)
+            // 由 InvokeSkillTool 自己用 CTX_KEY_CURRENT_SKILL 标记防御,SubAgentFactory 在派发
+            // 时 save+restore 该标记,sub-agent 看见自己 → 拒绝。允许跨 skill 组合(X 调 Y),
+            // 与 Claude Code 的 Task 工具语义一致。
+            if (skillPath == SkillRoutingPath.IN_CONTEXT
+                    && skillRegistry != null && skillRegistry.getSkillCount() > 0) {
+                Tool invokeSkillTool = ensureInvokeSkillToolRegistered();
+                if (invokeSkillTool != null) {
+                    List<Tool> withSkill = new ArrayList<>(filteredTools);
+                    withSkill.add(invokeSkillTool);
+                    filteredTools = withSkill;
+                    System.out.println("[Skill] Injected invoke_skill dispatcher tool (registry has "
+                            + skillRegistry.getSkillCount() + " skill(s))");
+                } else {
+                    System.out.println("[Skill] IN_CONTEXT path requested but toolRegistry unavailable; "
+                            + "InvokeSkillTool not registered — skipping injection (model won't see it).");
+                }
+            }
+
             // 4. 委托 FunctionCallOrchestrator 执行（需求 4.3, 4.4, 4.5, 4.6）
             if (orchestrator != null) {
                 // 不覆盖 orchestrator 的执行策略 — 尊重用户在 UI 上的选择
@@ -682,6 +730,11 @@ public class AgentRuntime {
                 // 使用 session 中保存的 ToolContext（orchestrator 已迁移到 ToolContext）
                 com.wmsay.gpt4_lll.fc.tools.ToolContext toolContext = session.getToolContext();
 
+                // 必须在工具执行前写入 sessionId:ExecutionEngine 用它做锁粒度
+                // (isConcurrentSafe=false 工具按 session 隔离,而不是按 workspace),
+                // 否则跨 session 同项目的工具调用会相互 ConcurrentExecutionException。
+                toolContext.set(com.wmsay.gpt4_lll.fc.tools.ExecutionEngine.CTX_KEY_SESSION_ID, sessionId);
+
                 // 委托执行
                 FunctionCallResult result = orchestrator.execute(request, toolContext, llmCaller, callback);
                 session.transitionTo(SessionState.COMPLETED);
@@ -711,7 +764,13 @@ public class AgentRuntime {
         Message userMsg = new Message();
         userMsg.setRole("user");
         userMsg.setContent(message);
-        chatContent.setDirectMessages(List.of(userMsg));
+        // 必须是可变 List:ReActStrategy.updateConversationHistory 会在收到 LLM 的 tool_calls
+        // 后通过 getMessages().add(...) 追加 assistant 消息和 tool_result 消息。
+        // 用 List.of() 这种不可变 list 会在第一轮 tool 调用后抛 UnsupportedOperationException。
+        // 这是先前用 List.of() 时遗留的 bug —— sub-agent 一旦真的调工具就会触发。
+        List<Message> mutableMessages = new ArrayList<>();
+        mutableMessages.add(userMsg);
+        chatContent.setDirectMessages(mutableMessages);
         chatContent.setStream(true);
         // 清除默认 model（"gpt-3.5-turbo"），避免子 Agent / Skill 匹配等旁路调用
         // 将错误的 model 名发送到 Azure OpenAI 等需要 deployment name 的供应商
@@ -945,5 +1004,119 @@ public class AgentRuntime {
         }
         threadPool.shutdownNow();
         INSTANCES.values().remove(this);
+    }
+
+    // ==================== Skill matching routing ====================
+
+    /**
+     * Skill 匹配的本轮实际执行路径。
+     * <p>
+     * 由 {@link #decideSkillMatchingPath()} 根据 {@code config.skillMatchingMode}、
+     * 当前 orchestrator 是否支持原生 function calling、以及 skill 数量解算得到。
+     * <p>
+     * 这是一个内部枚举,与公开的 {@link SkillMatchingMode} 配置不同——
+     * 后者是"用户意图"(AUTO / FORCE_* / DISABLED),前者是"本轮已解算的实际行为"
+     * (IN_CONTEXT / SIDECAR / DISABLED)。
+     */
+    enum SkillRoutingPath {
+        /** 通过 InvokeSkillTool dispatcher,模型在主循环里自己调用。*/
+        IN_CONTEXT,
+        /** 通过 SkillMatcher 旁路 LLM,pre-loop 决策后直接派发或内联。*/
+        SIDECAR,
+        /** 不进行 skill 匹配,主循环只看常规工具。*/
+        DISABLED
+    }
+
+    /**
+     * 纯函数版本的路由决策——无副作用,易测试。
+     * <p>
+     * 决策表:
+     * <ul>
+     *   <li>{@code DISABLED} 模式 → DISABLED</li>
+     *   <li>{@code FORCE_SIDECAR} 模式 → SIDECAR</li>
+     *   <li>{@code FORCE_IN_CONTEXT} 模式 → IN_CONTEXT</li>
+     *   <li>{@code AUTO} 模式 + nativeFc 为 true + skillCount &lt; threshold → IN_CONTEXT</li>
+     *   <li>{@code AUTO} 模式其他情况 → SIDECAR</li>
+     * </ul>
+     */
+    static SkillRoutingPath decideSkillMatchingPath(SkillMatchingMode mode,
+                                                    boolean nativeFc,
+                                                    int skillCount,
+                                                    int threshold) {
+        if (mode == null) {
+            // 防御性:未配置等价于 AUTO 的 SIDECAR 降级
+            return SkillRoutingPath.SIDECAR;
+        }
+        switch (mode) {
+            case DISABLED:
+                return SkillRoutingPath.DISABLED;
+            case FORCE_SIDECAR:
+                return SkillRoutingPath.SIDECAR;
+            case FORCE_IN_CONTEXT:
+                return SkillRoutingPath.IN_CONTEXT;
+            case AUTO:
+            default:
+                if (nativeFc && skillCount < threshold) {
+                    return SkillRoutingPath.IN_CONTEXT;
+                }
+                return SkillRoutingPath.SIDECAR;
+        }
+    }
+
+    /**
+     * 实例方法:从 {@link #config}、{@link #orchestrator}、{@link #skillRegistry} 拉取当前
+     * 状态并委托给 {@link #decideSkillMatchingPath(SkillMatchingMode, boolean, int, int)}。
+     * <p>
+     * orchestrator 为 null 时(尚未注入),AUTO 模式降级为 SIDECAR——无法判定原生 FC 支持时,
+     * 保守选择代价更低的旁路 LLM 路径。
+     */
+    private SkillRoutingPath decideSkillMatchingPath() {
+        boolean nativeFc = orchestrator != null && orchestrator.supportsNativeFunctionCalling();
+        int skillCount = skillRegistry != null ? skillRegistry.getSkillCount() : 0;
+        return decideSkillMatchingPath(
+                config.getSkillMatchingMode(),
+                nativeFc,
+                skillCount,
+                config.getInContextSkillThreshold());
+    }
+
+    /**
+     * 确保 InvokeSkillTool dispatcher 已经注册进当前的工具注册表并返回它,
+     * 用于 in-context 路由路径。幂等:同一 AgentRuntime 内多次调用只注册一次,
+     * 复用同一个加载器实例(无状态,只持有 SkillRegistry 引用)。
+     * <p>
+     * 注册目标的选择顺序:
+     * <ol>
+     *   <li>若 {@link #toolRegistry} 已注入(例如通过 AgentBuilder 路径),优先用它</li>
+     *   <li>否则用 {@code orchestrator.getToolRegistry()}——这是 ValidationEngine 和
+     *       ExecutionEngine 实际查询的 canonical 注册表。在 plugin 走 WindowTool 路径
+     *       下,{@code AgentRuntime.toolRegistry} 不会被注入,但 orchestrator 内部的
+     *       注册表才是 validation 真正使用的</li>
+     * </ol>
+     * 两者都不可用时返回 null,调用方应跳过 InvokeSkillTool 的注入(模型不会看到这个
+     * tool,但主流程仍可继续——这是 fallback 安全行为)。
+     * <p>
+     * 注:不再需要给 invoke_skill 设置 outer timeout——本工具是纯内容加载器,字符串
+     * 拼接 ms 级返回,ExecutionEngine 默认 30s 超时绰绰有余。先前为 sub-agent 派发
+     * 路径配的"subAgentTimeout + 30s"已不再适用(那条路径已经从工具里移除)。
+     */
+    private Tool ensureInvokeSkillToolRegistered() {
+        if (skillRegistry == null) {
+            return null;
+        }
+        ToolRegistry targetRegistry = toolRegistry;
+        if (targetRegistry == null && orchestrator != null) {
+            targetRegistry = orchestrator.getToolRegistry();
+        }
+        if (targetRegistry == null) {
+            return null;
+        }
+        Tool existing = targetRegistry.getTool(InvokeSkillTool.TOOL_NAME);
+        if (existing != null) {
+            return existing;
+        }
+        InvokeSkillTool tool = new InvokeSkillTool(skillRegistry);
+        targetRegistry.registerTool(tool);
+        return tool;
     }
 }

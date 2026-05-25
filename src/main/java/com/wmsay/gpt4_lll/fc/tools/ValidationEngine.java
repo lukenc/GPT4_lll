@@ -92,6 +92,17 @@ public class ValidationEngine {
     }
 
     /**
+     * 获取本 ValidationEngine 内部使用的 ToolRegistry。
+     * <p>
+     * 暴露给需要往同一注册表注册临时工具的调用方(例如 {@code AgentRuntime} 在
+     * in-context skill 路由路径下需要把 {@code InvokeSkillTool} 注册到这里,
+     * 否则 validation 会以 {@code toolNotFound} 失败)。
+     */
+    public ToolRegistry getToolRegistry() {
+        return toolRegistry;
+    }
+
+    /**
      * 验证工具调用参数。
      *
      * @param toolCall 工具调用
