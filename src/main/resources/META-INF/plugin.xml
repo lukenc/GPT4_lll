@@ -12,6 +12,37 @@
     <change-notes>
         <![CDATA[
 
+<h2>4.1.7 (2026-05-25)</h2>
+<ul>
+    <li>
+        <h3>FEATURE/新功能:</h3>
+        <ul>
+            <li>新增 ask_user 交互工具：支持 Agent 在执行过程中向用户发起确认、澄清和选项选择请求，补齐复杂任务中的人机交互闭环。</li>
+            <li>Added ask_user interactive tool: enables the Agent to request confirmation, clarification, and option selection from the user during execution, completing the human-in-the-loop workflow for complex tasks.</li>
+            <li>新增技能加载工具（invoke_skill）与技能匹配/路由能力：支持按任务场景动态加载预定义技能说明，并在合适时机将技能能力接入当前执行流程。</li>
+            <li>Added skill loading tool (invoke_skill) and skill matching/routing capability: supports dynamically loading predefined skill guidance by task scenario and attaching specialized capability to the current execution flow when appropriate.</li>
+            <li>新增用户提问交互块与运行时接入能力：ask_user 可在 MCP 工具体系、Agent 运行时及对话界面中统一接入和展示。</li>
+            <li>Added user-question interaction block and runtime integration: ask_user is now consistently supported across the MCP tool system, Agent runtime, and conversation UI.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>IMPROVEMENT/优化:</h3>
+        <ul>
+            <li>增强 Agent 在复杂任务中的可控性：当模型无法单独决策时，可中断当前执行并请求用户输入后继续推进。</li>
+            <li>Improved Agent controllability for complex tasks: when the model cannot safely decide on its own, it can pause execution, ask the user for input, and then continue.</li>
+            <li>优化技能体系与工具体系的协作方式，提升复杂、多步骤任务场景下的扩展性与可维护性。</li>
+            <li>Improved collaboration between the skill system and the tool system, enhancing extensibility and maintainability in complex multi-step task scenarios.</li>
+        </ul>
+    </li>
+    <li>
+        <h3>BUG FIX/修复:</h3>
+        <ul>
+            <li>完善 ask_user 在运行时与界面链路中的接入细节，提升交互式执行流程的稳定性与一致性。</li>
+            <li>Refined ask_user integration details across runtime and UI flow, improving stability and consistency for interactive execution.</li>
+        </ul>
+    </li>
+</ul>
+
 <h2>4.1.5 (2026-04-09)</h2>
 <ul>
     <li>

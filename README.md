@@ -18,7 +18,7 @@ GPT4_lll是为IntelliJ IDEA用户设计的插件，提供实时代码查询、�
 - 全新Agent Chat View替代旧版文本区域
 
 ### Function Calling (Tool Use) Engine
-内置 Function Calling 编排引擎，使 AI 模型能够在 IDE 中自主调用工具。支持多轮工具调用循环（最多20轮），自动参数验证、用户审批执行和结果反馈。兼容 OpenAI、Anthropic 和 Markdown 三种协议格式，内置降级容错机制。
+内置 Function Calling 编排引擎，使 AI 模型能够在 IDE 中自主调用工具。支持多轮工具调用循环，自动参数验证、用户审批执行和结果反馈。兼容 OpenAI、Anthropic 和 Markdown 三种协议格式，内置降级容错机制。
 - 支持多轮工具调用循环（最多20轮）
 - 自动解析、验证、执行工具调用并将结果回传LLM
 - 兼容OpenAI、Anthropic和Markdown协议格式

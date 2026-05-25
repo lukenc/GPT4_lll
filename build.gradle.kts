@@ -1,12 +1,18 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.8.21"
-    id("org.jetbrains.intellij.platform") version "2.5.0"
+    id("org.jetbrains.kotlin.jvm") version "2.0.21"
+    id("org.jetbrains.intellij.platform") version "2.11.0"
 //   id("org.jetbrains.intellij.platform.migration") version "2.5.0"
 }
 
 group = "com.wmsay"
-version = "4.1.6"
+version = "4.1.7"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
 
 repositories {
     mavenCentral()
@@ -28,16 +34,15 @@ dependencies {
     testImplementation("net.jqwik:jqwik:1.8.5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     intellijPlatform {
-        create("IC", "2025.1")
-        intellijIdeaCommunity("2025.1")
+        intellijIdea("2026.1.2")
         bundledPlugins("com.intellij.java","Git4Idea")
     }
 }
 tasks {
     // Set the JVM compatibility versions
     withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
+        sourceCompatibility = "21"
+        targetCompatibility = "21"
     }
     test {
         useJUnitPlatform()
@@ -55,7 +60,7 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("222")
-        untilBuild.set("253.*")
+        untilBuild.set("261.*")
     }
 
     signPlugin {
