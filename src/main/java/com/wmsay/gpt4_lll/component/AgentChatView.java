@@ -542,6 +542,26 @@ public class AgentChatView extends JPanel implements Scrollable, Disposable {
     }
 
     /**
+     * 添加"向用户提问"块。返回 AskUserBlock 引用，调用方可通过 block.awaitChoice()
+     * 阻塞等待用户选择。适用于 ask_user 工具这类需要用户输入才能继续的场景。
+     */
+    public com.wmsay.gpt4_lll.component.block.AskUserBlock addAskUserBlock(
+            String question,
+            java.util.List<com.wmsay.gpt4_lll.component.block.AskUserBlock.Option> options) {
+        ensureActiveTurn("assistant");
+        com.wmsay.gpt4_lll.component.block.AskUserBlock block =
+                new com.wmsay.gpt4_lll.component.block.AskUserBlock(question, options);
+        if (activeStepBlock != null) {
+            activeStepBlock.addChildBlock(block);
+        } else {
+            activeTurn.addBlock(block);
+        }
+        activeTurn.setActiveBlock(null);
+        scrollToBottomIfNeeded();
+        return block;
+    }
+
+    /**
      * 添加工具使用进度块（带旋转动画）。返回 ToolUseBlock 引用，
      * 调用方可在工具执行完成后调用 markCompleted() 更新状态。
      */

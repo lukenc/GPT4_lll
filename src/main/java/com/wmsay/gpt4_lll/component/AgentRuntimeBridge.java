@@ -24,7 +24,6 @@ import com.wmsay.gpt4_lll.fc.model.ToolCallResult;
 import com.wmsay.gpt4_lll.fc.planning.FunctionCallOrchestrator;
 import com.wmsay.gpt4_lll.fc.planning.PlanStep;
 import com.wmsay.gpt4_lll.fc.tools.Tool;
-import com.wmsay.gpt4_lll.fc.tools.ToolContext;
 import com.wmsay.gpt4_lll.mcp.McpToolRegistry;
 import com.wmsay.gpt4_lll.model.AgentPhase;
 import com.wmsay.gpt4_lll.model.AgentStatusContext;
@@ -109,7 +108,10 @@ public class AgentRuntimeBridge {
                 AgentDefinition definition = AgentDefinition.builder()
                         .id(DEFAULT_AGENT_ID)
                         .name("Chat Agent")
-                        .systemPrompt("你是一个智能编程助手，可以帮助用户完成代码编写、调试和项目管理等任务。")
+                        .systemPrompt("你是一个智能编程助手，可以帮助用户完成代码编写、调试和项目管理等任务。\n"
+                                + "\n"
+                                + "需要用户澄清或在多个分支中做选择才能继续时，调用工具让用户输入，"
+                                + "不要在正文里输出 JSON 选择结构。")
                         .availableToolNames(toolNames)
                         .strategyName("react")
                         .memoryStrategy("sliding_window")
@@ -147,7 +149,9 @@ public class AgentRuntimeBridge {
         }
 
         // 使用 IntelliJToolContext 构建 ToolContext，再创建 ExecutionContext
-        ToolContext toolContext = new IntelliJToolContext(project, null);
+        IntelliJToolContext toolContext = new IntelliJToolContext(project, null);
+        // 注入 AgentChatView，供 ask_user 等需要与 UI 交互的工具使用
+        toolContext.attachChatView(chatView);
         ExecutionContext context = ExecutionContext.fromToolContext(toolContext);
 
         try {
@@ -262,12 +266,17 @@ public class AgentRuntimeBridge {
     }
 
     /**
-     * 注入 AgentChatView 引用，供 wrapCallback 在 onPlanGenerated 时创建 PlanProgressPanel。
+     * 注入 AgentChatView 引用，供 wrapCallback 在 onPlanGenerated 时创建 PlanProgressPanel，
+     * 以及供 ask_user 等工具通过 ToolContext 与 UI 交互。
      *
      * @param chatView AgentChatView 实例
      */
     public void setChatView(AgentChatView chatView) {
         this.chatView = chatView;
+        // 如果已有活跃会话，同步到其 ToolContext
+        if (currentSession != null && currentSession.getToolContext() instanceof IntelliJToolContext) {
+            ((IntelliJToolContext) currentSession.getToolContext()).attachChatView(chatView);
+        }
     }
 
     /**

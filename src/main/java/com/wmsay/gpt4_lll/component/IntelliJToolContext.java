@@ -70,6 +70,21 @@ public class IntelliJToolContext implements ToolContext {
         }
     }
 
+    /**
+     * 关联 AgentChatView 实例。
+     * <p>供需要与 UI 交互的工具（如 ask_user）访问 chatView 添加交互块。
+     * 框架层工具通过 {@code context.get("chatView", AgentChatView.class)} 获取。</p>
+     *
+     * @param chatView AgentChatView 实例，可以为 null（仅无头场景使用）
+     */
+    public void attachChatView(AgentChatView chatView) {
+        if (chatView != null) {
+            data.put("chatView", chatView);
+        } else {
+            data.remove("chatView");
+        }
+    }
+
     @Override
     public Path getWorkspaceRoot() {
         String basePath = project.getBasePath();

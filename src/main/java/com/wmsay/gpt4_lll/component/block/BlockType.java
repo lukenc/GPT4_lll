@@ -11,5 +11,6 @@ public enum BlockType {
     FILE_CHANGES,
     PLAN_PROGRESS,
     STEP,
-    SUB_AGENT_EXECUTION
+    SUB_AGENT_EXECUTION,
+    ASK_USER
 }
