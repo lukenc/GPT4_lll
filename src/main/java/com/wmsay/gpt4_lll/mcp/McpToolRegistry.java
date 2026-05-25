@@ -1,6 +1,7 @@
 package com.wmsay.gpt4_lll.mcp;
 
 import com.wmsay.gpt4_lll.fc.tools.Tool;
+import com.wmsay.gpt4_lll.mcp.tools.AskUserTool;
 import com.wmsay.gpt4_lll.mcp.tools.DiagnosticsTool;
 import com.wmsay.gpt4_lll.mcp.tools.FileReadTool;
 import com.wmsay.gpt4_lll.mcp.tools.FileWriteTool;
@@ -35,6 +36,7 @@ public class McpToolRegistry {
         registerTool(new ShellExecTool());
         registerTool(new OpenFilesTool());
         registerTool(new DiagnosticsTool());
+        registerTool(new AskUserTool());
     }
 
     /**
